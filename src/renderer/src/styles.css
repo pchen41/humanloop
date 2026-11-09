@@ -825,6 +825,17 @@ body.resizing * {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The tab's hover reaches across the gap after it, so moving the pointer
+   slowly to the × doesn't leave the tab (and hide the ×) on the way. Drawn
+   before the × so it never takes the ×'s clicks. */
+.tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 18px;
+}
 /* Shown on hover, in the gap after the tab, so nothing shifts. */
 .tab-close {
   position: absolute;
