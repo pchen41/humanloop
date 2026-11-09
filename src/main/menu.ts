@@ -2,7 +2,7 @@
 
 import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { commandById, type CommandId } from '../shared/commands';
-import type { HookStatus } from '../shared/hooks';
+import type { HookState } from '../shared/ipc';
 import type { Queue, Settings } from '../shared/model';
 
 export interface MenuHandlers {
@@ -16,7 +16,7 @@ export interface MenuHandlers {
 
 /** What the Task and Go menus depend on. The menu is rebuilt when this changes. */
 export interface MenuContext {
-  hooks: HookStatus | 'unreadable';
+  hooks: HookState;
   /** The open task's queue, if a task is open. */
   openQueue: Queue | undefined;
   canGoBack: boolean;

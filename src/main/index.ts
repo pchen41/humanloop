@@ -5,7 +5,15 @@ import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { COMMANDS } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type TerminalEditCommand } from '../shared/ipc';
-import { DEFAULT_SETTINGS, EMPTY_STATE, type AppState, type Settings, type TaskDraft } from '../shared/model';
+import {
+  DEFAULT_SETTINGS,
+  patchSettingsJson,
+  EMPTY_STATE,
+  type AppState,
+  type Settings,
+  type SettingsPatch,
+  type TaskDraft,
+} from '../shared/model';
 import { normalizeSettings, normalizeState, stateAfterLaunch } from '../shared/normalize';
 import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
@@ -15,7 +23,7 @@ import { HookServer, hookSocketPath } from './hookServer';
 import { acceleratorFor, buildMenu, type MenuContext } from './menu';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
-import { JsonStore, readJson, writeJsonSync } from './store';
+import { JsonStore, readJson, readJsonObject, writeJsonSync } from './store';
 
 // Dev builds keep their own data so they never touch the installed app's tasks.
 if (process.env.HUMANLOOP_USER_DATA) {
@@ -35,7 +43,7 @@ const settingsFile = join(userData, 'settings.json');
 const stateStore = new JsonStore<AppState>(stateFile);
 
 let state: AppState = stateAfterLaunch(readJson(stateFile, EMPTY_STATE, normalizeState));
-let settings: Settings = readJson(settingsFile, DEFAULT_SETTINGS, normalizeSettings);
+let settings: Settings = readSettingsFile() ?? DEFAULT_SETTINGS;
 let win: BrowserWindow | undefined;
 let terminalFocused = false;
 /** Lets the smoke test watch terminal output. */
@@ -87,6 +95,49 @@ function writeDefaultSettings(): void {
   writeJsonSync(settingsFile, { ...settings, shortcuts });
 }
 
+/**
+ * settings.json as it is on disk, or undefined if it is missing or can't be
+ * parsed. A broken file is left where it is (you may be halfway through an
+ * edit) and the last good settings stay in effect.
+ */
+function readSettingsFile(): Settings | undefined {
+  const r = readJsonObject(settingsFile);
+  if ('error' in r) {
+    console.error(`Could not read ${settingsFile}: ${r.error}`);
+    return undefined;
+  }
+  return r.value && normalizeSettings(r.value);
+}
+
+/**
+ * Saves a settings screen change. Applies it to the file as it is on disk, so
+ * hand edits the watcher hasn't picked up yet are kept. Refuses to touch a
+ * file it can't parse.
+ */
+function updateSettings(patch: SettingsPatch): void {
+  const r = readJsonObject(settingsFile);
+  if ('error' in r) {
+    dialog.showErrorBox("Couldn't save settings", `Humanloop's settings.json has an error, so it was left as is. Fix it and try again.\n\n${r.error}`);
+    return;
+  }
+  const out = patchSettingsJson(r.value ?? {}, patch);
+  try {
+    writeJsonSync(settingsFile, out);
+  } catch (err) {
+    dialog.showErrorBox("Couldn't save settings", String(err));
+    return;
+  }
+  applySettings(normalizeSettings(out));
+}
+
+/** Puts new settings into effect: menu shortcuts, the renderer, and queue filing under the new policy. */
+function applySettings(next: Settings): void {
+  settings = next;
+  installMenu();
+  win?.webContents.send(IPC.settings, settings);
+  setState(state);
+}
+
 function watchSettings(): void {
   let timer: NodeJS.Timeout | undefined;
   try {
@@ -94,10 +145,8 @@ function watchSettings(): void {
       if (name !== 'settings.json') return;
       clearTimeout(timer);
       timer = setTimeout(() => {
-        settings = readJson(settingsFile, settings, normalizeSettings);
-        installMenu();
-        win?.webContents.send(IPC.settings, settings);
-        setState(state); // the policy may have changed
+        const next = readSettingsFile();
+        if (next) applySettings(next);
       }, 200);
     });
   } catch (err) {
@@ -129,7 +178,7 @@ function installMenu(): void {
         command: (id) => win?.webContents.send(IPC.command, id),
         copy: () => editCommand('copy'),
         selectAll: () => editCommand('selectAll'),
-        openSettings: () => void shell.openPath(settingsFile),
+        openSettings: showSettings,
         installHooks: () => void installWithConfirm(win).then(refreshHookStatus),
         removeHooks: () => void removeWithConfirm(win).then(refreshHookStatus),
       },
@@ -138,9 +187,24 @@ function installMenu(): void {
   );
 }
 
+/** Settings was chosen while no window was open; the new window shows it once loaded. */
+let settingsPending = false;
+
+function showSettings(): void {
+  refreshHookStatus(); // ~/.claude/settings.json may have been edited by hand
+  if (win) {
+    win.webContents.send(IPC.showSettings);
+    win.focus();
+  } else {
+    settingsPending = true;
+    win = createWindow();
+  }
+}
+
 function refreshHookStatus(): void {
   hookStatus = currentHookStatus();
   installMenu();
+  win?.webContents.send(IPC.hooks, hookStatus);
 }
 
 /** Rebuilds the menu when its labels or enabled items would change. */
@@ -256,12 +320,28 @@ async function deleteTaskWithConfirm(id: string): Promise<boolean> {
 function registerIpc(): void {
   ipcMain.handle(
     IPC.getInitialData,
-    (): InitialData => ({ state, settings, homeDir: homedir(), agents: tracker.snapshot() }),
+    (): InitialData => {
+      const show = settingsPending;
+      settingsPending = false;
+      return { state, settings, homeDir: homedir(), agents: tracker.snapshot(), hooks: hookStatus, showSettings: show };
+    },
   );
+  ipcMain.handle(IPC.updateSettings, (_e, patch: SettingsPatch) => {
+    if (typeof patch === 'object' && patch !== null && !Array.isArray(patch)) updateSettings(patch);
+  });
+  ipcMain.on(IPC.openSettingsFile, () => void shell.openPath(settingsFile));
+  ipcMain.handle(IPC.installHooks, async () => {
+    await installWithConfirm(win);
+    refreshHookStatus();
+  });
+  ipcMain.handle(IPC.removeHooks, async () => {
+    await removeWithConfirm(win);
+    refreshHookStatus();
+  });
 
   ipcMain.handle(IPC.createTask, (_e, draft: TaskDraft) => createTask(draft).taskId);
   ipcMain.handle(IPC.updateTask, (_e, id: string, patch: Partial<TaskDraft>) => {
-    setState(T.updateTask(state, id, patch));
+    if (T.findTask(state, id) && typeof patch === 'object' && patch !== null) setState(T.updateTask(state, id, patch));
   });
   ipcMain.handle(IPC.deleteTask, (_e, id: string) => deleteTaskWithConfirm(id));
   ipcMain.handle(IPC.openTask, (_e, id: string) => {

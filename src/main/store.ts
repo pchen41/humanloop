@@ -30,6 +30,22 @@ export function readJson<T>(file: string, fallback: T, normalize: (raw: unknown)
   }
 }
 
+/**
+ * Reads a JSON object without ever moving the file, for files you edit by
+ * hand: a half-finished edit must not make the file disappear. Undefined if
+ * the file is missing; an error message if it can't be parsed.
+ */
+export function readJsonObject(file: string): { value: Record<string, unknown> | undefined } | { error: string } {
+  if (!existsSync(file)) return { value: undefined };
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { error: 'It is not a JSON object.' };
+    return { value: parsed as Record<string, unknown> };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 /** `mode` sets the new file's permissions (e.g. to keep a private file private). */
 export function writeJsonSync(file: string, value: unknown, mode?: number): void {
   mkdirSync(dirname(file), { recursive: true });

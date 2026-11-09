@@ -15,6 +15,12 @@ const api: HumanloopApi = {
   onSettings: (cb) => listen(IPC.settings, cb),
   onCommand: (cb) => listen(IPC.command, cb),
   onAgents: (cb) => listen(IPC.agents, cb),
+  onHooks: (cb) => listen(IPC.hooks, cb),
+  onShowSettings: (cb) => listen(IPC.showSettings, cb),
+  updateSettings: (patch) => ipcRenderer.invoke(IPC.updateSettings, patch),
+  openSettingsFile: () => ipcRenderer.send(IPC.openSettingsFile),
+  installHooks: () => ipcRenderer.invoke(IPC.installHooks),
+  removeHooks: () => ipcRenderer.invoke(IPC.removeHooks),
 
   createTask: (draft) => ipcRenderer.invoke(IPC.createTask, draft),
   updateTask: (id, patch) => ipcRenderer.invoke(IPC.updateTask, id, patch),

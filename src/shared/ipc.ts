@@ -2,7 +2,11 @@
 
 import type { CommandId } from './commands';
 import type { TabAgent } from './agents';
-import type { AppState, Settings, TaskDraft } from './model';
+import type { HookStatus } from './hooks';
+import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
+
+/** Whether Humanloop's hooks are in ~/.claude/settings.json. */
+export type HookState = HookStatus | 'unreadable';
 
 export interface InitialData {
   state: AppState;
@@ -10,6 +14,9 @@ export interface InitialData {
   homeDir: string;
   /** Claude sessions by tab id. */
   agents: Record<string, TabAgent>;
+  hooks: HookState;
+  /** Settings was chosen from the menu before this window existed. */
+  showSettings: boolean;
 }
 
 export interface HumanloopApi {
@@ -18,6 +25,17 @@ export interface HumanloopApi {
   onSettings(cb: (settings: Settings) => void): () => void;
   onCommand(cb: (id: CommandId) => void): () => void;
   onAgents(cb: (agents: Record<string, TabAgent>) => void): () => void;
+  onHooks(cb: (hooks: HookState) => void): () => void;
+  /** The app menu's Settings… item was chosen. */
+  onShowSettings(cb: () => void): () => void;
+
+  /** Saves a change from the settings screen to settings.json. */
+  updateSettings(patch: SettingsPatch): Promise<void>;
+  /** Opens settings.json in your editor (for shortcuts). */
+  openSettingsFile(): void;
+  /** Install, update or remove the hooks, after a confirmation. */
+  installHooks(): Promise<void>;
+  removeHooks(): Promise<void>;
 
   createTask(draft: TaskDraft): Promise<string>;
   updateTask(id: string, patch: Partial<TaskDraft>): Promise<void>;
@@ -64,6 +82,12 @@ export const IPC = {
   state: 'app:state',
   settings: 'app:settings',
   agents: 'app:agents',
+  hooks: 'app:hooks',
+  showSettings: 'app:show-settings',
+  updateSettings: 'settings:update',
+  openSettingsFile: 'settings:open-file',
+  installHooks: 'hooks:install',
+  removeHooks: 'hooks:remove',
   command: 'app:command',
   createTask: 'task:create',
   updateTask: 'task:update',

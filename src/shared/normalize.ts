@@ -2,11 +2,11 @@
 
 import { COMMANDS } from './commands';
 import {
+  cleanPolicy,
   DEFAULT_POLICY,
   DEFAULT_PRIORITY,
   QUEUES,
   type AppState,
-  type Policy,
   type Priority,
   type Queue,
   type Settings,
@@ -23,15 +23,6 @@ const num = (v: unknown): number | undefined => (typeof v === 'number' && Number
 function priority(v: unknown): Priority {
   const n = num(v);
   return n !== undefined && Number.isInteger(n) && n >= 0 && n <= 9 ? (n as Priority) : DEFAULT_PRIORITY;
-}
-
-function policyPatch(v: unknown): Partial<Policy> {
-  if (!isObj(v)) return {};
-  const out: Partial<Policy> = {};
-  if (v.multiAgent === 'any' || v.multiAgent === 'all') out.multiAgent = v.multiAgent;
-  if (typeof v.subagentsBusy === 'boolean') out.subagentsBusy = v.subagentsBusy;
-  if (typeof v.backgroundShellsBusy === 'boolean') out.backgroundShellsBusy = v.backgroundShellsBusy;
-  return out;
 }
 
 function tab(v: unknown): Tab | undefined {
@@ -52,7 +43,7 @@ function task(v: unknown, now: number): Task | undefined {
     priority: priority(v.priority),
     queue,
     enteredAt: num(v.enteredAt) ?? now,
-    policy: policyPatch(v.policy),
+    policy: cleanPolicy(v.policy),
     tabs: Array.isArray(v.tabs) ? v.tabs.map(tab).filter((t): t is Tab => !!t) : [],
     createdAt: num(v.createdAt) ?? now,
   };
@@ -127,8 +118,8 @@ export function normalizeSettings(raw: unknown): Settings {
       if (KNOWN_COMMANDS.has(k) && typeof v === 'string') shortcuts[k] = v;
     }
   }
-  const out: Settings = { policy: { ...DEFAULT_POLICY, ...policyPatch(raw.policy) }, shortcuts };
-  const cwd = str(raw.defaultCwd);
+  const out: Settings = { policy: { ...DEFAULT_POLICY, ...cleanPolicy(raw.policy) }, shortcuts };
+  const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;
   return out;
 }

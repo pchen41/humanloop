@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
-import { DEFAULT_PRIORITY, type Priority, type Task, type TaskDraft } from '../../shared/model';
+import { DEFAULT_PRIORITY, POLICY_KEYS, type Policy, type Priority, type Task, type TaskDraft } from '../../shared/model';
 import { shortenHome } from './format';
+import { PolicyControls, withPolicyChange } from './PolicyControls';
 
 const api = window.humanloop;
 
@@ -10,6 +11,7 @@ interface Props {
   mode: EditorMode;
   homeDir: string;
   globalDefaultCwd: string | undefined;
+  globalPolicy: Policy;
   onClose(): void;
   /** Set to this editor's Save, so the menu's ⌘Return can save it. */
   submitRef?: RefObject<(() => void) | undefined>;
@@ -17,14 +19,16 @@ interface Props {
 
 const PRIORITIES: Priority[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose, submitRef }: Props) {
+export function TaskEditor({ mode, homeDir, globalDefaultCwd, globalPolicy, onClose, submitRef }: Props) {
   const existing = mode.kind === 'edit' ? mode.task : undefined;
   const [draft, setDraft] = useState<TaskDraft>({
     title: existing?.title ?? '',
     description: existing?.description ?? '',
     priority: existing?.priority ?? DEFAULT_PRIORITY,
     defaultCwd: existing?.defaultCwd,
+    policy: existing?.policy ?? {},
   });
+  const overrides = POLICY_KEYS.filter((k) => draft.policy?.[k] !== undefined).length;
   const titleRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   // ⌘Return can arrive both as a key press and as a menu command; save only once.
@@ -136,6 +140,15 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose, submitRef
           </div>
           <small>New tabs for this task open here.</small>
         </div>
+
+        <details className="overrides" open={overrides > 0}>
+          <summary>
+            When is it your turn?{' '}
+            {overrides ? `${overrides} ${overrides === 1 ? 'setting' : 'settings'} changed for this task` : 'Using your settings'}
+          </summary>
+          <PolicyControls value={draft.policy ?? {}} inherit={globalPolicy} onChange={(key, value) => setDraft((d) => ({ ...d, policy: withPolicyChange(d.policy ?? {}, key, value) }))}
+          />
+        </details>
 
         <div className="modal-actions">
           <button type="button" onClick={onClose}>

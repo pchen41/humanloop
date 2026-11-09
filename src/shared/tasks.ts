@@ -1,7 +1,7 @@
 // Pure state updates for tasks, tabs and history. No Electron imports, so
 // these run in unit tests and in either process.
 
-import { DEFAULT_PRIORITY, type AppState, type Queue, type Tab, type Task, type TaskDraft } from './model';
+import { cleanPolicy, DEFAULT_PRIORITY, type AppState, type Queue, type Tab, type Task, type TaskDraft } from './model';
 
 export const HISTORY_LIMIT = 500;
 
@@ -38,6 +38,7 @@ function cleanDraft(draft: Partial<TaskDraft>): Partial<TaskDraft> {
   if ('defaultCwd' in draft) {
     out.defaultCwd = typeof draft.defaultCwd === 'string' ? draft.defaultCwd.trim() || undefined : undefined;
   }
+  if ('policy' in draft) out.policy = cleanPolicy(draft.policy);
   return out;
 }
 
@@ -57,7 +58,7 @@ export function createTask(state: AppState, draft: TaskDraft, id: string, now: n
   return { ...state, tasks: [...state.tasks, task] };
 }
 
-/** Edits title, description, priority or directory. A priority change re-sorts but keeps enteredAt. */
+/** Edits title, description, priority, directory or readiness overrides. A priority change re-sorts but keeps enteredAt. */
 export function updateTask(state: AppState, id: string, patch: Partial<TaskDraft>): AppState {
   return mapTask(state, id, (t) => ({ ...t, ...cleanDraft(patch) }));
 }

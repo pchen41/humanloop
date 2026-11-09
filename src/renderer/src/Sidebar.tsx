@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandById } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
-import { QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
+import { hasOverrides, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
 import { AgentDot } from './AgentDot';
 import { agentStateOf } from '../../shared/queues';
 import { tasksInQueue } from '../../shared/tasks';
@@ -75,6 +75,9 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
                         <span className={`priority p${task.priority}`}>P{task.priority}</span>
                         <AgentDot state={stateOf(task)} />
                         <span className="task-title">{task.title}</span>
+                        {hasOverrides(task) && (
+                          <span className="override-mark" title="Has its own “When is it your turn?” settings" />
+                        )}
                         <span className="task-wait">{formatWait(task.enteredAt, now)}</span>
                       </button>
                     </li>

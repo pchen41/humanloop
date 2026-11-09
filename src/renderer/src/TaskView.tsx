@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
 import { commandById, type CommandId } from '../../shared/commands';
 import { effectiveTabState, type TabAgent } from '../../shared/agents';
 import { effectivePolicy, type Settings, type Task } from '../../shared/model';
-import { AgentDot } from './AgentDot';
+import { AgentDot, backgroundSummary } from './AgentDot';
 import { formatAccelerator, shortenHome } from './format';
 import { terminals } from './terminals';
 
@@ -59,7 +59,10 @@ export function TaskView({ task, activeTabId, settings, homeDir, agents, onSelec
               title={title}
             >
               {agents[tab.id] && (
-                <AgentDot state={effectiveTabState(agents[tab.id]!, effectivePolicy(settings.policy, task.policy))} />
+                <AgentDot
+                  state={effectiveTabState(agents[tab.id]!, effectivePolicy(settings.policy, task.policy))}
+                  detail={backgroundSummary(agents[tab.id]!.backgroundTasks)}
+                />
               )}
               <span className="tab-title">{title}</span>
               {i < 9 && <span className="tab-key">⌘{i + 1}</span>}

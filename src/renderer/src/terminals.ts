@@ -260,6 +260,7 @@ declare global {
     __humanloopDebug?: {
       terminalText(tabId: string): string | undefined;
       command?(id: import('../../shared/commands').CommandId): void;
+      showSettings?(): void;
     };
   }
 }

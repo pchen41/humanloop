@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommandId } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
+import type { HookState } from '../../shared/ipc';
 import type { AppState, Settings, Task } from '../../shared/model';
 import { findTask } from '../../shared/tasks';
+import { SettingsView } from './SettingsView';
 import { Sidebar } from './Sidebar';
 import { TaskEditor, type EditorMode } from './TaskEditor';
 import { TaskView } from './TaskView';
@@ -15,6 +17,7 @@ interface Loaded {
   settings: Settings;
   homeDir: string;
   agents: Record<string, TabAgent>;
+  hooks: HookState;
 }
 
 /** The selected tab of a task, falling back to its first tab. */
@@ -28,6 +31,7 @@ export function App() {
   const [data, setData] = useState<Loaded>();
   const [chosenTab, setChosenTab] = useState<Record<string, string>>({});
   const [editor, setEditor] = useState<EditorMode>();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   /** Bumped each time Next task finds nothing else, so the notice restarts. */
   const [nothingElse, setNothingElse] = useState(0);
   const clearNotice = useCallback(() => setNothingElse(0), []);
@@ -50,7 +54,12 @@ export function App() {
       early.agents = agents;
       setData((d) => d && { ...d, agents });
     });
+    const offHooks = api.onHooks((hooks) => {
+      early.hooks = hooks;
+      setData((d) => d && { ...d, hooks });
+    });
     void api.getInitialData().then((d) => {
+      if (alive && d.showSettings) setSettingsOpen(true);
       if (alive) setData({ ...d, ...early });
       early = {};
     });
@@ -59,6 +68,7 @@ export function App() {
       offState();
       offSettings();
       offAgents();
+      offHooks();
     };
   }, []);
 
@@ -102,6 +112,7 @@ export function App() {
   // Menu commands. A ref keeps the handler current without re-subscribing.
   const commandRef = useRef<(id: CommandId) => void>(() => {});
   commandRef.current = (id) => {
+    if (settingsOpen) return;
     if (editor) {
       // ⌘Return is also the editor's Save; the menu may take the key before the form sees it.
       if (id === 'nextTask') submitEditor.current?.();
@@ -158,9 +169,19 @@ export function App() {
     }
   };
   useEffect(() => api.onCommand((id) => commandRef.current(id)), []);
+  useEffect(
+    () =>
+      // Opens over the task editor, if one is open, so its unsaved draft is kept.
+      api.onShowSettings(() => setSettingsOpen(true)),
+    [],
+  );
   useEffect(() => {
     // Lets UI tests run menu commands, whose native shortcuts can't be pressed from a script.
-    window.__humanloopDebug = { ...window.__humanloopDebug!, command: (id) => commandRef.current(id) };
+    window.__humanloopDebug = {
+      ...window.__humanloopDebug!,
+      command: (id) => commandRef.current(id),
+      showSettings: () => setSettingsOpen(true),
+    };
   }, []);
 
   const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
@@ -181,6 +202,10 @@ export function App() {
     setEditor(undefined);
     if (activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
   }, [activeTabId]);
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+    if (!editor && activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
+  }, [activeTabId, editor]);
 
   const view = useMemo(() => {
     if (!state || !data) return null;
@@ -212,10 +237,10 @@ export function App() {
         onCloseTab={closeTab}
         onNewTab={newTab}
         onEdit={() => setEditor({ kind: 'edit', task: openTask })}
-        focusTerminal={!editor}
+        focusTerminal={!editor && !settingsOpen}
       />
     );
-  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor]);
+  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, settingsOpen]);
 
   if (!data || !state) return null;
 
@@ -239,9 +264,13 @@ export function App() {
           mode={editor}
           homeDir={data.homeDir}
           globalDefaultCwd={data.settings.defaultCwd}
+          globalPolicy={data.settings.policy}
           onClose={closeEditor}
           submitRef={submitEditor}
         />
+      )}
+      {settingsOpen && (
+        <SettingsView settings={data.settings} hooks={data.hooks} homeDir={data.homeDir} onClose={closeSettings} />
       )}
     </div>
   );

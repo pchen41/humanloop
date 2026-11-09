@@ -1,8 +1,8 @@
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { JsonStore } from '../src/main/store';
+import { JsonStore, readJsonObject } from '../src/main/store';
 
 function tempFile(): string {
   return join(mkdtempSync(join(tmpdir(), 'humanloop-store-')), 'state.json');
@@ -27,5 +27,20 @@ describe('JsonStore', () => {
     await store.flush();
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ n: 49 });
     expect(readdirSync(join(file, '..'))).toEqual(['state.json']);
+  });
+});
+
+describe('readJsonObject', () => {
+  it('never moves a file it cannot parse', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'hl-'));
+    const file = join(dir, 'settings.json');
+    expect(readJsonObject(file)).toEqual({ value: undefined });
+    writeFileSync(file, '{ "policy": { }, }');
+    expect('error' in readJsonObject(file)).toBe(true);
+    expect(existsSync(file)).toBe(true);
+    writeFileSync(file, '[]');
+    expect('error' in readJsonObject(file)).toBe(true);
+    writeFileSync(file, '{"a":1}');
+    expect(readJsonObject(file)).toEqual({ value: { a: 1 } });
   });
 });
