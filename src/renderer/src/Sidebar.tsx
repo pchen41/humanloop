@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { commandById } from '../../shared/commands';
+import { acceleratorFor } from '../../shared/shortcuts';
 import type { TabAgent } from '../../shared/agents';
 import { hasOverrides, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
 import { AgentDot } from './AgentDot';
@@ -92,7 +92,7 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
     done: true,
   });
   const stateOf = agentStateOf(agents, settings.policy);
-  const newTaskKey = formatAccelerator(settings.shortcuts.newTask ?? commandById('newTask').accelerator);
+  const newTaskKey = formatAccelerator(acceleratorFor(settings, 'newTask'));
 
   return (
     <nav className="sidebar" data-testid="sidebar">

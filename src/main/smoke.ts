@@ -66,6 +66,18 @@ export async function runSmokeTest(d: SmokeDeps): Promise<void> {
     await waitFor('the hook event to reach the tab', () => js(`!!document.querySelector('.tab .agent-dot.idle')`));
     log('hook event received and shown');
 
+    // Shortcut recorder: a key press while recording becomes the shortcut,
+    // through the same before-input-event path a real key press takes.
+    await js(`window.__humanloopDebug.showSettings()`);
+    const keyButton = `[...document.querySelectorAll('.shortcut-row')].find((r) => r.querySelector('.shortcut-label').textContent === 'Next Task').querySelector('.shortcut-key')`;
+    await waitFor('the settings screen', () => js(`!!document.querySelector('.modal.settings')`));
+    await js(`${keyButton}.click()`);
+    await waitFor('recording to start', () => js(`${keyButton}.textContent === 'Press keys…'`));
+    d.win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'J', modifiers: ['meta'] });
+    d.win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'J', modifiers: ['meta'] });
+    await waitFor('the recorded shortcut', () => js(`${keyButton}.textContent === '⌘J'`));
+    log('shortcut recorded');
+
     const shot = process.env.HUMANLOOP_SMOKE_SCREENSHOT;
     if (shot) {
       await new Promise((r) => setTimeout(r, 500));

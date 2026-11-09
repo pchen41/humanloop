@@ -3,6 +3,7 @@ import type { HookState } from '../../shared/ipc';
 import type { Settings } from '../../shared/model';
 import { shortenHome } from './format';
 import { PolicyControls } from './PolicyControls';
+import { ShortcutsSection } from './ShortcutsSection';
 
 const api = window.humanloop;
 
@@ -128,9 +129,10 @@ export function SettingsView({ settings, hooks, homeDir, onClose }: Props) {
 
         <section>
           <h3>Shortcuts</h3>
-          <p className="section-hint">Shortcuts are set in Humanloop's settings.json and apply as soon as you save it.</p>
+          <p className="section-hint">Click a shortcut, then press the keys you want. Every shortcut uses ⌘.</p>
+          <ShortcutsSection settings={settings} />
           <div className="row-buttons">
-            <button type="button" onClick={() => api.openSettingsFile()}>
+            <button type="button" className="ghost small" onClick={() => api.openSettingsFile()}>
               Open settings.json
             </button>
           </div>

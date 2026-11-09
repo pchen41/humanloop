@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { commandById, type CommandId } from '../../shared/commands';
+import type { CommandId } from '../../shared/commands';
+import { acceleratorFor } from '../../shared/shortcuts';
 import { effectiveTabState, type TabAgent } from '../../shared/agents';
 import { effectivePolicy, type Settings, type Task } from '../../shared/model';
 import type { ResumeOffer } from '../../shared/ipc';
@@ -34,7 +35,7 @@ export function TaskView(props: Props) {
   const [resumeError, setResumeError] = useState<{ tabId: string; text: string }>();
   // Terminal titles (set by programs like Claude Code) live outside React.
   useSyncExternalStore(terminals.subscribe, terminals.getVersion);
-  const key = (id: CommandId) => formatAccelerator(settings.shortcuts[id] ?? commandById(id).accelerator);
+  const key = (id: CommandId) => formatAccelerator(acceleratorFor(settings, id));
   const cwd = shortenHome(task.defaultCwd ?? settings.defaultCwd, homeDir) ?? '~';
 
   return (

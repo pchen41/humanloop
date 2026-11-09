@@ -3,7 +3,7 @@ import { existsSync, watch } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
-import { COMMANDS } from '../shared/commands';
+import { COMMANDS, commandById, type CommandId } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type ResumeOffer, type TerminalEditCommand } from '../shared/ipc';
 import {
   DEFAULT_SETTINGS,
@@ -20,7 +20,14 @@ import * as T from '../shared/tasks';
 import { AgentTracker } from './agentTracker';
 import { currentHookStatus, installWithConfirm, removeWithConfirm } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
-import { acceleratorFor, buildMenu, type MenuContext } from './menu';
+import {
+  acceleratorFor,
+  acceleratorFromInput,
+  conflictFor,
+  sameAccelerator,
+  type RecordResult,
+} from '../shared/shortcuts';
+import { buildMenu, type MenuContext } from './menu';
 import { dismissNotification, keepAwake, notify, setDockBadge } from './dock';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
@@ -206,6 +213,41 @@ function applySettings(next: Settings): void {
   win?.webContents.send(IPC.settings, settings);
   setState(state);
   updateDockAndPower(); // keep-awake may have been switched, with no task moving
+}
+
+/**
+ * Sets one command's shortcut, checking for a clash against settings.json as
+ * it is on disk now, not the settings screen's copy, which can be a step behind.
+ */
+function setShortcut(id: CommandId, value: string | null, takeFrom?: CommandId): { conflict?: CommandId } {
+  const r = readJsonObject(settingsFile);
+  if ('error' in r) {
+    dialog.showErrorBox("Couldn't save settings", `Humanloop's settings.json has an error, so it was left as is. Fix it and try again.\n\n${r.error}`);
+    return {};
+  }
+  const current = r.value ? normalizeSettings(r.value) : DEFAULT_SETTINGS;
+  const fallback = commandById(id).accelerator;
+  const accelerator = value === null ? fallback : value;
+  // A shortcut equal to the default is saved as "use the default", so later default changes still apply.
+  const shortcuts: Record<string, string | null> = {
+    [id]: accelerator && sameAccelerator(accelerator, fallback) ? null : accelerator,
+  };
+  if (accelerator) {
+    const other = conflictFor(current, id, accelerator);
+    if (other && other !== takeFrom) return { conflict: other };
+    if (other) shortcuts[other] = '';
+  }
+  updateSettings({ shortcuts });
+  return {};
+}
+
+/** Set while the settings screen is recording a shortcut: resolves with the key press. */
+let recording: ((r: RecordResult | undefined) => void) | undefined;
+
+function finishRecording(r: RecordResult | undefined): void {
+  const done = recording;
+  recording = undefined;
+  done?.(r);
 }
 
 function watchSettings(): void {
@@ -405,6 +447,18 @@ function registerIpc(): void {
       };
     },
   );
+  ipcMain.handle(IPC.recordShortcut, () => {
+    finishRecording(undefined); // only one recording at a time
+    return new Promise<RecordResult | undefined>((resolve) => {
+      recording = resolve;
+    });
+  });
+  ipcMain.on(IPC.stopRecording, () => finishRecording(undefined));
+  ipcMain.handle(IPC.setShortcut, (_e, id: CommandId, value: string | null, takeFrom?: CommandId) => {
+    const known = (c: unknown) => COMMANDS.some((cmd) => cmd.id === c);
+    if (!known(id) || (value !== null && (typeof value !== 'string' || value.length > 100))) return {};
+    return setShortcut(id, value, known(takeFrom) ? takeFrom : undefined);
+  });
   ipcMain.handle(IPC.updateSettings, (_e, patch: SettingsPatch) => {
     if (typeof patch === 'object' && patch !== null && !Array.isArray(patch)) updateSettings(patch);
   });
@@ -563,14 +617,25 @@ function createWindow(): BrowserWindow {
     if (process.env.HUMANLOOP_SMOKE) w.showInactive();
     else w.show();
   });
+  // Switching to another app ends a recording, rather than leaving it waiting.
+  w.on('blur', () => finishRecording(undefined));
   w.on('closed', () => {
     if (win === w) win = undefined;
+    finishRecording(undefined);
     terminalFocused = false;
     ptys.detachAll();
   });
   // A reload replaces the renderer and its terminals; tabs re-attach as they are shown.
   w.webContents.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) ptys.detachAll();
+  });
+  // While recording a shortcut, the key press goes to the recorder instead of the menu or page.
+  w.webContents.on('before-input-event', (e, input) => {
+    if (!recording || input.type !== 'keyDown') return;
+    e.preventDefault();
+    if (input.key === 'Escape') return finishRecording(undefined);
+    const r = acceleratorFromInput(input);
+    if (r) finishRecording(r);
   });
   // Links open in the browser; the window itself never navigates away.
   w.webContents.setWindowOpenHandler(({ url }) => {

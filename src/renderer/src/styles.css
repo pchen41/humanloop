@@ -685,3 +685,61 @@ body.resizing * {
   color: var(--text-faint);
   font-size: 11.5px;
 }
+
+/* ---------- shortcuts ---------- */
+
+.shortcuts {
+  display: flex;
+  flex-direction: column;
+}
+.shortcut-group h4 {
+  margin: 8px 0 2px;
+  color: var(--text-faint);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.shortcut-label {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+}
+.shortcut-key {
+  min-width: 110px;
+  padding: 3px 8px;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 12px;
+  text-align: center;
+}
+.shortcut-key.recording {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+button.small {
+  padding: 3px 6px;
+  font-size: 11.5px;
+}
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.shortcut-notice {
+  margin: 0 0 4px;
+  color: var(--p-warm);
+  font-size: 11.5px;
+}
+button.link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: inherit;
+  text-decoration: underline;
+}

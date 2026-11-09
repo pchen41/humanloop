@@ -1,6 +1,10 @@
 // Data model shared by the main process, preload bridge and renderer.
 // Everything in AppState is saved to disk; runtime-only state lives elsewhere.
 
+import { COMMANDS } from './commands';
+
+const COMMAND_IDS = new Set<string>(COMMANDS.map((c) => c.id));
+
 export type Queue = 'yourTurn' | 'agentsTurn' | 'parked' | 'done';
 
 export const QUEUES: readonly Queue[] = ['yourTurn', 'agentsTurn', 'parked', 'done'];
@@ -105,6 +109,8 @@ export interface SettingsPatch {
   defaultCwd?: string | null;
   notifications?: boolean;
   keepAwake?: boolean;
+  /** Command id -> accelerator; "" removes the shortcut, null puts the default back. */
+  shortcuts?: Record<string, string | null>;
 }
 
 /**
@@ -126,6 +132,17 @@ export function patchSettingsJson(raw: Record<string, unknown>, patch: SettingsP
   }
   for (const key of ['notifications', 'keepAwake'] as const) {
     if (typeof patch[key] === 'boolean') out[key] = patch[key];
+  }
+  if (typeof patch.shortcuts === 'object' && patch.shortcuts !== null && !Array.isArray(patch.shortcuts)) {
+    const current = raw.shortcuts;
+    const shortcuts: Record<string, unknown> =
+      typeof current === 'object' && current !== null && !Array.isArray(current) ? { ...current } : {};
+    for (const [id, value] of Object.entries(patch.shortcuts)) {
+      if (!COMMAND_IDS.has(id)) continue;
+      if (value === null) delete shortcuts[id];
+      else if (typeof value === 'string' && value.length <= 100) shortcuts[id] = value;
+    }
+    out.shortcuts = shortcuts;
   }
   return out;
 }

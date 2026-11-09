@@ -3,6 +3,7 @@
 import type { CommandId } from './commands';
 import type { TabAgent } from './agents';
 import type { HookStatus } from './hooks';
+import type { RecordResult } from './shortcuts';
 import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
 
 /** Whether Humanloop's hooks are in ~/.claude/settings.json. */
@@ -43,6 +44,19 @@ export interface HumanloopApi {
   resumeSession(tabId: string): Promise<string | undefined>;
   dismissResume(tabId: string): void;
 
+  /**
+   * Captures the next key press as a shortcut, before the menu can act on it.
+   * Undefined if cancelled (Esc, or stopRecording).
+   */
+  recordShortcut(): Promise<RecordResult | undefined>;
+  stopRecording(): void;
+  /**
+   * Sets a command's shortcut: an accelerator, "" for none, or null for the
+   * default. Checked against settings.json as it is on disk: if another
+   * command has that shortcut, nothing is saved and it is returned, unless it
+   * is `takeFrom`, which then loses it.
+   */
+  setShortcut(id: CommandId, value: string | null, takeFrom?: CommandId): Promise<{ conflict?: CommandId }>;
   /** Saves a change from the settings screen to settings.json. */
   updateSettings(patch: SettingsPatch): Promise<void>;
   /** Opens settings.json in your editor (for shortcuts). */
@@ -102,6 +116,9 @@ export const IPC = {
   resumeSession: 'resume:run',
   dismissResume: 'resume:dismiss',
   updateSettings: 'settings:update',
+  recordShortcut: 'shortcut:record',
+  stopRecording: 'shortcut:stop',
+  setShortcut: 'shortcut:set',
   openSettingsFile: 'settings:open-file',
   installHooks: 'hooks:install',
   removeHooks: 'hooks:remove',

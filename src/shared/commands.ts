@@ -60,6 +60,16 @@ export const COMMANDS: CommandDef[] = [
   { id: 'markDone', label: 'Mark Done…', accelerator: 'CmdOrCtrl+Shift+D' },
 ];
 
+/** How the settings screen groups the commands. Every command appears once. */
+export const COMMAND_GROUPS: { title: string; ids: CommandId[] }[] = [
+  { title: 'Tasks', ids: ['nextTask', 'back', 'forward', 'newTask', 'editTask', 'parkTask', 'markDone'] },
+  {
+    title: 'Tabs',
+    ids: ['newTab', 'closeTab', 'nextTab', 'prevTab', 'tab1', 'tab2', 'tab3', 'tab4', 'tab5', 'tab6', 'tab7', 'tab8', 'tab9'],
+  },
+  { title: 'Terminal', ids: ['find', 'findNext', 'findPrevious', 'clearTerminal'] },
+];
+
 export function commandById(id: CommandId): CommandDef {
   const def = COMMANDS.find((c) => c.id === id);
   if (!def) throw new Error(`unknown command ${id}`);

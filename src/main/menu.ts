@@ -2,6 +2,7 @@
 
 import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { commandById, type CommandId } from '../shared/commands';
+import { acceleratorFor } from '../shared/shortcuts';
 import type { HookState } from '../shared/ipc';
 import type { Queue, Settings } from '../shared/model';
 
@@ -23,11 +24,6 @@ export interface MenuContext {
   canGoForward: boolean;
 }
 
-export function acceleratorFor(settings: Settings, id: CommandId): string | undefined {
-  const custom = settings.shortcuts[id];
-  if (custom !== undefined) return custom || undefined; // "" unbinds a shortcut
-  return commandById(id).accelerator;
-}
 
 export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext): Menu {
   const { hooks, openQueue } = ctx;
