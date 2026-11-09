@@ -7,14 +7,23 @@ import { appendFile } from 'node:fs/promises';
 import { applyHookEvent, applyInterrupt, type TabAgent } from '../shared/agents';
 import type { HookDelivery } from './hookServer';
 
-function parentPid(pid: number): Promise<number | undefined> {
+/** pid -> parent pid for every process, or undefined if ps failed. */
+function processTable(): Promise<Map<number, number> | undefined> {
   return new Promise((resolve) => {
-    execFile('/bin/ps', ['-o', 'ppid=', '-p', String(pid)], { timeout: 2000 }, (err, stdout) => {
-      const ppid = Number(stdout.trim());
-      resolve(!err && Number.isInteger(ppid) && ppid > 0 ? ppid : undefined);
+    execFile('/bin/ps', ['-axo', 'pid=,ppid='], { timeout: 3000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout) => {
+      if (err) return resolve(undefined);
+      const table = new Map<number, number>();
+      for (const line of stdout.split('\n')) {
+        const [pid, ppid] = line.trim().split(/\s+/).map(Number);
+        if (pid && ppid !== undefined && Number.isInteger(ppid)) table.set(pid, ppid);
+      }
+      resolve(table);
     });
   });
 }
+
+/** How far up the process tree to look for the tab's shell (wrappers like direnv or mise add a level or two). */
+const MAX_HOPS = 8;
 
 export interface AgentTrackerOptions {
   /** The pid of the tab's shell, or undefined if the tab has no running shell. */
@@ -26,9 +35,13 @@ export interface AgentTrackerOptions {
 
 export class AgentTracker {
   private agents = new Map<string, TabAgent>();
-  /** claude pid -> its parent pid. A process's parent doesn't change while it runs. */
-  private parents = new Map<number, number | undefined>();
-  /** Per-tab queue, so events apply in the order they arrived despite the async parent lookup. */
+  /** claude pid -> whether it belongs to that shell. Only definite answers are cached. */
+  private verdicts = new Map<number, { shell: number; ok: boolean }>();
+  /** claude processes whose events were accepted. A process below one of them is a nested `claude -p`. */
+  private claudePids = new Set<number>();
+  /** Bumped by clear(), so work started before a tab closed or restarted is dropped. */
+  private generations = new Map<string, number>();
+  /** Per-tab queue, so events apply in the order they arrived despite the async process lookup. */
   private queues = new Map<string, Promise<void>>();
 
   constructor(private opts: AgentTrackerOptions) {}
@@ -56,6 +69,12 @@ export class AgentTracker {
     });
   }
 
+  /** The tab's shell exited, restarted or was closed: whatever ran in it is gone. */
+  clear(tabId: string): void {
+    this.generations.set(tabId, (this.generations.get(tabId) ?? 0) + 1);
+    if (this.agents.delete(tabId)) this.opts.onChange();
+  }
+
   private enqueue(tabId: string, fn: () => Promise<void>): void {
     const prev = this.queues.get(tabId) ?? Promise.resolve();
     const next = prev.then(fn).catch((err) => console.error('agent update failed:', err));
@@ -65,41 +84,61 @@ export class AgentTracker {
     });
   }
 
-  /** The tab's shell exited, restarted or was closed: whatever ran in it is gone. */
-  clear(tabId: string): void {
-    if (this.agents.delete(tabId)) this.opts.onChange();
+  /**
+   * Whether `pid` (the claude process that ran the hook) runs in the tab whose
+   * shell is `shell`: the shell must be an ancestor, with no other known
+   * claude process in between. Undefined if the process table was unreadable.
+   */
+  private async belongs(pid: number, shell: number): Promise<boolean | undefined> {
+    const cached = this.verdicts.get(pid);
+    if (cached && cached.shell === shell) return cached.ok;
+    const table = await processTable();
+    if (!table) return undefined;
+    if (!table.has(pid)) return undefined; // already exited; don't cache
+    let ok = false;
+    let cur = table.get(pid);
+    for (let hop = 0; cur !== undefined && cur > 1 && hop < MAX_HOPS; hop++) {
+      if (cur === shell) {
+        ok = true;
+        break;
+      }
+      if (this.claudePids.has(cur)) break; // nested inside another Claude session
+      cur = table.get(cur);
+    }
+    if (this.verdicts.size > 1024) this.verdicts.clear();
+    this.verdicts.set(pid, { shell, ok });
+    return ok;
   }
 
   private async apply(d: HookDelivery): Promise<void> {
+    const gen = this.generations.get(d.tabId) ?? 0;
     const shell = this.opts.shellPid(d.tabId);
-    let ppid: number | undefined;
-    if (d.pid !== undefined) {
-      if (!this.parents.has(d.pid)) {
-        if (this.parents.size > 512) this.parents.clear();
-        this.parents.set(d.pid, await parentPid(d.pid));
-      }
-      ppid = this.parents.get(d.pid);
-    }
-    const accepted = shell !== undefined && ppid === shell;
-    if (this.opts.logFile) void this.log(d, shell, ppid, accepted);
+    const ok = shell !== undefined && d.pid !== undefined ? await this.belongs(d.pid, shell) : false;
+    // The tab may have closed or restarted while we looked.
+    const current = (this.generations.get(d.tabId) ?? 0) === gen && this.opts.shellPid(d.tabId) === shell;
+    const accepted = ok === true && current;
+    if (this.opts.logFile) void this.log(d, shell, accepted);
     if (!accepted) return;
 
+    this.claudePids.add(d.pid!);
+    if (d.event.hook_event_name === 'SessionEnd') {
+      this.claudePids.delete(d.pid!);
+      this.verdicts.delete(d.pid!);
+    }
     const before = this.agents.get(d.tabId);
     const after = applyHookEvent(before, d.event);
     if (after === before) return;
     if (after) this.agents.set(d.tabId, after);
     else this.agents.delete(d.tabId);
-    if (d.event.hook_event_name === 'SessionEnd' && d.pid !== undefined) this.parents.delete(d.pid);
     this.opts.onChange();
   }
 
-  private async log(d: HookDelivery, shell: number | undefined, ppid: number | undefined, accepted: boolean) {
+  private async log(d: HookDelivery, shell: number | undefined, accepted: boolean) {
     const e = d.event;
     const line = {
       t: new Date().toISOString(),
       tab: d.tabId,
       pid: d.pid,
-      ppid,
       shell,
       accepted,
       event: e.hook_event_name,

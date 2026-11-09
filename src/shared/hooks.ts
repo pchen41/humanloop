@@ -32,8 +32,12 @@ export const HOOK_COMMAND =
 /** Seconds Claude waits for the hook before giving up. */
 export const HOOK_TIMEOUT = 2;
 
-/** How Humanloop recognises its own entries, including ones from older versions. */
-const MARKER = 'HUMANLOOP_SOCK';
+/**
+ * How Humanloop recognises its own entries, including ones from older
+ * versions: the URL only Humanloop's hook posts to. (Matching HUMANLOOP_SOCK
+ * alone would also catch a user's own hook that checks that variable.)
+ */
+const MARKER = 'http://humanloop/hook';
 
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => typeof v === 'object' && v !== null && !Array.isArray(v);

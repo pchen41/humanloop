@@ -29,7 +29,8 @@ describe('applyHookEvent', () => {
     expect(run([ev('Notification', { notification_type: 'idle_prompt' })], asked)?.state).toBe('needsYou');
     const working = run([ev('SessionStart'), ev('UserPromptSubmit')]); // e.g. interrupted with Esc
     expect(run([ev('Notification', { notification_type: 'idle_prompt' })], working)?.state).toBe('idle');
-    expect(run([ev('Notification', { notification_type: 'permission_prompt' })], working)?.state).toBe('working');
+    // Sandbox network prompts send only this notification, never PermissionRequest.
+    expect(run([ev('Notification', { notification_type: 'permission_prompt' })], working)?.state).toBe('needsYou');
   });
 
   it('treats API errors and MCP prompts as needing you', () => {
@@ -54,7 +55,12 @@ describe('applyHookEvent', () => {
 
   it('ignores events from other sessions once a session is known', () => {
     const a = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('Stop')]);
-    expect(applyHookEvent(a, { session_id: 'other', hook_event_name: 'UserPromptSubmit' })?.state).toBe('idle');
+    expect(applyHookEvent(a, { session_id: 'other', hook_event_name: 'PreToolUse' })).toBe(a);
+    // A prompt you typed proves the tab moved on, even if its SessionStart was missed.
+    expect(applyHookEvent(a, { session_id: 'other', hook_event_name: 'UserPromptSubmit' })).toMatchObject({
+      sessionId: 'other',
+      state: 'working',
+    });
     // A new SessionStart (e.g. /clear or /resume) switches sessions.
     expect(applyHookEvent(a, { session_id: 'other', hook_event_name: 'SessionStart', source: 'clear' })?.sessionId).toBe('other');
   });
@@ -70,7 +76,40 @@ describe('applyHookEvent', () => {
   });
 });
 
+describe('open prompts per agent', () => {
+  it("clears a subagent's prompt when that subagent's tool runs", () => {
+    const asked = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('PermissionRequest', { agent_id: 'sub' })]);
+    expect(asked?.state).toBe('needsYou');
+    expect(run([ev('PostToolUse', { agent_id: 'sub' })], asked)?.state).toBe('working');
+  });
+
+  it("keeps a subagent's prompt open when the main agent's tool finishes", () => {
+    const asked = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('PermissionRequest', { agent_id: 'sub' })]);
+    expect(run([ev('PostToolUse')], asked)?.state).toBe('needsYou');
+    expect(run([ev('PostToolUse'), ev('SubagentStop', { agent_id: 'sub' })], asked)?.state).toBe('working');
+  });
+
+  it('keeps needs you after a denied prompt until your next prompt', () => {
+    const asked = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('PreToolUse'), ev('PermissionRequest')]);
+    // Denying fires nothing, so the state holds; a new prompt clears it.
+    expect(run([ev('UserPromptSubmit')], asked)?.state).toBe('working');
+  });
+
+  it('treats an API error as needs you until the next prompt', () => {
+    const failed = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('StopFailure')]);
+    expect(failed?.state).toBe('needsYou');
+    expect(run([ev('UserPromptSubmit')], failed)?.state).toBe('working');
+  });
+});
+
 describe('applyInterrupt (Esc)', () => {
+  it('ignores tool events from the interrupted turn until the next prompt', () => {
+    const stopped = applyInterrupt(run([ev('SessionStart'), ev('UserPromptSubmit'), ev('PreToolUse')]));
+    expect(stopped?.state).toBe('idle');
+    expect(run([ev('PostToolUse')], stopped)?.state).toBe('idle');
+    expect(run([ev('UserPromptSubmit'), ev('PreToolUse')], stopped)?.state).toBe('working');
+  });
+
   it('marks a working agent idle and leaves other states alone', () => {
     const working = run([ev('SessionStart'), ev('UserPromptSubmit')]);
     expect(applyInterrupt(working)?.state).toBe('idle');
@@ -84,6 +123,9 @@ describe('taskAgentState', () => {
   const agent = (state: TabAgent['state'], bg: TabAgent['backgroundTasks'] = []): TabAgent => ({
     sessionId: 's',
     state,
+    turn: state === 'needsYou' ? 'error' : state,
+    waitingOn: [],
+    interrupted: false,
     backgroundTasks: bg,
   });
 
@@ -120,11 +162,16 @@ describe('hook installer', () => {
   });
 
   it('is idempotent and replaces outdated entries', () => {
-    const old = { hooks: { Stop: [{ hooks: [{ type: 'command', command: 'curl $HUMANLOOP_SOCK old' }] }] } };
+    const old = { hooks: { Stop: [{ hooks: [{ type: 'command', command: 'curl --unix-socket "$HUMANLOOP_SOCK" http://humanloop/hook' }] }] } };
     expect(hookStatus(old)).toBe('outdated');
     const once = installHooks(old);
     expect(installHooks(once)).toEqual(once);
     expect((once.hooks as Record<string, unknown[]>).Stop).toHaveLength(1);
+  });
+
+  it("keeps a user's own hook that merely checks HUMANLOOP_SOCK", () => {
+    const mine = { hooks: [{ type: 'command', command: '[ -n "$HUMANLOOP_SOCK" ] && my-notifier' }] };
+    expect(removeHooks(installHooks({ hooks: { Notification: [mine] } }))).toEqual({ hooks: { Notification: [mine] } });
   });
 
   it('removes only its own entries', () => {

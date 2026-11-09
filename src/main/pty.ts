@@ -44,7 +44,6 @@ const STRIPPED_ENV = [
   'ELECTRON_RENDERER_URL',
   'NODE_OPTIONS',
   'AI_AGENT',
-  'ANTHROPIC_BASE_URL',
 ];
 
 /**
@@ -52,6 +51,7 @@ const STRIPPED_ENV = [
  * markers (CLAUDECODE, CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_CHILD_SESSION, …)
  * would make every `claude` in a tab think it is a child session. Tabs start
  * login shells, so variables you set in your shell profile come back anyway.
+ * ANTHROPIC_* settings (gateway URL, keys) are configuration and are kept.
  */
 function stripped(name: string): boolean {
   return STRIPPED_ENV.includes(name) || name.startsWith('CLAUDE') || name.startsWith('HUMANLOOP_');

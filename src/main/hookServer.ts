@@ -2,7 +2,8 @@
 // the socket path in HUMANLOOP_SOCK; the hook command posts the event JSON
 // with the tab id (X-Tab) and the posting claude process id (X-Pid).
 
-import { existsSync, unlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, unlinkSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -21,7 +22,9 @@ export interface HookDelivery {
 export function hookSocketPath(userData: string): string {
   const preferred = join(userData, 'hook.sock');
   if (Buffer.byteLength(preferred) <= MAX_SOCKET_PATH) return preferred;
-  return join(tmpdir(), `humanloop-${process.getuid?.() ?? 'user'}.sock`);
+  // Hash the data folder so separate instances (e.g. dev and installed) never share a socket.
+  const hash = createHash('sha256').update(userData).digest('hex').slice(0, 12);
+  return join(tmpdir(), `humanloop-${hash}.sock`);
 }
 
 export class HookServer {
@@ -68,6 +71,11 @@ export class HookServer {
       server.once('error', reject);
       server.listen(this.path, () => {
         server.off('error', reject);
+        try {
+          chmodSync(this.path, 0o600); // only you can post events
+        } catch {
+          // the folder is already private to you
+        }
         resolve();
       });
     });

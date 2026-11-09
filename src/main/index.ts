@@ -344,6 +344,10 @@ void app.whenReady().then(async () => {
   } catch (err) {
     // The app still works as a terminal; agent state just won't update.
     console.error(`Could not listen on ${hookSocket}:`, err);
+    dialog.showErrorBox(
+      "Humanloop can't track Claude",
+      `Humanloop could not open its hook socket at ${hookSocket}, so it won't see what Claude is doing in its tabs. Terminals still work.\n\n${String(err)}`,
+    );
   }
   if (!existsSync(settingsFile)) writeDefaultSettings();
   watchSettings();

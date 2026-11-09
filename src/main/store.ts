@@ -1,7 +1,7 @@
 // JSON file persistence. Writes are debounced, serialized and atomic
 // (temp file + rename), so a crash never leaves a half-written file.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -30,10 +30,12 @@ export function readJson<T>(file: string, fallback: T, normalize: (raw: unknown)
   }
 }
 
-export function writeJsonSync(file: string, value: unknown): void {
+/** `mode` sets the new file's permissions (e.g. to keep a private file private). */
+export function writeJsonSync(file: string, value: unknown, mode?: number): void {
   mkdirSync(dirname(file), { recursive: true });
   const tmp = tmpPath(file);
-  writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n');
+  writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', mode === undefined ? undefined : { mode });
+  if (mode !== undefined) chmodSync(tmp, mode); // writeFile's mode is filtered by the umask
   renameSync(tmp, file);
 }
 
