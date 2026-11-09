@@ -138,8 +138,10 @@ export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit
                 onClick={() => setCollapsed((c) => ({ ...c, [queue]: !c[queue] }))}
                 aria-expanded={!isCollapsed}
               >
-                <span>{QUEUE_LABELS[queue]}</span>
-                <span className={`queue-count ${queue === 'yourTurn' && tasks.length ? 'you' : ''}`}>{tasks.length}</span>
+                <span className="queue-title">
+                  <span>{QUEUE_LABELS[queue]}</span>
+                  <span className={`queue-count ${queue === 'yourTurn' && tasks.length ? 'you' : ''}`}>{tasks.length}</span>
+                </span>
               </button>
               {(shown.length > 0 || (!isCollapsed && queue === 'yourTurn')) && (
                 <ul className="task-list">

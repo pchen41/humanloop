@@ -458,8 +458,7 @@ textarea.in {
 }
 .queue-header {
   display: flex;
-  /* The count is mono and smaller: sit it on the name's baseline, not centred in the line. */
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   width: calc(100% - 34px);
   height: 24px;
@@ -485,11 +484,17 @@ textarea.in {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 5px solid var(--fg-5);
-  align-self: center;
   transition: transform 0.12s;
 }
 .queue-header[aria-expanded='false']::before {
   transform: rotate(-90deg);
+}
+/* The count is mono and smaller: it sits on the name's baseline, and the pair is
+   centred in the header like the triangle. */
+.queue-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
 }
 .queue-header:hover {
   color: var(--fg-1);
