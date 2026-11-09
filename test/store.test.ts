@@ -20,6 +20,16 @@ describe('JsonStore', () => {
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ n: 2 });
   });
 
+  it('flush keeps going until a value saved mid-write is on disk too', async () => {
+    const file = tempFile();
+    const store = new JsonStore<{ n: number }>(file);
+    store.save({ n: 1 });
+    const flushed = store.flush();
+    store.save({ n: 2 }); // arrives while n=1 is being written
+    expect(await flushed).toBe(true);
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ n: 2 });
+  });
+
   it('flush says when the newest value could not be written', async () => {
     const file = tempFile();
     const store = new JsonStore<{ n: number }>(file);

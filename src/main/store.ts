@@ -122,14 +122,22 @@ export class JsonStore<T> {
   }
 
   /**
-   * Waits for any write in progress, then writes whatever is still pending.
-   * Call before quitting. False if the newest value couldn't be written.
+   * Writes until the newest value is on disk, including any that arrive while
+   * writing. Call before quitting. False if a write failed; the value stays
+   * pending and its retry stays scheduled, in case the app keeps running.
    */
   async flush(): Promise<boolean> {
-    await this.write();
+    await this.chain; // a write already in progress
+    // A few rounds at most: a value that arrives mid-write needs one more.
+    for (let round = 0; round < 5 && this.latest !== undefined; round++) {
+      const pending = this.latest;
+      await this.write();
+      if (this.latest === pending) return false; // that write failed
+    }
+    if (this.latest !== undefined) return false;
     clearTimeout(this.timer);
     this.timer = undefined;
-    return this.latest === undefined;
+    return true;
   }
 
   /**

@@ -331,6 +331,7 @@ function menuContext(): MenuContext {
     openQueue: ((q) => (q === 'agentsTurn' ? 'yourTurn' : q))(T.findTask(state, state.openTaskId)?.queue),
     canGoBack: settingsShown || Q.canGoBack(state),
     canGoForward: !settingsShown && Q.canGoForward(state),
+    canGoNext: !settingsShown,
   };
 }
 

@@ -139,11 +139,12 @@ export function App() {
     }
     if (settingsOpen) {
       // Settings fills the main column: the tab and terminal commands have
-      // nothing to act on, and Back just leaves it for the task it covered.
+      // nothing to act on, Next task waits until it's closed, and Back just
+      // leaves it for the task it covered.
       if (id === 'back' || id === 'forward') {
         if (id === 'back') closeSettings();
         return;
-      } else if (!['newTask', 'editTask', 'nextTask', 'parkTask', 'markDone'].includes(id)) return;
+      } else if (!['newTask', 'editTask', 'parkTask', 'markDone'].includes(id)) return;
     }
     const tabs = openTask?.tabs ?? [];
     const idx = tabs.findIndex((t) => t.id === activeTabId);
@@ -182,7 +183,6 @@ export function App() {
       case 'nextTask':
         void api.nextTask().then((r) => {
           if (r.nothingElse) setNothingElse((n) => n + 1);
-          else if (settingsOpen) closeSettings();
         });
         return;
       case 'back':
@@ -369,16 +369,19 @@ export function App() {
                 </button>
               </>
             )}
-            <button
-              className={`btn next ${nextUp ? 'primary' : 'quiet'}`}
-              disabled={state.tasks.length === 0}
-              onClick={() => commandRef.current('nextTask')}
-              title={nextUp ? `Open ${nextUp.title}` : 'Nothing else needs you'}
-            >
-              <span className={nextUp ? 'next-word' : ''}>Next</span>
-              {nextUp && <span className="next-title">{nextUp.title}</span>}
-              {key('nextTask') && <span className="k">{key('nextTask')}</span>}
-            </button>
+            {/* Not in Settings, where Next task is off; it has only Close. */}
+            {!settingsOpen && (
+              <button
+                className={`btn next ${nextUp ? 'primary' : 'quiet'}`}
+                disabled={state.tasks.length === 0}
+                onClick={() => commandRef.current('nextTask')}
+                title={nextUp ? `Open ${nextUp.title}` : 'Nothing else needs you'}
+              >
+                <span className={nextUp ? 'next-word' : ''}>Next</span>
+                {nextUp && <span className="next-title">{nextUp.title}</span>}
+                {key('nextTask') && <span className="k">{key('nextTask')}</span>}
+              </button>
+            )}
             {settingsOpen && (
               <button className="btn" onClick={closeSettings}>
                 Close <span className="k">esc</span>

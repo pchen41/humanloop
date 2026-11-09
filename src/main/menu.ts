@@ -22,6 +22,8 @@ export interface MenuContext {
   openQueue: Queue | undefined;
   canGoBack: boolean;
   canGoForward: boolean;
+  /** Next Task is off while Settings fills the window. */
+  canGoNext: boolean;
 }
 
 
@@ -91,7 +93,7 @@ export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext)
     {
       label: 'Task',
       submenu: [
-        cmd('nextTask'),
+        cmd('nextTask', { enabled: ctx.canGoNext }),
         { type: 'separator' },
         cmd('parkTask', { label: openQueue === 'parked' ? 'Unpark Task' : 'Park Task', enabled: hasTask }),
         cmd('markDone', { label: openQueue === 'done' ? 'Reopen Task' : 'Mark Done', enabled: hasTask }),
