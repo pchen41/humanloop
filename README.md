@@ -8,7 +8,7 @@ sorted by priority, then by how long they have waited.
 
 ```sh
 npm install
-npm run dev        # app with hot reload; uses ~/Library/Application Support/Humanloop Dev
+npm run dev        # app with hot reload, named "Humanloop Dev"; uses ~/Library/Application Support/Humanloop Dev
 npm test           # unit tests
 npm run typecheck
 ```
