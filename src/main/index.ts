@@ -7,11 +7,12 @@ import { COMMANDS } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type TerminalEditCommand } from '../shared/ipc';
 import { DEFAULT_SETTINGS, EMPTY_STATE, type AppState, type Settings, type TaskDraft } from '../shared/model';
 import { normalizeSettings, normalizeState, stateAfterLaunch } from '../shared/normalize';
+import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
 import { AgentTracker } from './agentTracker';
 import { currentHookStatus, installWithConfirm, removeWithConfirm } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
-import { acceleratorFor, buildMenu } from './menu';
+import { acceleratorFor, buildMenu, type MenuContext } from './menu';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
 import { JsonStore, readJson, writeJsonSync } from './store';
@@ -54,17 +55,28 @@ const ptys = new PtyManager({
 const hookSocket = hookSocketPath(userData);
 const tracker = new AgentTracker({
   shellPid: (tabId) => (ptys.has(tabId) ? ptys.pid(tabId) : undefined),
-  onChange: () => win?.webContents.send(IPC.agents, tracker.snapshot()),
+  onChange: () => {
+    win?.webContents.send(IPC.agents, tracker.snapshot());
+    setState(state); // agent state changed: re-file tasks
+  },
   // HUMANLOOP_HOOK_LOG=1 records every hook delivery, for checking how Claude Code behaves.
   logFile: process.env.HUMANLOOP_HOOK_LOG ? join(userData, 'hook-events.jsonl') : undefined,
 });
 const hookServer = new HookServer(hookSocket, (d) => tracker.handle(d));
 
+/** Each task's agent state right now. */
+function stateOf(): Q.AgentStateOf {
+  return Q.agentStateOf(tracker.snapshot(), settings.policy);
+}
+
+/** Every update goes through here, so tasks are always filed by their current agent state. */
 function setState(next: AppState): void {
+  next = Q.reconcile(next, stateOf(), Date.now());
   if (next === state) return;
   state = next;
   stateStore.save(state);
   win?.webContents.send(IPC.state, state);
+  updateMenuContext();
 }
 
 // ---------- settings ----------
@@ -85,6 +97,7 @@ function watchSettings(): void {
         settings = readJson(settingsFile, settings, normalizeSettings);
         installMenu();
         win?.webContents.send(IPC.settings, settings);
+        setState(state); // the policy may have changed
       }, 200);
     });
   } catch (err) {
@@ -92,17 +105,47 @@ function watchSettings(): void {
   }
 }
 
+let hookStatus = currentHookStatus();
+/** The menu is built once the app is ready; until then there is nothing to update. */
+let menuReady = false;
+let menuContextKey = '';
+
+function menuContext(): MenuContext {
+  return {
+    hooks: hookStatus,
+    openQueue: T.findTask(state, state.openTaskId)?.queue,
+    canGoBack: Q.canGoBack(state),
+    canGoForward: Q.canGoForward(state),
+  };
+}
+
 function installMenu(): void {
+  const ctx = menuContext();
+  menuContextKey = JSON.stringify(ctx);
   Menu.setApplicationMenu(
-    buildMenu(settings, {
-      command: (id) => win?.webContents.send(IPC.command, id),
-      copy: () => editCommand('copy'),
-      selectAll: () => editCommand('selectAll'),
-      openSettings: () => void shell.openPath(settingsFile),
-      installHooks: () => void installWithConfirm(win).then(installMenu),
-      removeHooks: () => void removeWithConfirm(win).then(installMenu),
-    }, currentHookStatus()),
+    buildMenu(
+      settings,
+      {
+        command: (id) => win?.webContents.send(IPC.command, id),
+        copy: () => editCommand('copy'),
+        selectAll: () => editCommand('selectAll'),
+        openSettings: () => void shell.openPath(settingsFile),
+        installHooks: () => void installWithConfirm(win).then(refreshHookStatus),
+        removeHooks: () => void removeWithConfirm(win).then(refreshHookStatus),
+      },
+      ctx,
+    ),
   );
+}
+
+function refreshHookStatus(): void {
+  hookStatus = currentHookStatus();
+  installMenu();
+}
+
+/** Rebuilds the menu when its labels or enabled items would change. */
+function updateMenuContext(): void {
+  if (menuReady && JSON.stringify(menuContext()) !== menuContextKey) installMenu();
 }
 
 function editCommand(cmd: TerminalEditCommand): void {
@@ -146,6 +189,53 @@ async function confirm(message: string, detail: string, action: string): Promise
   return response === 0;
 }
 
+/** Kills a tab's shell and forgets its agent. Call after the tab is gone from state. */
+function killTab(tabId: string): void {
+  ptys.kill(tabId);
+  tracker.clear(tabId);
+}
+
+/** Offers to close the task's tabs, then marks it done. */
+async function markDoneWithConfirm(id: string): Promise<boolean> {
+  const task = T.findTask(state, id);
+  if (!task) return false;
+  let closeTabs = false;
+  if (task.tabs.length) {
+    const n = task.tabs.length;
+    const busy = busyTabs(task.tabs.map((t) => t.id)).length;
+    const opts: Electron.MessageBoxOptions = {
+      type: 'question',
+      message: `Mark “${task.title}” done?`,
+      detail:
+        `Close its ${n === 1 ? 'tab' : `${n} tabs`} too?` +
+        (busy ? ` ${busy === 1 ? 'A program is' : `${busy} programs are`} still running in ${n === 1 ? 'it' : 'them'}.` : ''),
+      buttons: [n === 1 ? 'Close Tab' : 'Close Tabs', n === 1 ? 'Keep Tab' : 'Keep Tabs', 'Cancel'],
+      defaultId: 0,
+      cancelId: 2,
+    };
+    const { response } = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
+    if (response === 2) return false;
+    closeTabs = response === 0;
+  }
+  // The task may have changed or been deleted while the dialog was open.
+  const current = T.findTask(state, id);
+  if (!current) return false;
+  const closing = closeTabs ? current.tabs.map((t) => t.id) : [];
+  // Update state first, so nothing ever sees the task with shells that are already gone.
+  setState(Q.markDone(closing.reduce((s, tabId) => T.closeTab(s, id, tabId), state), id, Date.now()));
+  for (const tabId of closing) killTab(tabId);
+  return true;
+}
+
+function park(id: string): void {
+  if (T.findTask(state, id)) setState(Q.parkTask(state, id, Date.now()));
+}
+
+/** Unparks or reopens a task, filing it by its agent state. */
+function restore(id: string): void {
+  setState(Q.restoreTask(state, id, stateOf(), Date.now()));
+}
+
 async function deleteTaskWithConfirm(id: string): Promise<boolean> {
   const task = T.findTask(state, id);
   if (!task) return false;
@@ -157,11 +247,9 @@ async function deleteTaskWithConfirm(id: string): Promise<boolean> {
   );
   if (!ok) return false;
   // Tabs may have changed while the dialog was open.
-  for (const tab of T.findTask(state, id)?.tabs ?? []) {
-    ptys.kill(tab.id);
-    tracker.clear(tab.id);
-  }
+  const closing = T.findTask(state, id)?.tabs ?? [];
   setState(T.deleteTask(state, id));
+  for (const tab of closing) killTab(tab.id);
   return true;
 }
 
@@ -179,9 +267,34 @@ function registerIpc(): void {
   ipcMain.handle(IPC.openTask, (_e, id: string) => {
     setState(T.openTask(state, id, Date.now()));
   });
+  ipcMain.handle(IPC.nextTask, () => {
+    const r = Q.nextTask(state, stateOf(), Date.now());
+    setState(r.state);
+    return { nothingElse: r.nothingElse };
+  });
+  ipcMain.handle(IPC.goBack, () => setState(Q.goBack(state)));
+  ipcMain.handle(IPC.goForward, () => setState(Q.goForward(state)));
+  ipcMain.handle(IPC.toggleParked, () => {
+    const task = T.findTask(state, state.openTaskId);
+    if (task) (task.queue === 'parked' ? restore : park)(task.id);
+  });
+  ipcMain.handle(IPC.toggleDone, async () => {
+    const task = T.findTask(state, state.openTaskId);
+    if (task?.queue === 'done') restore(task.id);
+    else if (task) await markDoneWithConfirm(task.id);
+  });
   ipcMain.on(IPC.taskMenu, (_e, id: string) => {
+    const task = T.findTask(state, id);
+    if (!task) return;
+    const parked = task.queue === 'parked';
+    const done = task.queue === 'done';
     Menu.buildFromTemplate([
       { label: 'Edit Task…', click: () => win?.webContents.send(IPC.editTask, id) },
+      { type: 'separator' },
+      parked ? { label: 'Unpark Task', click: () => restore(id) } : { label: 'Park Task', click: () => park(id) },
+      done
+        ? { label: 'Reopen Task', click: () => restore(id) }
+        : { label: 'Mark Done…', click: () => void markDoneWithConfirm(id) },
       { type: 'separator' },
       { label: 'Delete Task…', click: () => void deleteTaskWithConfirm(id) },
     ]).popup({ window: win });
@@ -203,9 +316,10 @@ function registerIpc(): void {
     if (!isShell(program) && !(await confirm('Close this tab?', `${program} is still running in it.`, 'Close Tab'))) {
       return false;
     }
-    ptys.kill(tabId);
-    tracker.clear(tabId);
-    setState(T.closeTab(state, found.task.id, tabId));
+    // The tab may have gone while the dialog was open.
+    const task = T.findTab(state, tabId)?.task;
+    if (task) setState(T.closeTab(state, task.id, tabId));
+    killTab(tabId);
     return true;
   });
   ipcMain.on(IPC.setTabTitle, (_e, tabId: string, title: string) => {
@@ -351,6 +465,7 @@ void app.whenReady().then(async () => {
   }
   if (!existsSync(settingsFile)) writeDefaultSettings();
   watchSettings();
+  menuReady = true;
   installMenu();
   registerIpc();
   win = createWindow();

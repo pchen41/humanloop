@@ -28,6 +28,10 @@ export function App() {
   const [data, setData] = useState<Loaded>();
   const [chosenTab, setChosenTab] = useState<Record<string, string>>({});
   const [editor, setEditor] = useState<EditorMode>();
+  /** Bumped each time Next task finds nothing else, so the notice restarts. */
+  const [nothingElse, setNothingElse] = useState(0);
+  const clearNotice = useCallback(() => setNothingElse(0), []);
+  const submitEditor = useRef<() => void>(undefined);
 
   useEffect(() => {
     let alive = true;
@@ -98,7 +102,11 @@ export function App() {
   // Menu commands. A ref keeps the handler current without re-subscribing.
   const commandRef = useRef<(id: CommandId) => void>(() => {});
   commandRef.current = (id) => {
-    if (editor) return;
+    if (editor) {
+      // ⌘Return is also the editor's Save; the menu may take the key before the form sees it.
+      if (id === 'nextTask') submitEditor.current?.();
+      return;
+    }
     const tabs = openTask?.tabs ?? [];
     const idx = tabs.findIndex((t) => t.id === activeTabId);
     switch (id) {
@@ -124,6 +132,23 @@ export function App() {
       case 'clearTerminal':
         if (activeTabId) terminals.peek(activeTabId)?.term.clear();
         return;
+      case 'nextTask':
+        void api.nextTask().then((r) => {
+          if (r.nothingElse) setNothingElse((n) => n + 1);
+        });
+        return;
+      case 'back':
+        void api.goBack();
+        return;
+      case 'forward':
+        void api.goForward();
+        return;
+      case 'parkTask':
+        void api.toggleParked();
+        return;
+      case 'markDone':
+        void api.toggleDone();
+        return;
       default: {
         // tab1 … tab9; tab9 always means the last tab.
         const n = Number(id.slice(3));
@@ -133,6 +158,10 @@ export function App() {
     }
   };
   useEffect(() => api.onCommand((id) => commandRef.current(id)), []);
+  useEffect(() => {
+    // Lets UI tests run menu commands, whose native shortcuts can't be pressed from a script.
+    window.__humanloopDebug = { ...window.__humanloopDebug!, command: (id) => commandRef.current(id) };
+  }, []);
 
   const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
 
@@ -201,15 +230,32 @@ export function App() {
         onMenu={onTaskMenu}
         onNew={() => setEditor({ kind: 'create' })}
       />
-      <main className="main">{view}</main>
+      <main className="main">
+        {view}
+        {nothingElse > 0 && <Notice key={nothingElse} text="Nothing else needs you" onDone={clearNotice} />}
+      </main>
       {editor && (
         <TaskEditor
           mode={editor}
           homeDir={data.homeDir}
           globalDefaultCwd={data.settings.defaultCwd}
           onClose={closeEditor}
+          submitRef={submitEditor}
         />
       )}
+    </div>
+  );
+}
+
+/** A short message that fades out on its own. */
+function Notice({ text, onDone }: { text: string; onDone(): void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 2000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div className="notice" role="status">
+      {text}
     </div>
   );
 }

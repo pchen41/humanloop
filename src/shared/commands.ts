@@ -17,7 +17,12 @@ export type CommandId =
   | 'tab7'
   | 'tab8'
   | 'tab9'
-  | 'clearTerminal';
+  | 'clearTerminal'
+  | 'nextTask'
+  | 'back'
+  | 'forward'
+  | 'parkTask'
+  | 'markDone';
 
 export interface CommandDef {
   id: CommandId;
@@ -41,6 +46,12 @@ export const COMMANDS: CommandDef[] = [
   { id: 'prevTab', label: 'Show Previous Tab', accelerator: 'CmdOrCtrl+Shift+[' },
   ...tabCommands,
   { id: 'clearTerminal', label: 'Clear Terminal', accelerator: 'CmdOrCtrl+K' },
+  { id: 'nextTask', label: 'Next Task', accelerator: 'CmdOrCtrl+Return' },
+  { id: 'back', label: 'Back', accelerator: 'CmdOrCtrl+[' },
+  { id: 'forward', label: 'Forward', accelerator: 'CmdOrCtrl+]' },
+  // The menu says Unpark / Reopen when the open task is already parked or done.
+  { id: 'parkTask', label: 'Park Task', accelerator: 'CmdOrCtrl+Shift+P' },
+  { id: 'markDone', label: 'Mark Done…', accelerator: 'CmdOrCtrl+Shift+D' },
 ];
 
 export function commandById(id: CommandId): CommandDef {

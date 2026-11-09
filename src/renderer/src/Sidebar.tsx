@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { commandById } from '../../shared/commands';
-import { taskAgentState, type TabAgent } from '../../shared/agents';
-import { effectivePolicy, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
+import type { TabAgent } from '../../shared/agents';
+import { QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
 import { AgentDot } from './AgentDot';
+import { agentStateOf } from '../../shared/queues';
 import { tasksInQueue } from '../../shared/tasks';
 import { formatAccelerator, formatWait } from './format';
 
@@ -34,6 +35,7 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
     parked: false,
     done: true,
   });
+  const stateOf = agentStateOf(agents, settings.policy);
   const newTaskKey = formatAccelerator(settings.shortcuts.newTask ?? commandById('newTask').accelerator);
 
   return (
@@ -43,6 +45,8 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
         {QUEUES.map((queue) => {
           const tasks = tasksInQueue(state, queue);
           const isCollapsed = collapsed[queue];
+          // A collapsed section still shows the open task, so it is always visible.
+          const shown = isCollapsed ? tasks.filter((t) => t.id === state.openTaskId) : tasks;
           return (
             <section key={queue} className="queue">
               <button
@@ -54,9 +58,9 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
                 <span className="queue-name">{QUEUE_LABELS[queue]}</span>
                 <span className="queue-count">{tasks.length || ''}</span>
               </button>
-              {!isCollapsed && (
+              {shown.length > 0 || !isCollapsed ? (
                 <ul className="task-list">
-                  {tasks.map((task) => (
+                  {shown.map((task) => (
                     <li key={task.id}>
                       <button
                         className={`task-row ${task.id === state.openTaskId ? 'open' : ''}`}
@@ -69,20 +73,17 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
                         title={task.description || task.title}
                       >
                         <span className={`priority p${task.priority}`}>P{task.priority}</span>
-                        <AgentDot
-                          state={taskAgentState(
-                            task.tabs.map((t) => agents[t.id]),
-                            effectivePolicy(settings.policy, task.policy),
-                          )}
-                        />
+                        <AgentDot state={stateOf(task)} />
                         <span className="task-title">{task.title}</span>
                         <span className="task-wait">{formatWait(task.enteredAt, now)}</span>
                       </button>
                     </li>
                   ))}
-                  {tasks.length === 0 && queue === 'yourTurn' && <li className="queue-empty">Nothing waiting on you</li>}
+                  {!isCollapsed && tasks.length === 0 && queue === 'yourTurn' && (
+                    <li className="queue-empty">Nothing waiting on you</li>
+                  )}
                 </ul>
-              )}
+              ) : null}
             </section>
           );
         })}

@@ -24,7 +24,18 @@ export interface HumanloopApi {
   /** Asks for confirmation, then closes the task's shells and deletes it. */
   deleteTask(id: string): Promise<boolean>;
   openTask(id: string): Promise<void>;
-  /** Shows the native context menu for a task (Edit, Delete). */
+  /** Files the open task and opens the next one in Your Turn. */
+  nextTask(): Promise<{ nothingElse: boolean }>;
+  goBack(): Promise<void>;
+  goForward(): Promise<void>;
+  /**
+   * Parks the open task, or unparks it if parked. Acts on whichever task main
+   * has open, so it can't hit the previous task right after Next or Back.
+   */
+  toggleParked(): Promise<void>;
+  /** Marks the open task done (offering to close its tabs), or reopens it if done. */
+  toggleDone(): Promise<void>;
+  /** Shows the native context menu for a task (Edit, Park, Done, Delete). */
   showTaskMenu(id: string): void;
   /** The task menu's Edit item was chosen. */
   onEditTask(cb: (id: string) => void): () => void;
@@ -58,6 +69,11 @@ export const IPC = {
   updateTask: 'task:update',
   deleteTask: 'task:delete',
   openTask: 'task:open',
+  nextTask: 'task:next',
+  goBack: 'history:back',
+  goForward: 'history:forward',
+  toggleParked: 'task:toggle-parked',
+  toggleDone: 'task:toggle-done',
   taskMenu: 'task:menu',
   editTask: 'task:edit',
   chooseDirectory: 'dialog:directory',

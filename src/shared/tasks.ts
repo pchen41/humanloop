@@ -81,8 +81,9 @@ export function deleteTask(state: AppState, id: string): AppState {
     }
     kept.push(entry);
   });
-  if (kept.length > 0) historyIndex = Math.max(0, Math.min(historyIndex, kept.length - 1));
-  else historyIndex = -1;
+  // Deleting the open task leaves nothing open, positioned just after the entry
+  // before it (-1 if it was the first): Back opens that entry, Forward the next.
+  historyIndex = Math.max(-1, Math.min(historyIndex, kept.length - 1));
   return {
     ...state,
     tasks: state.tasks.filter((t) => t.id !== id),

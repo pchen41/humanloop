@@ -89,7 +89,7 @@ export function normalizeState(raw: unknown, now = Date.now()): AppState {
     historyIndex -= history.length - HISTORY_LIMIT;
     history = history.slice(-HISTORY_LIMIT);
   }
-  if (history.length) historyIndex = Math.max(0, Math.min(historyIndex, history.length - 1));
+  historyIndex = Math.max(-1, Math.min(historyIndex, history.length - 1));
   const openTaskId = str(raw.openTaskId);
   return {
     tasks,

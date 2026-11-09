@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
 import { DEFAULT_PRIORITY, type Priority, type Task, type TaskDraft } from '../../shared/model';
 import { shortenHome } from './format';
 
@@ -11,11 +11,13 @@ interface Props {
   homeDir: string;
   globalDefaultCwd: string | undefined;
   onClose(): void;
+  /** Set to this editor's Save, so the menu's ⌘Return can save it. */
+  submitRef?: RefObject<(() => void) | undefined>;
 }
 
 const PRIORITIES: Priority[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose }: Props) {
+export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose, submitRef }: Props) {
   const existing = mode.kind === 'edit' ? mode.task : undefined;
   const [draft, setDraft] = useState<TaskDraft>({
     title: existing?.title ?? '',
@@ -25,6 +27,8 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose }: Props) 
   });
   const titleRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  // ⌘Return can arrive both as a key press and as a menu command; save only once.
+  const savingRef = useRef(false);
 
   useEffect(() => {
     titleRef.current?.focus();
@@ -35,7 +39,8 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose }: Props) 
 
   async function submit(e?: FormEvent) {
     e?.preventDefault();
-    if (saving) return;
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
       const clean = { ...draft, defaultCwd: draft.defaultCwd?.trim() || undefined };
@@ -43,15 +48,24 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, onClose }: Props) 
       else await api.createTask(clean);
       onClose();
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
+  if (submitRef) submitRef.current = () => void submit();
+  useEffect(
+    () => () => {
+      if (submitRef) submitRef.current = undefined;
+    },
+    [submitRef],
+  );
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       e.preventDefault();
       onClose();
     } else if (e.key === 'Enter' && e.metaKey) {
+      e.preventDefault();
       void submit();
     }
   }

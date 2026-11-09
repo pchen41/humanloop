@@ -3,7 +3,7 @@
 import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { commandById, type CommandId } from '../shared/commands';
 import type { HookStatus } from '../shared/hooks';
-import type { Settings } from '../shared/model';
+import type { Queue, Settings } from '../shared/model';
 
 export interface MenuHandlers {
   command(id: CommandId): void;
@@ -14,18 +14,30 @@ export interface MenuHandlers {
   removeHooks(): void;
 }
 
+/** What the Task and Go menus depend on. The menu is rebuilt when this changes. */
+export interface MenuContext {
+  hooks: HookStatus | 'unreadable';
+  /** The open task's queue, if a task is open. */
+  openQueue: Queue | undefined;
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
+
 export function acceleratorFor(settings: Settings, id: CommandId): string | undefined {
   const custom = settings.shortcuts[id];
   if (custom !== undefined) return custom || undefined; // "" unbinds a shortcut
   return commandById(id).accelerator;
 }
 
-export function buildMenu(settings: Settings, h: MenuHandlers, hooks: HookStatus | 'unreadable'): Menu {
-  const cmd = (id: CommandId): MenuItemConstructorOptions => ({
+export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext): Menu {
+  const { hooks, openQueue } = ctx;
+  const cmd = (id: CommandId, extra: MenuItemConstructorOptions = {}): MenuItemConstructorOptions => ({
     label: commandById(id).label,
     accelerator: acceleratorFor(settings, id),
     click: () => h.command(id),
+    ...extra,
   });
+  const hasTask = openQueue !== undefined;
   const tabs = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => cmd(`tab${n}` as CommandId));
 
   const template: MenuItemConstructorOptions[] = [
@@ -78,7 +90,18 @@ export function buildMenu(settings: Settings, h: MenuHandlers, hooks: HookStatus
     },
     {
       label: 'Task',
-      submenu: [cmd('editTask')],
+      submenu: [
+        cmd('nextTask'),
+        { type: 'separator' },
+        cmd('parkTask', { label: openQueue === 'parked' ? 'Unpark Task' : 'Park Task', enabled: hasTask }),
+        cmd('markDone', { label: openQueue === 'done' ? 'Reopen Task' : 'Mark Done…', enabled: hasTask }),
+        { type: 'separator' },
+        cmd('editTask', { enabled: hasTask }),
+      ],
+    },
+    {
+      label: 'Go',
+      submenu: [cmd('back', { enabled: ctx.canGoBack }), cmd('forward', { enabled: ctx.canGoForward })],
     },
     {
       label: 'View',

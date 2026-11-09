@@ -257,7 +257,10 @@ export const terminals = new TerminalRegistry();
 
 declare global {
   interface Window {
-    __humanloopDebug?: { terminalText(tabId: string): string | undefined };
+    __humanloopDebug?: {
+      terminalText(tabId: string): string | undefined;
+      command?(id: import('../../shared/commands').CommandId): void;
+    };
   }
 }
 window.__humanloopDebug = { terminalText: (tabId) => terminals.peek(tabId)?.text() };
