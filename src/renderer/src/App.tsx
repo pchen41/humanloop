@@ -4,9 +4,11 @@ import type { TabAgent } from '../../shared/agents';
 import type { HookState, ResumeOffer } from '../../shared/ipc';
 import type { AppState, Settings, Task } from '../../shared/model';
 import { acceleratorFor, sameAccelerator } from '../../shared/shortcuts';
-import { findTask } from '../../shared/tasks';
+import { findTask, tasksInQueue } from '../../shared/tasks';
+import { formatAccelerator } from './format';
+import { NewTaskIcon, SettingsIcon } from './icons';
 import { SettingsView } from './SettingsView';
-import { Sidebar } from './Sidebar';
+import { Sidebar, tip } from './Sidebar';
 import { TaskEditor, type EditorMode } from './TaskEditor';
 import { TaskView } from './TaskView';
 import { setOptionAsMeta, terminals } from './terminals';
@@ -23,7 +25,6 @@ interface Loaded {
   resume: Record<string, ResumeOffer>;
 }
 
-/** The selected tab of a task, falling back to its first tab. */
 /**
  * The selected tab of a task. When it's gone (closed, or its shell exited),
  * the tab that slid into its place, like a browser; else the first.
@@ -51,6 +52,8 @@ export function App() {
   const [nothingElse, setNothingElse] = useState(0);
   const clearNotice = useCallback(() => setNothingElse(0), []);
   const submitEditor = useRef<() => void>(undefined);
+  /** Saves Settings' unconfirmed directory field before it closes. */
+  const flushSettings = useRef<() => void>(undefined);
 
   useEffect(() => {
     let alive = true;
@@ -126,13 +129,20 @@ export function App() {
   // Menu commands. A ref keeps the handler current without re-subscribing.
   const commandRef = useRef<(id: CommandId) => void>(() => {});
   commandRef.current = (id) => {
-    if (settingsOpen) return;
     if (editor) {
       // ⌘Return is the editor's Save, and the menu may take that key before
       // the form sees it: whichever command it is bound to then saves.
       const accel = data && acceleratorFor(data.settings, id);
       if (accel && sameAccelerator(accel, 'CmdOrCtrl+Return')) submitEditor.current?.();
       return;
+    }
+    if (settingsOpen) {
+      // Settings fills the main column: the tab and terminal commands have
+      // nothing to act on, and Back just leaves it for the task it covered.
+      if (id === 'back' || id === 'forward') {
+        if (id === 'back') closeSettings();
+        return;
+      } else if (!['newTask', 'editTask', 'nextTask', 'parkTask', 'markDone'].includes(id)) return;
     }
     const tabs = openTask?.tabs ?? [];
     const idx = tabs.findIndex((t) => t.id === activeTabId);
@@ -171,6 +181,7 @@ export function App() {
       case 'nextTask':
         void api.nextTask().then((r) => {
           if (r.nothingElse) setNothingElse((n) => n + 1);
+          else if (settingsOpen) closeSettings();
         });
         return;
       case 'back':
@@ -201,8 +212,10 @@ export function App() {
   }, [data, pendingCommand]);
   useEffect(
     () =>
-      // Opens over the task editor, if one is open, so its unsaved draft is kept.
-      api.onShowSettings(() => setSettingsOpen(true)),
+      // Not while the task editor is open: it is modal, and Settings would open out of sight behind it.
+      api.onShowSettings(() => {
+        if (!editorRef.current) setSettingsOpen(true);
+      }),
     [],
   );
   useEffect(() => {
@@ -215,6 +228,8 @@ export function App() {
   }, []);
 
   const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
 
   // The task menu's Edit item. A ref reads the current state without re-subscribing.
   const stateRef = useRef(state);
@@ -236,37 +251,50 @@ export function App() {
       else if (activeTabId) terminals.peek(activeTabId)?.focus();
     });
   }, [activeTabId]);
-  const closeEditor = useCallback(() => {
+  /** A task created from Settings is opened, so Settings makes way for it. */
+  function closeEditor(created?: boolean) {
     setEditor(undefined);
-    refocus();
-  }, [refocus]);
+    if (created && settingsOpen) closeSettings();
+    else refocus();
+  }
   const closeFind = useCallback(() => {
     setFind(undefined);
     if (activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
   }, [activeTabId]);
-  const closeSettings = useCallback(() => {
+  function closeSettings() {
+    flushSettings.current?.();
     setSettingsOpen(false);
-    // Back to the editor if Settings opened over it.
-    if (editor) requestAnimationFrame(() => document.querySelector<HTMLElement>('.modal input')?.focus());
-    else refocus();
-  }, [editor, refocus]);
+    refocus();
+  }
+  const closeSettingsRef = useRef(closeSettings);
+  closeSettingsRef.current = closeSettings;
+  // Esc closes Settings (a shortcut being recorded takes Esc first, in main).
+  useEffect(() => {
+    if (!settingsOpen || editor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault();
+        closeSettingsRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [settingsOpen, editor]);
 
   const view = useMemo(() => {
     if (!state || !data) return null;
     if (!openTask) {
-      return (
-        <div className="empty-main titlebar-pad">
-          {state.tasks.length === 0 ? (
-            <>
-              <h2>No tasks yet</h2>
-              <p>A task groups the terminal tabs you use for one piece of work.</p>
-            </>
-          ) : (
-            <p>Pick a task from the sidebar.</p>
-          )}
-          <button className="primary" onClick={() => setEditor({ kind: 'create' })}>
-            New Task
+      const newTaskKey = formatAccelerator(acceleratorFor(data.settings, 'newTask'));
+      return state.tasks.length === 0 ? (
+        <div className="empty-main">
+          <h2>No tasks yet</h2>
+          <button className="btn primary big" onClick={() => setEditor({ kind: 'create' })}>
+            New task {newTaskKey && <span className="k">{newTaskKey}</span>}
           </button>
+        </div>
+      ) : (
+        <div className="empty-main">
+          <h2>Pick a task from the sidebar</h2>
         </div>
       );
     }
@@ -281,69 +309,112 @@ export function App() {
         onCloseTab={closeTab}
         onNewTab={newTab}
         onEdit={() => setEditor({ kind: 'edit', task: openTask })}
-        focusTerminal={!editor && !settingsOpen}
+        onPark={() => void api.toggleParked()}
+        onDone={() => void api.toggleDone()}
+        focusTerminal={!editor}
         resume={data.resume}
         find={find}
         onFindQuery={(query) => setFind((f) => f && { ...f, query })}
         onCloseFind={closeFind}
       />
     );
-  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, settingsOpen, find, closeFind]);
+  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, find, closeFind]);
 
   if (!data || !state) return null;
-  // While a dialog is open, everything behind it is inert: no focus, clicks or typing reach it.
-  const modalOpen = !!editor || settingsOpen;
+  const key = (id: CommandId) => formatAccelerator(acceleratorFor(data.settings, id));
+  // The task ⌘↩ would open: what queues.ts nextTask picks.
+  const nextUp = tasksInQueue(state, 'yourTurn').find((t) => t.id !== state.openTaskId);
+  const withClaude = tasksInQueue(state, 'agentsTurn').filter((t) => t.id !== state.openTaskId).length;
 
   return (
     <div className="app">
       <Sidebar
-        inert={modalOpen}
+        inert={!!editor}
         state={state}
         settings={data.settings}
         agents={data.agents}
-        onOpen={(id) => void api.openTask(id)}
+        resume={data.resume}
+        onOpen={(id) => {
+          if (settingsOpen) closeSettings();
+          void api.openTask(id);
+        }}
         onEdit={(task) => setEditor({ kind: 'edit', task })}
         onMenu={onTaskMenu}
-        onNew={() => setEditor({ kind: 'create' })}
+        onBack={() => commandRef.current('back')}
+        onForward={() => commandRef.current('forward')}
       />
-      <main className="main" inert={modalOpen}>
-        {view}
-        {nothingElse > 0 && <Notice key={nothingElse} text="Nothing else needs you" onDone={clearNotice} />}
+      <main className="main" inert={!!editor}>
+        <header className="main-header">
+          {settingsOpen && <h1>Settings</h1>}
+          <span className="spacer" />
+          {!settingsOpen && (
+            <>
+              <button className="ib" onClick={() => setEditor({ kind: 'create' })} title={tip('New task', key('newTask'))} aria-label="New task">
+                <NewTaskIcon />
+              </button>
+              <button className="ib" onClick={() => api.openSettings()} title="Settings (⌘,)" aria-label="Settings">
+                <SettingsIcon />
+              </button>
+            </>
+          )}
+          <button
+            className={`btn next ${nextUp ? 'primary' : 'quiet'}`}
+            disabled={state.tasks.length === 0}
+            onClick={() => commandRef.current('nextTask')}
+            title={nextUp ? `Open ${nextUp.title}` : 'Nothing else needs you'}
+          >
+            <span className={nextUp ? 'next-word' : ''}>Next</span>
+            {nextUp && <span className="next-title">{nextUp.title}</span>}
+            {key('nextTask') && <span className="k">{key('nextTask')}</span>}
+          </button>
+          {settingsOpen && (
+            <button className="btn" onClick={closeSettings}>
+              Close <span className="k">esc</span>
+            </button>
+          )}
+          {nothingElse > 0 && (
+            <Popover key={nothingElse} onDone={clearNotice}>
+              <strong>Nothing else needs you</strong>
+              {withClaude > 0 && (
+                <span>{withClaude === 1 ? '1 other task is with Claude.' : `${withClaude} other tasks are with Claude.`}</span>
+              )}
+            </Popover>
+          )}
+        </header>
+        {settingsOpen ? (
+          <SettingsView
+            settings={data.settings}
+            hooks={data.hooks}
+            claudeSettingsPath={data.claudeSettingsPath}
+            homeDir={data.homeDir}
+            flushRef={flushSettings}
+          />
+        ) : (
+          view
+        )}
       </main>
       {editor && (
         <TaskEditor
           key={editor.kind === 'edit' ? editor.task.id : 'new'}
-          inert={settingsOpen}
           mode={editor}
-          homeDir={data.homeDir}
-          globalDefaultCwd={data.settings.defaultCwd}
           globalPolicy={data.settings.policy}
           onClose={closeEditor}
           submitRef={submitEditor}
-        />
-      )}
-      {settingsOpen && (
-        <SettingsView
-          settings={data.settings}
-          hooks={data.hooks}
-          claudeSettingsPath={data.claudeSettingsPath}
-          homeDir={data.homeDir}
-          onClose={closeSettings}
         />
       )}
     </div>
   );
 }
 
-/** A short message that fades out on its own. */
-function Notice({ text, onDone }: { text: string; onDone(): void }) {
+/** Says why Next did nothing, under the button, and fades out on its own. */
+function Popover({ children, onDone }: { children: React.ReactNode; onDone(): void }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 2000);
+    const t = setTimeout(onDone, 3000);
     return () => clearTimeout(t);
   }, [onDone]);
   return (
-    <div className="notice" role="status">
-      {text}
+    <div className="popover" role="status">
+      {children}
     </div>
   );
 }

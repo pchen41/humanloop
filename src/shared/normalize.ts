@@ -140,6 +140,8 @@ export function normalizeSettings(raw: unknown): Settings {
     notifications: typeof raw.notifications === 'boolean' ? raw.notifications : DEFAULT_SETTINGS.notifications,
     keepAwake: typeof raw.keepAwake === 'boolean' ? raw.keepAwake : DEFAULT_SETTINGS.keepAwake,
     optionAsMeta: typeof raw.optionAsMeta === 'boolean' ? raw.optionAsMeta : DEFAULT_SETTINGS.optionAsMeta,
+    newTabsInCurrentDir:
+      typeof raw.newTabsInCurrentDir === 'boolean' ? raw.newTabsInCurrentDir : DEFAULT_SETTINGS.newTabsInCurrentDir,
   };
   const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;

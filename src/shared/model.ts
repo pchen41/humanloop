@@ -8,8 +8,8 @@ export type Queue = 'yourTurn' | 'agentsTurn' | 'parked' | 'done';
 export const QUEUES: readonly Queue[] = ['yourTurn', 'agentsTurn', 'parked', 'done'];
 
 export const QUEUE_LABELS: Record<Queue, string> = {
-  yourTurn: 'Your Turn',
-  agentsTurn: "Agent's Turn",
+  yourTurn: 'Your turn',
+  agentsTurn: "Agent's turn",
   parked: 'Parked',
   done: 'Done',
 };
@@ -102,6 +102,8 @@ export interface Settings {
    * off on layouts that type characters like @ { } [ ] | with Option.
    */
   optionAsMeta: boolean;
+  /** New tabs start in the current tab's directory (else the task's, or the default). */
+  newTabsInCurrentDir: boolean;
 }
 
 export const EMPTY_STATE: AppState = { tasks: [], history: [], historyIndex: -1 };
@@ -112,6 +114,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifications: true,
   keepAwake: false,
   optionAsMeta: true,
+  newTabsInCurrentDir: true,
 };
 
 /** A change made in the settings screen. A null defaultCwd clears it. */
@@ -121,6 +124,7 @@ export interface SettingsPatch {
   notifications?: boolean;
   keepAwake?: boolean;
   optionAsMeta?: boolean;
+  newTabsInCurrentDir?: boolean;
   /** Command id -> accelerator; "" removes the shortcut, null puts the default back. */
   shortcuts?: Record<string, string | null>;
 }
@@ -142,7 +146,7 @@ export function patchSettingsJson(raw: Record<string, unknown>, patch: SettingsP
     if (cwd) out.defaultCwd = cwd;
     else delete out.defaultCwd;
   }
-  for (const key of ['notifications', 'keepAwake', 'optionAsMeta'] as const) {
+  for (const key of ['notifications', 'keepAwake', 'optionAsMeta', 'newTabsInCurrentDir'] as const) {
     if (typeof patch[key] === 'boolean') out[key] = patch[key];
   }
   if (typeof patch.shortcuts === 'object' && patch.shortcuts !== null && !Array.isArray(patch.shortcuts)) {

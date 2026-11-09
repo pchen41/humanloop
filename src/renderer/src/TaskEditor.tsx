@@ -1,26 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
-import { DEFAULT_PRIORITY, POLICY_KEYS, PRIORITIES, type Policy, type Task, type TaskDraft } from '../../shared/model';
-import { shortenHome } from './format';
-import { PolicyControls, withPolicyChange } from './PolicyControls';
+import { DEFAULT_PRIORITY, PRIORITIES, type Policy, type Task, type TaskDraft } from '../../shared/model';
+import { overrideCount, PolicyControls, withPolicyChange } from './PolicyControls';
 
 const api = window.humanloop;
 
 export type EditorMode = { kind: 'create' } | { kind: 'edit'; task: Task };
 
 interface Props {
-  /** True while Settings is open on top of the editor. */
-  inert?: boolean;
   mode: EditorMode;
-  homeDir: string;
-  globalDefaultCwd: string | undefined;
   globalPolicy: Policy;
-  onClose(): void;
+  /** `created`: a new task was saved (and is now open). */
+  onClose(created?: boolean): void;
   /** Set to this editor's Save, so the menu's ⌘Return can save it. */
   submitRef?: RefObject<(() => void) | undefined>;
 }
 
 
-export function TaskEditor({ inert, mode, homeDir, globalDefaultCwd, globalPolicy, onClose, submitRef }: Props) {
+export function TaskEditor({ mode, globalPolicy, onClose, submitRef }: Props) {
   const existing = mode.kind === 'edit' ? mode.task : undefined;
   const [draft, setDraft] = useState<TaskDraft>({
     title: existing?.title ?? '',
@@ -29,9 +25,8 @@ export function TaskEditor({ inert, mode, homeDir, globalDefaultCwd, globalPolic
     defaultCwd: existing?.defaultCwd,
     policy: existing?.policy ?? {},
   });
-  const overrides = POLICY_KEYS.filter((k) => draft.policy?.[k] !== undefined).length;
-  // Open at first if the task has overrides; after that it opens and closes only when you click it.
-  const [startOpen] = useState(overrides > 0);
+  const overrides = overrideCount(draft.policy ?? {}, globalPolicy);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   // ⌘Return can arrive both as a key press and as a menu command; save only once.
@@ -50,10 +45,15 @@ export function TaskEditor({ inert, mode, homeDir, globalDefaultCwd, globalPolic
     savingRef.current = true;
     setSaving(true);
     try {
-      const clean = { ...draft, defaultCwd: draft.defaultCwd?.trim() || undefined };
+      // An override equal to the global rule would pin the task to it if the
+      // rule changed later, while the editor shows "Same as Settings".
+      const policy = Object.fromEntries(
+        Object.entries(draft.policy ?? {}).filter(([k, v]) => v !== globalPolicy[k as keyof Policy]),
+      );
+      const clean = { ...draft, policy, defaultCwd: draft.defaultCwd?.trim() || undefined };
       if (existing) await api.updateTask(existing.id, clean);
       else await api.createTask(clean);
-      onClose();
+      onClose(!existing);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -77,88 +77,93 @@ export function TaskEditor({ inert, mode, homeDir, globalDefaultCwd, globalPolic
     }
   }
 
-  async function chooseDir() {
-    const dir = await api.chooseDirectory(draft.defaultCwd || globalDefaultCwd);
-    if (dir) set({ defaultCwd: dir });
+  async function remove() {
+    if (existing && (await api.deleteTask(existing.id))) onClose();
   }
 
-  const fallbackCwd = shortenHome(globalDefaultCwd, homeDir) ?? '~';
-
   return (
-    <div className="modal-backdrop" inert={inert} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={submit} onKeyDown={onKeyDown}>
-        <h2>{existing ? 'Edit Task' : 'New Task'}</h2>
-
-        <label className="field">
-          <span>Title</span>
-          <input
-            ref={titleRef}
-            value={draft.title}
-            onChange={(e) => set({ title: e.target.value })}
-            placeholder="What are you working on?"
-          />
-        </label>
-
-        <div className="field">
-          <span>Priority</span>
-          <div className="segmented" role="radiogroup" aria-label="Priority">
-            {PRIORITIES.map((p) => (
-              <button
-                type="button"
-                key={p}
-                role="radio"
-                aria-checked={draft.priority === p}
-                className={`p${p} ${draft.priority === p ? 'selected' : ''}`}
-                onClick={() => set({ priority: p })}
-              >
-                P{p}
-              </button>
-            ))}
-          </div>
-          <small>P0 is the most urgent and comes first.</small>
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <form className="sheet modal" role="dialog" aria-labelledby="editor-title" onSubmit={submit} onKeyDown={onKeyDown}>
+        <div className="sheet-header">
+          <h2 id="editor-title">{existing ? 'Edit task' : 'New task'}</h2>
+          <span className="k">esc</span>
         </div>
 
-        <label className="field">
-          <span>Description</span>
-          <textarea
-            rows={4}
-            value={draft.description}
-            onChange={(e) => set({ description: e.target.value })}
-            placeholder="Notes, links, what done looks like…"
-          />
-        </label>
-
-        <div className="field">
-          <span>Default directory</span>
-          <div className="row">
+        <div className="sheet-body">
+          <div className="fld">
+            <label className="lbl" htmlFor="task-title">
+              Title
+            </label>
             <input
-              value={draft.defaultCwd ?? ''}
-              onChange={(e) => set({ defaultCwd: e.target.value })}
-              placeholder={fallbackCwd}
-              spellCheck={false}
+              id="task-title"
+              className="in"
+              ref={titleRef}
+              value={draft.title}
+              onChange={(e) => set({ title: e.target.value })}
+              placeholder="What are you working on?"
             />
-            <button type="button" onClick={chooseDir}>
-              Choose…
-            </button>
           </div>
-          <small>The task's first tab opens here. After that, ⌘T opens where the current tab is.</small>
+
+          <div className="fld">
+            <span className="lbl" id="task-priority">
+              Priority
+            </span>
+            <div className="seg mono" role="radiogroup" aria-labelledby="task-priority">
+              {PRIORITIES.map((p) => (
+                <button
+                  type="button"
+                  key={p}
+                  role="radio"
+                  aria-checked={draft.priority === p}
+                  className={draft.priority === p ? 'on' : ''}
+                  onClick={() => set({ priority: p })}
+                >
+                  P{p}
+                </button>
+              ))}
+            </div>
+            <span className="help">Lower is more urgent.</span>
+          </div>
+
+          <div className="fld">
+            <label className="lbl" htmlFor="task-description">
+              Description
+            </label>
+            <textarea
+              id="task-description"
+              className="in"
+              value={draft.description}
+              onChange={(e) => set({ description: e.target.value })}
+            />
+          </div>
+
+          <button type="button" className="disclosure" aria-expanded={rulesOpen} onClick={() => setRulesOpen((o) => !o)}>
+            Turn rules
+            <span className="help">
+              {overrides ? `${overrides} ${overrides === 1 ? 'override' : 'overrides'}` : 'Same as Settings'}
+            </span>
+          </button>
+          {rulesOpen && (
+            <PolicyControls
+              value={draft.policy ?? {}}
+              inherit={globalPolicy}
+              onChange={(key, value) => setDraft((d) => ({ ...d, policy: withPolicyChange(d.policy ?? {}, key, value) }))}
+            />
+          )}
         </div>
 
-        <details className="overrides" open={startOpen}>
-          <summary>
-            When is it your turn?{' '}
-            {overrides ? `${overrides} ${overrides === 1 ? 'setting' : 'settings'} changed for this task` : 'Using your settings'}
-          </summary>
-          <PolicyControls value={draft.policy ?? {}} inherit={globalPolicy} onChange={(key, value) => setDraft((d) => ({ ...d, policy: withPolicyChange(d.policy ?? {}, key, value) }))}
-          />
-        </details>
-
-        <div className="modal-actions">
-          <button type="button" onClick={onClose}>
+        <div className="sheet-footer">
+          {existing && (
+            <button type="button" className="btn danger" onClick={() => void remove()}>
+              Delete task…
+            </button>
+          )}
+          <span className="spacer" />
+          <button type="button" className="btn solid" onClick={() => onClose()}>
             Cancel
           </button>
-          <button type="submit" className="primary" disabled={saving}>
-            {existing ? 'Save' : 'Create Task'}
+          <button type="submit" className="btn primary" disabled={saving}>
+            {existing ? 'Save' : 'Create task'} <span className="k">⌘↩</span>
           </button>
         </div>
       </form>

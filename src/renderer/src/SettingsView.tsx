@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { HookState } from '../../shared/ipc';
 import type { Settings } from '../../shared/model';
 import { shortenHome } from './format';
@@ -13,20 +13,54 @@ interface Props {
   /** Claude Code's settings.json, where the hooks go. */
   claudeSettingsPath: string;
   homeDir: string;
-  onClose(): void;
+  /** Saves a directory typed but not yet confirmed; called as Settings closes. */
+  flushRef: React.RefObject<(() => void) | undefined>;
 }
 
-const HOOK_TEXT: Record<HookState, string> = {
-  installed: 'Installed. Claude sessions in Humanloop tabs report what they are doing.',
-  outdated: 'Out of date. Update them so every event reaches Humanloop.',
-  missing: "Not installed. Without them Humanloop can't tell when Claude is working or waiting.",
-  unreadable: "Claude Code's settings.json can't be read, so Humanloop can't check its hooks.",
-  disabled:
-    "Installed, but Claude Code's settings (yours or your organisation's) turn these hooks off, so they don't run.",
+const SECTIONS = [
+  { id: 'turn', title: 'Turn rules' },
+  { id: 'tabs', title: 'Tabs' },
+  { id: 'notifications', title: 'Notifications & power' },
+  { id: 'claude', title: 'Claude Code' },
+  { id: 'shortcuts', title: 'Keyboard shortcuts' },
+] as const;
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+const HOOKS: Record<HookState, { pill: string; tone: 'ok' | 'warn' | 'off'; title: string; help: string }> = {
+  installed: {
+    pill: 'Installed',
+    tone: 'ok',
+    title: 'Hooks installed',
+    help: 'Claude sessions in Humanloop tabs report when they are working or waiting.',
+  },
+  outdated: {
+    pill: 'Out of date',
+    tone: 'warn',
+    title: 'Hooks out of date',
+    help: 'Update them so every event reaches Humanloop.',
+  },
+  missing: {
+    pill: 'Not installed',
+    tone: 'off',
+    title: 'Hooks not installed',
+    help: "Without them Humanloop can't tell when Claude is working or waiting.",
+  },
+  unreadable: {
+    pill: "Can't read",
+    tone: 'warn',
+    title: "settings.json can't be read",
+    help: "Humanloop can't check its hooks until the file is valid JSON again.",
+  },
+  disabled: {
+    pill: 'Turned off',
+    tone: 'warn',
+    title: 'Hooks turned off',
+    help: "Installed, but Claude Code's settings (yours or your organisation's) turn hooks off, so they don't run.",
+  },
 };
 
-/** Settings apply as you change them; there is no Save. */
-export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, onClose: close }: Props) {
+/** Settings, in the main column. Changes apply as you make them; there is no Save. */
+export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flushRef }: Props) {
   const [cwd, setCwd] = useState(settings.defaultCwd ?? '');
   // Follow changes made elsewhere (e.g. editing settings.json by hand).
   useEffect(() => setCwd(settings.defaultCwd ?? ''), [settings.defaultCwd]);
@@ -34,6 +68,7 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, onC
   const saveCwd = (value: string) => {
     if (value.trim() !== (settings.defaultCwd ?? '')) void api.updateSettings({ defaultCwd: value.trim() || null });
   };
+  flushRef.current = () => saveCwd(cwd);
 
   async function chooseDir() {
     const dir = await api.chooseDirectory(settings.defaultCwd);
@@ -43,60 +78,68 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, onC
     }
   }
 
-  // Closing saves a directory you typed but didn't confirm with Return.
-  function onClose() {
-    saveCwd(cwd);
-    close();
-  }
-
-  function onKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onClose();
+  // The nav marks the section at the top of the scrolled content.
+  const content = useRef<HTMLDivElement>(null);
+  const [current, setCurrent] = useState<SectionId>('turn');
+  const onScroll = () => {
+    const el = content.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + 40;
+    let seen: SectionId = 'turn';
+    for (const { id } of SECTIONS) {
+      const sec = el.querySelector(`#section-${id}`);
+      if (sec && sec.getBoundingClientRect().top <= top) seen = id;
     }
-  }
+    setCurrent(seen);
+  };
+  const go = (id: SectionId) => {
+    content.current?.querySelector(`#section-${id}`)?.scrollIntoView({ block: 'start' });
+    setCurrent(id);
+  };
+
+  const hook = HOOKS[hooks];
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal settings" role="dialog" aria-label="Settings" onKeyDown={onKeyDown} tabIndex={-1}>
-        <h2>Settings</h2>
+    <div className="settings">
+      <nav className="settings-nav" aria-label="Settings sections">
+        {SECTIONS.map(({ id, title }) => (
+          <button key={id} className={current === id ? 'on' : ''} aria-current={current === id || undefined} onClick={() => go(id)}>
+            {title}
+          </button>
+        ))}
+      </nav>
 
-        <section>
-          <h3>When is it your turn?</h3>
-          <p className="section-hint">
-            A task moves to Your Turn when Claude is done or needs you. These decide what counts as done. Each task can
-            override them.
-          </p>
+      <div className="settings-content" ref={content} onScroll={onScroll}>
+        <section className="sec" id="section-turn" aria-labelledby="settings-turn">
+          <h2 id="settings-turn">Turn rules</h2>
+          <p className="lead">When a task comes back to you. Tasks can override these.</p>
           <PolicyControls
             value={settings.policy}
             onChange={(key, value) => value !== undefined && void api.updateSettings({ policy: { [key]: value } })}
           />
         </section>
 
-        <section>
-          <h3>Terminal</h3>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={settings.optionAsMeta}
-              onChange={(e) => void api.updateSettings({ optionAsMeta: e.target.checked })}
+        <section className="sec" id="section-tabs" aria-labelledby="settings-tabs">
+          <h2 id="settings-tabs">Tabs</h2>
+          <div className="srow">
+            <div className="t">
+              <b>Open new tabs in the current tab's directory</b>
+              <span className="help">Otherwise new tabs use the task's directory, or the default below.</span>
+            </div>
+            <Toggle
+              label="Open new tabs in the current tab's directory"
+              on={settings.newTabsInCurrentDir}
+              onChange={(on) => void api.updateSettings({ newTabsInCurrentDir: on })}
             />
-            <span>
-              Use Option as Meta
-              <small>
-                For zsh word movement like Option+←. Turn this off if your keyboard types characters such as @ {'{'} [ |
-                with Option.
-              </small>
-            </span>
-          </label>
-        </section>
-
-        <section>
-          <h3>New tabs</h3>
-          <div className="field">
-            <span>Default directory</span>
-            <div className="row">
+          </div>
+          <div className="srow">
+            <div className="t">
+              <label htmlFor="settings-dir">Default directory</label>
+            </div>
+            <div className="dir-control">
               <input
+                id="settings-dir"
+                className="in mono"
                 value={cwd}
                 onChange={(e) => setCwd(e.target.value)}
                 onBlur={(e) => saveCwd(e.target.value)}
@@ -104,77 +147,77 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, onC
                 placeholder={shortenHome(homeDir, homeDir) ?? '~'}
                 spellCheck={false}
               />
-              <button type="button" onClick={chooseDir}>
+              <button type="button" className="btn solid" onClick={() => void chooseDir()}>
                 Choose…
               </button>
             </div>
-            <small>Used by tasks that don't set their own.</small>
+          </div>
+          <div className="srow">
+            <div className="t">
+              <b>Use Option as Meta</b>
+              <span className="help">For zsh word movement like Option+←. Turn it off if Option types characters such as @ {'{'} [ | on your keyboard.</span>
+            </div>
+            <Toggle label="Use Option as Meta" on={settings.optionAsMeta} onChange={(on) => void api.updateSettings({ optionAsMeta: on })} />
           </div>
         </section>
 
-        <section>
-          <h3>While you're away</h3>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={settings.notifications}
-              onChange={(e) => void api.updateSettings({ notifications: e.target.checked })}
+        <section className="sec" id="section-notifications" aria-labelledby="settings-notifications">
+          <h2 id="settings-notifications">Notifications &amp; power</h2>
+          <div className="srow">
+            <div className="t">
+              <b>Notify me when a task comes back to me</b>
+              <span className="help">Only while Humanloop is in the background.</span>
+            </div>
+            <Toggle
+              label="Notify me when a task comes back to me"
+              on={settings.notifications}
+              onChange={(on) => void api.updateSettings({ notifications: on })}
             />
-            <span>
-              Notify me when a task comes back to Your Turn
-              <small>Only while Humanloop isn't the active app. Clicking the notification opens the task.</small>
-            </span>
-          </label>
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={settings.keepAwake}
-              onChange={(e) => void api.updateSettings({ keepAwake: e.target.checked })}
+          </div>
+          <div className="srow">
+            <div className="t">
+              <b>Keep the Mac awake while Claude is working</b>
+            </div>
+            <Toggle
+              label="Keep the Mac awake while Claude is working"
+              on={settings.keepAwake}
+              onChange={(on) => void api.updateSettings({ keepAwake: on })}
             />
-            <span>
-              Keep the Mac awake while Claude is working
-              <small>Stops idle sleep while Claude is working in any task. Closing the lid still puts the Mac to sleep.</small>
-            </span>
-          </label>
+          </div>
         </section>
 
-        <section>
-          <h3>Claude Code hooks</h3>
-          <p className={`section-hint hooks-${hooks}`}>{HOOK_TEXT[hooks]}</p>
-          <p className="section-hint">
-            In <span className="resume-cwd">{claudeSettingsPath}</span>
+        <section className="sec" id="section-claude" aria-labelledby="settings-claude">
+          <h2 id="settings-claude">Claude Code</h2>
+          <p className="lead">
+            Humanloop reads Claude's state through a hook in <span className="mono">{claudeSettingsPath}</span>.
           </p>
-          <div className="row-buttons">
+          <div className="hook-card">
+            <span className={`pill ${hook.tone}`}>{hook.pill}</span>
+            <div className="t">
+              <b>{hook.title}</b>
+              <span className="help">{hook.help}</span>
+            </div>
             {hooks !== 'installed' && hooks !== 'disabled' && (
-              <button type="button" className={hooks === 'missing' ? 'primary' : ''} onClick={() => void api.installHooks()}>
-                {hooks === 'outdated' ? 'Update Hooks…' : 'Install Hooks…'}
+              <button type="button" className="btn primary" onClick={() => void api.installHooks()}>
+                {hooks === 'outdated' ? 'Update' : 'Install'}
               </button>
             )}
             {(hooks === 'installed' || hooks === 'outdated' || hooks === 'disabled') && (
-              <button type="button" onClick={() => void api.removeHooks()}>
-                Remove Hooks…
+              <button type="button" className="btn danger" onClick={() => void api.removeHooks()}>
+                Remove
               </button>
             )}
           </div>
         </section>
 
-        <section>
-          <h3>Shortcuts</h3>
-          <p className="section-hint">Click a shortcut, then press the keys you want. Every shortcut uses ⌘.</p>
+        <section className="sec wide" id="section-shortcuts" aria-labelledby="settings-shortcuts">
           <ShortcutsSection settings={settings} />
-          <div className="row-buttons">
-            <button type="button" className="ghost small" onClick={() => api.openSettingsFile()}>
-              Open settings.json
-            </button>
-          </div>
         </section>
-
-        <div className="modal-actions">
-          <button type="button" className="primary" onClick={onClose} autoFocus>
-            Done
-          </button>
-        </div>
       </div>
     </div>
   );
+}
+
+function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange(on: boolean): void }) {
+  return <button type="button" className={`tg ${on ? 'on' : ''}`} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} />;
 }

@@ -33,12 +33,15 @@ decisions and stay in even though they are not trivial.
 - Queue header labels in sentence case ("Your turn"); counts always shown.
 - Remove: the cwd next to the task title, the tab shortcut hints, the override mark on rows,
   the "+ New Task" button at the bottom of the sidebar, the `kbd` chips on buttons.
-- Header bar in the main column with New task (icon), Settings (icon), and the **Next
-  button that names the task ⌘↩ will open** (**asked for**). The target is
+- Header bar in the main column with the task title at the left, then New task (icon),
+  Settings (icon), and the **Next button that names the task ⌘↩ will open** (**asked for**).
+  The title moves into this bar; there is no separate task header row. The target is
   `tasksInQueue(state,'yourTurn')` minus the open task, which `queues.ts` already computes.
   The quiet state and the popover reuse the existing `nothingElse` notice.
 - Back / Forward icon buttons next to the traffic lights (`canGoBack` / `canGoForward` exist).
-- Task header: Edit, Park, Done as text buttons (commands exist).
+- Edit / Park / Done become icon buttons next to the title, shown only while the pointer is
+  over the top bar (CSS `opacity` on hover; keep them focusable), each with a name-and-
+  shortcut tooltip. Long titles ellipsise; a tooltip shows the full title when truncated.
 - Description line under the task title with clickable links (**asked for**): render the
   existing `task.description` as one ellipsised line and linkify URLs; the window-open
   handler already sends http(s) links to the default browser.
@@ -61,11 +64,10 @@ decisions and stay in even though they are not trivial.
   the window. Render it in the main column instead (sidebar stays), with a 190px section
   nav that scrolls to each section. Mostly layout and CSS; the section components already
   exist. Half a day.
-- **Open new tabs in the current tab's directory.** Already built: a new tab starts in the
-  current tab's shell directory, read from the system with `lsof` (ca5d3db dropped the OSC 7
-  path). It is always on and has no setting. The mockup shows it as a toggle with the default directory beneath it; adding
-  the toggle (`Settings` field, `patchSettingsJson`, `normalize.ts`, tests) is small, or
-  the Tabs section can simply state the behaviour and keep only the default directory.
+- **Open new tabs in the current tab's directory.** Built: a new tab starts in the current
+  tab's shell directory, read from the system with `lsof` (ca5d3db dropped the OSC 7 path).
+  It is a toggle in Settings > Tabs (`newTabsInCurrentDir` in settings.json, default on);
+  off, new tabs use the task's directory or the default directory.
 - **Light theme.** `styles.css` already uses CSS variables and `color-scheme: dark`, so the
   chrome is a second variable set under `prefers-color-scheme: light`. The terminal needs a
   second `THEME` and a `matchMedia` listener to swap it on open terminals. Values are in

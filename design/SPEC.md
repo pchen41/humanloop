@@ -71,7 +71,7 @@ Type
   ages, shortcut keys.
 
 Spacing and shape
-- 4px grid. Heights: window header 44, task header 44, tab strip 36, sidebar row 36 (30 in
+- 4px grid. Heights: window header 44 (holds the task title), tab strip 36, sidebar row 36 (30 in
   compact mode), control 28, segmented control 24, settings row 12px padding.
 - Radii: 4 chips, 6 controls and rows, 8 cards and popovers, 12 window and sheets.
 - Sidebar width 288, resizable (existing behaviour).
@@ -88,8 +88,12 @@ Terminal (xterm theme)
 
 Hidden title bar. The sidebar's top 44px holds the traffic lights (12px circles at x 13,
 gap 8) and back / forward icon buttons at the right; the whole 44px band is a drag region.
-The main column's top 44px band holds, right-aligned: New task (icon), Settings (icon), and
-the Next button. Nothing on the left.
+The main column's top 44px band holds the task title at the left (15/20 semibold,
+ellipsis, 20px from the sidebar edge), then, right-aligned: New task (icon), Settings
+(icon), and the Next button. A 1px × 16px separator (line colour) sits 8px before New
+task, 8px after the task actions, and fades in with the hover-only task actions, keeping
+them apart from the permanent controls. The title sits on the same line as the traffic
+lights; there is no separate task header row.
 
 ### Sidebar
 
@@ -98,7 +102,9 @@ Queue headers: "Your turn", "Agent's turn", "Parked", "Done". Each is a disclosu
 Done is collapsed by default. The count on Your turn is mint; all others fg/4.
 
 Row (36px, 30px in compact mode when the list is long): optional priority chip, title with
-ellipsis, one 6px dot per tab, age right-aligned in mono.
+ellipsis, one 6px dot per tab, age right-aligned in mono. Hovering a row shows a tooltip
+with the full title under the row (same raised tooltip as the top bar, max 400px wide,
+wraps); `TitleHover.html` shows one.
 - Priority chip only for P0 (red fill, dark text) and P1 (grey fill, light text). P2 and P3
   show no chip; order carries them.
 - Dots: filled blue = Claude working, filled mint with soft ring = Claude needs you,
@@ -117,15 +123,27 @@ ellipsis, one 6px dot per tab, age right-aligned in mono.
   "Nothing else needs you" / "All N tasks are with Claude." No notice anywhere else.
 - No turn meter, no counts in the header.
 
-### Task header (44px)
+### Task title
 
-Title (15/20 semibold, ellipsis) at left; Edit, Park, Done as borderless grey text buttons
-at right. No directory, no queue pill, no override note.
+Lives in the top band (above). Edit, Park and Mark done are 26px icon buttons (pencil,
+pause bars, check; fg/3, 14px strokes) that sit right-aligned, 2px apart, 8px before the
+separator (at least 8px after the title), and are hidden until the pointer is over the
+band (fade in over 120ms). Each has a tooltip with its name and shortcut: "Edit task ⌘E",
+"Park task ⌘⇧P", "Mark done ⌘⇧D" (Park reads "Unpark task" on a parked task, Mark done
+reads "Reopen task" on a done one). They are also reachable by shortcut, the task's
+context menu and double-click on a sidebar row. No directory, no queue pill, no override
+note.
 
-Optional second line (under evaluation, shown in `Main.html`): the task description as one
-12px fg/3 line with ellipsis; URLs are clickable links (fg/2, underlined) that open in the
-default browser. If kept, the description never wraps in the header; the full text lives in
-the editor.
+Long titles: the title ellipsises; the icons and the New task / Settings / Next controls
+keep their place at the right. Hovering a cut-off title shows a tooltip with the full
+title (raised surface, 12/16, under the title; only when it is actually truncated). The
+full title is always complete in the editor. `TitleHover.html` shows the hover state, the
+icons and the title tooltip.
+
+Optional description line (under evaluation, shown in `Main.html`): directly under the top
+band, the task description as one 12px fg/3 line with ellipsis, 10px above the tab strip;
+URLs are clickable links (fg/2, underlined) that open in the default browser. If kept, the
+description never wraps in the header; the full text lives in the editor.
 
 ### Tabs
 

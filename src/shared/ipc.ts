@@ -47,6 +47,8 @@ export interface HumanloopApi {
   onHooks(cb: (hooks: HookState) => void): () => void;
   /** The app menu's Settings… item was chosen. */
   onShowSettings(cb: () => void): () => void;
+  /** Opens Settings the way the menu does, checking the hooks again first. */
+  openSettings(): void;
   onResume(cb: (offers: Record<string, ResumeOffer>) => void): () => void;
   /**
    * Types `claude --resume` for the tab's previous session into its shell, in
@@ -90,6 +92,8 @@ export interface HumanloopApi {
   toggleParked(): Promise<void>;
   /** Marks the open task done (offering to close its tabs), or reopens it if done. */
   toggleDone(): Promise<void>;
+  /** Deletes a task and closes its tabs, after a confirmation. True if it was deleted. */
+  deleteTask(id: string): Promise<boolean>;
   /** Shows the native context menu for a task (Edit, Park, Done, Delete). */
   showTaskMenu(id: string): void;
   /** The task menu's Edit item was chosen. */
@@ -130,6 +134,7 @@ export const IPC = {
   agents: 'app:agents',
   hooks: 'app:hooks',
   showSettings: 'app:show-settings',
+  openSettings: 'app:open-settings',
   resume: 'app:resume',
   resumeSession: 'resume:run',
   dismissResume: 'resume:dismiss',
@@ -149,6 +154,7 @@ export const IPC = {
   goForward: 'history:forward',
   toggleParked: 'task:toggle-parked',
   toggleDone: 'task:toggle-done',
+  deleteTask: 'task:delete',
   taskMenu: 'task:menu',
   editTask: 'task:edit',
   chooseDirectory: 'dialog:directory',

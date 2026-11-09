@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { acceleratorFor } from '../../shared/shortcuts';
 import type { TabAgent } from '../../shared/agents';
-import { hasOverrides, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
-import { AgentDot } from './AgentDot';
-import { agentStateOf } from '../../shared/queues';
+import type { ResumeOffer } from '../../shared/ipc';
+import { effectivePolicy, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
+import { canGoBack, canGoForward } from '../../shared/queues';
+import { acceleratorFor } from '../../shared/shortcuts';
 import { tasksInQueue } from '../../shared/tasks';
+import { Glyph, tabGlyphKind } from './Glyph';
 import { formatAccelerator, formatWait } from './format';
+import { BackIcon, ForwardIcon } from './icons';
 
 interface Props {
   /** True while a dialog is open over the window. */
@@ -13,24 +15,27 @@ interface Props {
   state: AppState;
   settings: Settings;
   agents: Record<string, TabAgent>;
+  resume: Record<string, ResumeOffer>;
   onOpen(id: string): void;
   onEdit(task: Task): void;
   onMenu(task: Task): void;
-  onNew(): void;
+  onBack(): void;
+  onForward(): void;
 }
 
-/** Re-renders every 30 seconds so wait times stay current. */
+
+/** Re-renders every 10 seconds so wait times stay current. */
 function useNow(): number {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000);
+    const t = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(t);
   }, []);
   return now;
 }
 
 const WIDTH_KEY = 'sidebarWidth';
-const DEFAULT_WIDTH = 268;
+const DEFAULT_WIDTH = 288;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 520;
 
@@ -85,7 +90,7 @@ function Resizer() {
   return <div className="sidebar-resizer" onPointerDown={onPointerDown} onDoubleClick={reset} title="Drag to resize" />;
 }
 
-export function Sidebar({ inert, state, settings, agents, onOpen, onEdit, onMenu, onNew }: Props) {
+export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit, onMenu, onBack, onForward }: Props) {
   const now = useNow();
   const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
     yourTurn: false,
@@ -93,19 +98,31 @@ export function Sidebar({ inert, state, settings, agents, onOpen, onEdit, onMenu
     parked: false,
     done: true,
   });
-  const stateOf = agentStateOf(agents, settings.policy);
   // Keep the open task in view: after Next task or Back opens one further
   // down, and when it moves to another queue on its own.
   const openQueue = state.tasks.find((t) => t.id === state.openTaskId)?.queue;
   useEffect(() => {
     document.querySelector('.task-row.open')?.scrollIntoView({ block: 'nearest' });
   }, [state.openTaskId, openQueue]);
-  const newTaskKey = formatAccelerator(acceleratorFor(settings, 'newTask'));
+  const key = (id: 'back' | 'forward') => formatAccelerator(acceleratorFor(settings, id));
 
   return (
-    <nav className="sidebar" data-testid="sidebar" inert={inert}>
+    <nav className="sidebar" data-testid="sidebar" inert={inert} aria-label="Task queues">
       <Resizer />
-      <div className="sidebar-top" />
+      <div className="sidebar-top">
+        <button className="ib" onClick={onBack} disabled={!canGoBack(state)} title={tip('Back', key('back'))} aria-label="Back">
+          <BackIcon />
+        </button>
+        <button
+          className="ib"
+          onClick={onForward}
+          disabled={!canGoForward(state)}
+          title={tip('Forward', key('forward'))}
+          aria-label="Forward"
+        >
+          <ForwardIcon />
+        </button>
+      </div>
       <div className="queues">
         {QUEUES.map((queue) => {
           const tasks = tasksInQueue(state, queue);
@@ -113,53 +130,85 @@ export function Sidebar({ inert, state, settings, agents, onOpen, onEdit, onMenu
           // A collapsed section still shows the open task, so it is always visible.
           const shown = isCollapsed ? tasks.filter((t) => t.id === state.openTaskId) : tasks;
           return (
-            <section key={queue} className="queue">
+            <section key={queue} className={`queue ${queue}`}>
               <button
                 className="queue-header"
                 onClick={() => setCollapsed((c) => ({ ...c, [queue]: !c[queue] }))}
                 aria-expanded={!isCollapsed}
               >
-                <span className={`chevron ${isCollapsed ? '' : 'open'}`}>›</span>
-                <span className="queue-name">{QUEUE_LABELS[queue]}</span>
-                <span className="queue-count">{tasks.length || ''}</span>
+                <span>{QUEUE_LABELS[queue]}</span>
+                <span className={`queue-count ${queue === 'yourTurn' && tasks.length ? 'you' : ''}`}>{tasks.length}</span>
               </button>
-              {shown.length > 0 || !isCollapsed ? (
+              {(shown.length > 0 || (!isCollapsed && queue === 'yourTurn')) && (
                 <ul className="task-list">
                   {shown.map((task) => (
                     <li key={task.id}>
-                      <button
-                        className={`task-row ${task.id === state.openTaskId ? 'open' : ''}`}
-                        onClick={() => onOpen(task.id)}
-                        onDoubleClick={() => onEdit(task)}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          onMenu(task);
-                        }}
-                        title={task.description || task.title}
-                      >
-                        <span className={`priority p${task.priority}`}>P{task.priority}</span>
-                        <AgentDot state={stateOf(task)} />
-                        <span className="task-title">{task.title}</span>
-                        {hasOverrides(task) && (
-                          <span className="override-mark" title="Has its own “When is it your turn?” settings" />
-                        )}
-                        <span className="task-wait">{formatWait(task.enteredAt, now)}</span>
-                      </button>
+                      <TaskRow
+                        task={task}
+                        open={task.id === state.openTaskId}
+                        wait={formatWait(task.enteredAt, now)}
+                        settings={settings}
+                        agents={agents}
+                        resume={resume}
+                        onOpen={onOpen}
+                        onEdit={onEdit}
+                        onMenu={onMenu}
+                      />
                     </li>
                   ))}
-                  {!isCollapsed && tasks.length === 0 && queue === 'yourTurn' && (
-                    <li className="queue-empty">Nothing waiting on you</li>
-                  )}
+                  {!isCollapsed && tasks.length === 0 && <li className="queue-empty">Nothing waiting on you</li>}
                 </ul>
-              ) : null}
+              )}
             </section>
           );
         })}
       </div>
-      <button className="new-task" onClick={onNew}>
-        <span>+ New Task</span>
-        <kbd>{newTaskKey}</kbd>
-      </button>
     </nav>
   );
+}
+
+function TaskRow(props: {
+  task: Task;
+  open: boolean;
+  wait: string;
+  settings: Settings;
+  agents: Record<string, TabAgent>;
+  resume: Record<string, ResumeOffer>;
+  onOpen(id: string): void;
+  onEdit(task: Task): void;
+  onMenu(task: Task): void;
+}) {
+  const { task, settings, agents, resume } = props;
+  const policy = effectivePolicy(settings.policy, task.policy);
+  const tooltip = [task.title, task.description].filter(Boolean).join('\n');
+  return (
+    <button
+      className={`task-row ${props.open ? 'open' : ''}`}
+      aria-current={props.open || undefined}
+      onClick={() => props.onOpen(task.id)}
+      onDoubleClick={() => props.onEdit(task)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        props.onMenu(task);
+      }}
+      title={tooltip}
+    >
+      {/* P2 and P3 show no chip; the order within the queue carries them. */}
+      {task.priority <= 1 && <span className={`priority p${task.priority}`}>P{task.priority}</span>}
+      <span className="task-title">{task.title}</span>
+      {task.tabs.length > 0 && (
+        <span className="dots">
+          {task.tabs.map((tab) => (
+            <Glyph key={tab.id} kind={tabGlyphKind(agents, resume, tab.id, policy)} />
+          ))}
+        </span>
+      )}
+      <span className={`task-wait ${task.queue === 'yourTurn' ? 'you' : ''}`}>{props.wait}</span>
+    </button>
+  );
+}
+
+/** "Back (⌘[)" */
+export function tip(label: string, key: string): string {
+  return key ? `${label} (${key})` : label;
 }

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, watch } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import { COMMAND_IDS, commandById, type CommandId } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type ResumeOffer, type TerminalEditCommand } from '../shared/ipc';
 import {
@@ -418,7 +418,8 @@ const startDirs = new Map<string, string>();
  * task's default directory, then the global one, then home.
  */
 async function newTab(taskId: string, fromTabId: string | undefined): Promise<string> {
-  const from = fromTabId && T.findTab(state, fromTabId)?.task.id === taskId ? fromTabId : undefined;
+  const from =
+    settings.newTabsInCurrentDir && fromTabId && T.findTab(state, fromTabId)?.task.id === taskId ? fromTabId : undefined;
   const dir = from ? await ptys.cwd(from) : undefined;
   const id = randomUUID();
   if (!T.findTask(state, taskId)) throw new Error(`no task ${taskId}`);
@@ -618,6 +619,8 @@ function registerIpc(): void {
     if (task?.queue === 'done') restore(task.id);
     else if (task) await markDoneWithConfirm(task.id);
   });
+  ipcMain.on(IPC.openSettings, () => showSettings());
+  ipcMain.handle(IPC.deleteTask, (_e, id: unknown) => (typeof id === 'string' ? deleteTaskWithConfirm(id) : false));
   ipcMain.on(IPC.taskMenu, (_e, id: string) => {
     const task = T.findTask(state, id);
     if (!task) return;
@@ -713,6 +716,11 @@ function registerIpc(): void {
 
 // ---------- window ----------
 
+/** The page's background (--bg-window) in the current appearance. */
+function windowColor(): string {
+  return nativeTheme.shouldUseDarkColors ? '#111113' : '#F5F5F7';
+}
+
 function createWindow(): BrowserWindow {
   const w = new BrowserWindow({
     width: 1280,
@@ -722,8 +730,8 @@ function createWindow(): BrowserWindow {
     show: false,
     title: 'Humanloop',
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: '#1a1a1c',
+    trafficLightPosition: { x: 13, y: 16 },
+    backgroundColor: windowColor(),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -733,6 +741,10 @@ function createWindow(): BrowserWindow {
       backgroundThrottling: false,
     },
   });
+  // Matches the page, so a live resize never flashes the other appearance's colour.
+  const onTheme = () => w.setBackgroundColor(windowColor());
+  nativeTheme.on('updated', onTheme);
+  w.on('closed', () => nativeTheme.off('updated', onTheme));
   w.once('ready-to-show', () => {
     // The smoke test shows the window without taking focus, so fonts are
     // measured on a real screen just like a normal launch.

@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CommandId } from '../../shared/commands';
 import { acceleratorFor } from '../../shared/shortcuts';
-import { agentFor, effectiveTabState, type TabAgent } from '../../shared/agents';
+import { agentFor, type TabAgent } from '../../shared/agents';
 import { effectivePolicy, type Settings, type Task } from '../../shared/model';
 import type { ResumeOffer } from '../../shared/ipc';
-import { AgentDot, backgroundSummary } from './AgentDot';
+import { backgroundSummary, Glyph, tabGlyphKind } from './Glyph';
 import { FindBar } from './FindBar';
-import { formatAccelerator, shellQuote, shortenHome } from './format';
+import { formatAccelerator, linkify, shellQuote, shortenHome } from './format';
+import { CloseIcon, NewTabIcon } from './icons';
+import { tip } from './Sidebar';
 import { terminals } from './terminals';
 
 const api = window.humanloop;
@@ -21,6 +23,8 @@ interface Props {
   onCloseTab(tabId: string): void;
   onNewTab(): void;
   onEdit(): void;
+  onPark(): void;
+  onDone(): void;
   focusTerminal: boolean;
   resume: Record<string, ResumeOffer>;
   /** The find bar, when open. */
@@ -30,14 +34,9 @@ interface Props {
 }
 
 export function TaskView(props: Props) {
-  const { task, activeTabId, settings, homeDir, agents, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal } = props;
-  const offer = activeTabId ? props.resume[activeTabId] : undefined;
-  /** Tabs 1–8 have their own shortcut; the "last tab" one (⌘9) belongs to the last tab, wherever it is. */
-  const tabKey = (i: number): string => {
-    const last = task.tabs.length - 1;
-    if (i === last && last >= 8) return key('tab9');
-    return i < 8 ? key(`tab${i + 1}` as CommandId) : '';
-  };
+  const { task, activeTabId, settings, homeDir, agents, resume, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal } = props;
+  const offer = activeTabId ? resume[activeTabId] : undefined;
+  const policy = effectivePolicy(settings.policy, task.policy);
 
   // Keep the selected tab in view when the tab bar scrolls.
   useEffect(() => {
@@ -47,26 +46,51 @@ export function TaskView(props: Props) {
   // Terminal titles (set by programs like Claude Code) live outside React.
   useSyncExternalStore(terminals.subscribe, terminals.getVersion);
   const key = (id: CommandId) => formatAccelerator(acceleratorFor(settings, id));
-  const cwd = shortenHome(task.defaultCwd ?? settings.defaultCwd, homeDir) ?? '~';
+  // The description shows as one line; the editor has the full text.
+  const description = task.description.replace(/\s+/g, ' ').trim();
 
   return (
     <div className="task-view">
-      <header className="task-header">
+      <header className={`task-header ${description ? 'with-description' : ''}`}>
         <div className="task-heading">
-          <span className={`priority p${task.priority}`}>P{task.priority}</span>
-          <h1>{task.title}</h1>
-          <span className="task-cwd" title="The task's directory: its first tab opens here. ⌘T opens where the current tab is.">
-            {cwd}
-          </span>
-          <button className="ghost" onClick={onEdit} title={`Edit task (${key('editTask')})`}>
+          <h1 title={task.title}>{task.title}</h1>
+          {description && (
+            <p className="task-description" title={task.description}>
+              {linkify(description).map((part, i) =>
+                part.href ? (
+                  <a
+                    key={i}
+                    href={part.href}
+                    onClick={(e) => {
+                      // The main process opens it in the default browser.
+                      e.preventDefault();
+                      window.open(part.href);
+                    }}
+                  >
+                    {part.text}
+                  </a>
+                ) : (
+                  part.text
+                ),
+              )}
+            </p>
+          )}
+        </div>
+        <div className="task-actions">
+          <button className="btn" onClick={onEdit} title={tip('Edit task', key('editTask'))}>
             Edit
           </button>
+          <button className="btn" onClick={props.onPark} title={tip(task.queue === 'parked' ? 'Unpark task' : 'Park task', key('parkTask'))}>
+            {task.queue === 'parked' ? 'Unpark' : 'Park'}
+          </button>
+          <button className="btn" onClick={props.onDone} title={tip(task.queue === 'done' ? 'Reopen task' : 'Mark done', key('markDone'))}>
+            {task.queue === 'done' ? 'Reopen' : 'Done'}
+          </button>
         </div>
-        {task.description && <p className="task-description">{task.description}</p>}
       </header>
 
-      <div className="tab-bar" role="tablist">
-        {task.tabs.map((tab, i) => {
+      <div className="tab-bar" role="tablist" aria-label="Terminal tabs">
+        {task.tabs.map((tab) => {
           const title = terminals.peek(tab.id)?.title || tab.title;
           const agent = agentFor(agents, tab.id);
           return (
@@ -83,55 +107,27 @@ export function TaskView(props: Props) {
               }}
               title={title}
             >
-              {agent && (
-                <AgentDot
-                  state={effectiveTabState(agent, effectivePolicy(settings.policy, task.policy))}
-                  detail={backgroundSummary(agent.backgroundTasks)}
-                />
-              )}
+              <Glyph
+                kind={tabGlyphKind(agents, resume, tab.id, policy)}
+                detail={agent ? backgroundSummary(agent.backgroundTasks) : undefined}
+              />
               <span className="tab-title">{title}</span>
-              {tabKey(i) && <span className="tab-key">{tabKey(i)}</span>}
               <button
                 className="tab-close"
                 aria-label="Close tab"
+                title={tip('Close tab', key('closeTab'))}
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={() => onCloseTab(tab.id)}
               >
-                ×
+                <CloseIcon />
               </button>
             </div>
           );
         })}
-        <button className="tab-new" onClick={onNewTab} title={`New tab (${key('newTab')})`}>
-          +
+        <button className="ib tab-new" onClick={onNewTab} title={tip('New tab', key('newTab'))} aria-label="New tab">
+          <NewTabIcon />
         </button>
       </div>
-
-      {offer && activeTabId && (
-        <div className="resume-banner">
-          <span>
-            {resumeError?.tabId === activeTabId ? (
-              <span className="resume-error">{resumeError.text}</span>
-            ) : (
-              <>
-                Claude was running in this tab before Humanloop quit
-                <span className="resume-cwd">{shortenHome(offer.cwd, homeDir)}</span>
-              </>
-            )}
-          </span>
-          <button
-            className="primary"
-            onClick={() =>
-              void api.resumeSession(activeTabId).then((text) => setResumeError(text ? { tabId: activeTabId, text } : undefined))
-            }
-          >
-            Resume Session
-          </button>
-          <button className="ghost" onClick={() => api.dismissResume(activeTabId)}>
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {activeTabId ? (
         <div
@@ -149,6 +145,31 @@ export function TaskView(props: Props) {
             h.focus();
           }}
         >
+          {offer && (
+            <div className="resume-row" role="group" aria-label="Resume Claude session">
+              <Glyph kind="resumable" />
+              <span className="resume-text">
+                {resumeError?.tabId === activeTabId ? (
+                  <span className="resume-error">{resumeError.text}</span>
+                ) : (
+                  <>
+                    Claude was running here · <span className="mono">{shortenHome(offer.cwd, homeDir)}</span>
+                  </>
+                )}
+              </span>
+              <button
+                className="btn primary"
+                onClick={() =>
+                  void api.resumeSession(activeTabId).then((text) => setResumeError(text ? { tabId: activeTabId, text } : undefined))
+                }
+              >
+                Resume
+              </button>
+              <button className="btn" onClick={() => api.dismissResume(activeTabId)}>
+                Dismiss
+              </button>
+            </div>
+          )}
           {props.find && (
             <FindBar
               tabId={activeTabId}
@@ -164,9 +185,9 @@ export function TaskView(props: Props) {
         </div>
       ) : (
         <div className="empty-main">
-          <p>This task has no tabs.</p>
-          <button className="primary" onClick={onNewTab}>
-            New Tab <kbd>{key('newTab')}</kbd>
+          <h2>No tabs</h2>
+          <button className="btn primary big" onClick={onNewTab}>
+            New tab {key('newTab') && <span className="k">{key('newTab')}</span>}
           </button>
         </div>
       )}

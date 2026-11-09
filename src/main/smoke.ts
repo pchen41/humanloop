@@ -63,20 +63,31 @@ export async function runSmokeTest(d: SmokeDeps): Promise<void> {
     // The sleep keeps the "claude" stand-in alive while the app looks up its parent, like a real session.
     writeFileSync(script, `printf '%s' '${event}' | sh -c '${HOOK_COMMAND}'\nsleep 5\n`);
     d.writeToTab(tabId, `sh '${script}'\r`);
-    await waitFor('the hook event to reach the tab', () => js(`!!document.querySelector('.tab .agent-dot.idle')`));
+    await waitFor('the hook event to reach the tab', () => js(`!!document.querySelector('.tab .glyph.idle')`));
     log('hook event received and shown');
 
     // Shortcut recorder: a key press while recording becomes the shortcut,
     // through the same before-input-event path a real key press takes.
     await js(`window.__humanloopDebug.showSettings()`);
-    const keyButton = `[...document.querySelectorAll('.shortcut-row')].find((r) => r.querySelector('.shortcut-label').textContent === 'Next Task').querySelector('.shortcut-key')`;
-    await waitFor('the settings screen', () => js(`!!document.querySelector('.modal.settings')`));
+    const keyButton = `[...document.querySelectorAll('.shortcut-row')].find((r) => r.querySelector('.shortcut-name').textContent === 'Next task').querySelector('.keys')`;
+    await waitFor('the settings screen', () => js(`!!document.querySelector('.settings')`));
     await js(`${keyButton}.click()`);
-    await waitFor('recording to start', () => js(`${keyButton}.textContent === 'Press keys…'`));
+    await waitFor('recording to start', () => js(`${keyButton}.textContent === 'Press keys'`));
     d.win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'J', modifiers: ['meta'] });
     d.win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'J', modifiers: ['meta'] });
     await waitFor('the recorded shortcut', () => js(`${keyButton}.textContent === '⌘J'`));
     log('shortcut recorded');
+
+    // A clash: recording Find's shortcut for Clear terminal asks before taking it.
+    const row = (name: string) => `[...document.querySelectorAll('.shortcut-row')].find((r) => r.querySelector('.shortcut-name').textContent === '${name}')`;
+    await js(`${row('Clear terminal')}.querySelector('.keys').click()`);
+    await waitFor('recording to start again', () => js(`${row('Clear terminal')}.querySelector('.keys').textContent === 'Press keys'`));
+    d.win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'F', modifiers: ['meta'] });
+    d.win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'F', modifiers: ['meta'] });
+    await waitFor('the conflict line', () => js(`document.querySelector('.shortcut-notice')?.textContent.startsWith('Used by Find.')`));
+    await js(`document.querySelector('.shortcut-notice .link').click()`);
+    await waitFor('the shortcut to move', () => js(`${row('Find')}.querySelector('.keys').textContent === 'None' && ${row('Clear terminal')}.querySelector('.keys').textContent === '⌘F'`));
+    log('conflicting shortcut reassigned');
 
     const shot = process.env.HUMANLOOP_SMOKE_SCREENSHOT;
     if (shot) {

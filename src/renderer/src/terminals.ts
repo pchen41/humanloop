@@ -13,29 +13,77 @@ import type { PtyExitInfo } from '../../shared/ipc';
 
 const api = window.humanloop;
 
-const THEME: ITheme = {
-  background: '#151517',
-  foreground: '#e4e4e7',
-  cursor: '#e4e4e7',
-  cursorAccent: '#151517',
-  selectionBackground: '#3b4a6b',
-  black: '#1e1e22',
-  red: '#f2777a',
-  green: '#99cc99',
-  yellow: '#ffcc66',
-  blue: '#6699cc',
-  magenta: '#cc99cc',
-  cyan: '#66cccc',
-  white: '#d4d4d8',
-  brightBlack: '#6b6b74',
-  brightRed: '#ff8f91',
-  brightGreen: '#b5e0b5',
-  brightYellow: '#ffdd88',
-  brightBlue: '#88b4e0',
-  brightMagenta: '#e0b4e0',
-  brightCyan: '#88e0e0',
-  brightWhite: '#fafafa',
+const DARK: ITheme = {
+  background: '#0c0c0e',
+  foreground: '#cfcfd6',
+  cursor: '#cfcfd6',
+  cursorAccent: '#0c0c0e',
+  selectionBackground: '#34405a',
+  black: '#2a2a30',
+  red: '#f16c6c',
+  green: '#6ccf9a',
+  yellow: '#f2c46b',
+  blue: '#7eb0ff',
+  magenta: '#c58bff',
+  cyan: '#6fd2b0',
+  white: '#f2f2f6',
+  brightBlack: '#7d7d89',
+  brightRed: '#ff8a8a',
+  brightGreen: '#8ee0b3',
+  brightYellow: '#f7d48e',
+  brightBlue: '#a1c6ff',
+  brightMagenta: '#d6aaff',
+  brightCyan: '#94e0c6',
+  brightWhite: '#ffffff',
 };
+
+const LIGHT: ITheme = {
+  background: '#fcfcfd',
+  foreground: '#2b2b33',
+  cursor: '#2b2b33',
+  cursorAccent: '#fcfcfd',
+  selectionBackground: '#cfdcf5',
+  black: '#2b2b33',
+  red: '#d9453f',
+  green: '#2f9e5f',
+  yellow: '#8a5a00',
+  blue: '#2f6fd0',
+  magenta: '#8a4fd0',
+  cyan: '#147c5a',
+  white: '#d4d4da',
+  brightBlack: '#8a8a95',
+  brightRed: '#c0392f',
+  brightGreen: '#26834e',
+  brightYellow: '#6e4800',
+  brightBlue: '#2559ad',
+  brightMagenta: '#723fb0',
+  brightCyan: '#0f5e44',
+  brightWhite: '#ffffff',
+};
+
+/** Find highlights. The addon needs #RRGGBB colors. */
+const DARK_SEARCH = {
+  matchBackground: '#4b4320',
+  matchOverviewRuler: '#8a7a3a',
+  activeMatchBackground: '#a8862c',
+  activeMatchColorOverviewRuler: '#f0b35e',
+};
+const LIGHT_SEARCH = {
+  matchBackground: '#f6e7b4',
+  matchOverviewRuler: '#d9b85a',
+  activeMatchBackground: '#f0c75a',
+  activeMatchColorOverviewRuler: '#b8860b',
+};
+
+// The app follows the system appearance; open terminals switch with it.
+const lightQuery = window.matchMedia('(prefers-color-scheme: light)');
+const theme = (): ITheme => (lightQuery.matches ? LIGHT : DARK);
+const searchColors = () => (lightQuery.matches ? LIGHT_SEARCH : DARK_SEARCH);
+/**
+ * Programs print "white" text expecting a dark background; on the light one
+ * xterm darkens any colour too faint to read. The dark theme is left exact.
+ */
+const minimumContrast = (): number => (lightQuery.matches ? 4.5 : 1);
 
 type Listener = () => void;
 
@@ -49,14 +97,6 @@ const CMD_EDIT_KEYS: Record<string, string> = {
   ArrowRight: '\x05',
   Backspace: '\x15',
   Delete: '\x0b',
-};
-
-/** Find highlights. The addon needs #RRGGBB colors. */
-const SEARCH_COLORS = {
-  matchBackground: '#4b4320',
-  matchOverviewRuler: '#8a7a3a',
-  activeMatchBackground: '#a8862c',
-  activeMatchColorOverviewRuler: '#f0b35e',
 };
 
 class TerminalHandle {
@@ -81,10 +121,12 @@ class TerminalHandle {
     this.el.className = 'terminal-surface';
     this.term = new Terminal({
       fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
-      fontSize: 13,
-      lineHeight: 1.15,
+      fontSize: 12.5,
+      // Taller lines break up box drawing (Claude Code's borders) in the DOM renderer.
+      lineHeight: 1.2,
       scrollback: 10_000,
-      theme: THEME,
+      theme: theme(),
+      minimumContrastRatio: minimumContrast(),
       macOptionIsMeta: optionAsMeta,
       macOptionClickForcesSelection: true,
       allowProposedApi: true,
@@ -166,7 +208,7 @@ class TerminalHandle {
       this.search.clearDecorations();
       return false;
     }
-    const opts: ISearchOptions = { incremental, decorations: SEARCH_COLORS };
+    const opts: ISearchOptions = { incremental, decorations: searchColors() };
     return direction === 'next' ? this.search.findNext(query, opts) : this.search.findPrevious(query, opts);
   }
 
@@ -264,6 +306,12 @@ class TerminalRegistry {
   private version = 0;
 
   constructor() {
+    lightQuery.addEventListener('change', () =>
+      this.forEach((h) => {
+        h.term.options.theme = theme();
+        h.term.options.minimumContrastRatio = minimumContrast();
+      }),
+    );
     api.onPtyData((tabId, data) => this.handles.get(tabId)?.write(data));
     api.onPtyExit((tabId, exit) => {
       // A tab with no terminal yet learns about the exit when it attaches.

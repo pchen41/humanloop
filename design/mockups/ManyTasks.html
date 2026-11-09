@@ -19,6 +19,9 @@ body{margin:0;background:#111113}
 .btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
 .btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
 .btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.acts{display:flex;gap:2px;flex:none;opacity:0;transition:opacity .12s}
+.sep{opacity:0;transition:opacity .12s}
+.tbar:hover .acts,.tbar:hover .sep{opacity:1}
 .k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
 .qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600;border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
 .qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
@@ -64,43 +67,39 @@ body{margin:0;background:#111113}
 
     <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
       <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">9</span></button>
-      <button class="row"><span class="pri p0">P0</span><span class="ttl">Prod: CPU pegged at 100% when 12+ terminals are open at once</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">3m</span></button>
-      <button class="row sel" aria-current="true"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">11m</span></button>
-      <button class="row"><span class="ttl">Shortcut recorder: conflict dialog loses focus after Move</span><span class="dots"><span class="d ok"></span></span><span class="age you">25m</span></button>
-      <button class="row"><span class="ttl">Write release notes for 0.6.0 and refresh the landing-page screenshots</span><span class="dots"><span class="d sh"></span></span><span class="age you">1d</span></button>
-      <button class="row"><span class="ttl">Spike: tmux-style broadcast typing to several tabs in one task</span><span class="dots"><span class="d ok"></span></span><span class="age you">3h 10m</span></button>
-      <button class="row"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">2h 04m</span></button>
-      <button class="row"><span class="ttl">Export task history as JSON for the weekly review</span><span class="dots"><span class="d ok"></span><span class="d sh"></span></span><span class="age you">1h 12m</span></button>
-      <button class="row"><span class="ttl">Find bar: ⌘G wraps around but does not scroll the match into view</span><span class="dots"><span class="d sh"></span></span><span class="age you">52m</span></button>
-      <button class="row"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">38m</span></button>
+      <button class="row" title="Prod: CPU pegged at 100% when 12+ terminals are open at once"><span class="pri p0">P0</span><span class="ttl">Prod: CPU pegged at 100% when 12+ terminals are open at once</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">3m</span></button>
+      <button class="row sel" title="Fix flaky queue ordering test" aria-current="true"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">11m</span></button>
+      <button class="row" title="Shortcut recorder: conflict dialog loses focus after Move"><span class="ttl">Shortcut recorder: conflict dialog loses focus after Move</span><span class="dots"><span class="d ok"></span></span><span class="age you">25m</span></button>
+      <button class="row" title="Write release notes for 0.6.0 and refresh the landing-page screenshots"><span class="ttl">Write release notes for 0.6.0 and refresh the landing-page screenshots</span><span class="dots"><span class="d sh"></span></span><span class="age you">1d</span></button>
+      <button class="row" title="Spike: tmux-style broadcast typing to several tabs in one task"><span class="ttl">Spike: tmux-style broadcast typing to several tabs in one task</span><span class="dots"><span class="d ok"></span></span><span class="age you">3h 10m</span></button>
+      <button class="row" title="Dock badge count ignores parked tasks"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">2h 04m</span></button>
+      <button class="row" title="Export task history as JSON for the weekly review"><span class="ttl">Export task history as JSON for the weekly review</span><span class="dots"><span class="d ok"></span><span class="d sh"></span></span><span class="age you">1h 12m</span></button>
+      <button class="row" title="Find bar: ⌘G wraps around but does not scroll the match into view"><span class="ttl">Find bar: ⌘G wraps around but does not scroll the match into view</span><span class="dots"><span class="d sh"></span></span><span class="age you">52m</span></button>
+      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">38m</span></button>
 
       <button class="qh col" aria-expanded="false"><span>Agent's turn</span><span class="qn">14</span></button>
 
       <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">7</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Resume every tab after a crash in one go</span><span class="age">9d</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Investigate node-pty hang on macOS 26.1 beta</span><span class="age">11d</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Menu bar extra with the Your turn count</span><span class="age">2w</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Import tasks from a Linear view</span><span class="age">3w</span></button>
-      <button class="row"><span class="ttl" style="color: #8a8a95">Per-task colour labels</span><span class="age">1mo</span></button>
+      <button class="row" title="Explore split panes inside a tab"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row" title="Light theme pass"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+      <button class="row" title="Resume every tab after a crash in one go"><span class="ttl" style="color: #8a8a95">Resume every tab after a crash in one go</span><span class="age">9d</span></button>
+      <button class="row" title="Investigate node-pty hang on macOS 26.1 beta"><span class="ttl" style="color: #8a8a95">Investigate node-pty hang on macOS 26.1 beta</span><span class="age">11d</span></button>
+      <button class="row" title="Menu bar extra with the Your turn count"><span class="ttl" style="color: #8a8a95">Menu bar extra with the Your turn count</span><span class="age">2w</span></button>
+      <button class="row" title="Import tasks from a Linear view"><span class="ttl" style="color: #8a8a95">Import tasks from a Linear view</span><span class="age">3w</span></button>
+      <button class="row" title="Per-task colour labels"><span class="ttl" style="color: #8a8a95">Per-task colour labels</span><span class="age">1mo</span></button>
 
       <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">12</span></button>
     </nav>
   </aside>
 
   <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
-    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 16px">
-      <span style="flex: 1"></span>
+    <div class="tbar" style="height: 44px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 12px 0 20px">
+      <h1 title="Fix flaky queue ordering test" style="flex: 1; min-width: 0; margin: 0 8px 0 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</h1>
+      <div class="acts"><button class="ib" aria-label="Edit task (⌘E)" title="Edit task  ⌘E"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 2.4l2 2L5 11H3v-2z"/><path d="M8.4 3.6l2 2"/></svg></button><button class="ib" aria-label="Park task (⌘⇧P)" title="Park task  ⌘⇧P"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5v9M9 2.5v9"/></svg></button><button class="ib" aria-label="Mark done (⌘⇧D)" title="Mark done  ⌘⇧D"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7"/></svg></button></div>
+      <span class="sep" aria-hidden="true" style="width: 1px; height: 16px; background: #2a2a31; margin: 0 6px; flex: none"></span>
       <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
       <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
       <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis">Prod: CPU pegged at 100% when 12+ terminals…</span><span class="k">⌘↩</span></button>
-    </div>
-
-    <div style="flex: none; height: 44px; padding: 0 20px; display: flex; align-items: center; gap: 14px">
-      <h1 style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</h1>
-      <span style="flex: 1"></span>
-      <button class="btn">Edit</button><button class="btn">Park</button><button class="btn">Done</button>
     </div>
 
     <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #222227">

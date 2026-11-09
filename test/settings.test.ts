@@ -73,5 +73,9 @@ describe('notifications and keep-awake settings', () => {
     expect(normalizeSettings({})).toMatchObject({ notifications: true, keepAwake: false });
     expect(normalizeSettings({ notifications: false, keepAwake: 'yes' })).toMatchObject({ notifications: false, keepAwake: false });
     expect(patchSettingsJson({}, { keepAwake: true, notifications: 'no' as never })).toEqual({ keepAwake: true });
+    expect(normalizeSettings({}).newTabsInCurrentDir).toBe(true);
+    expect(normalizeSettings({ newTabsInCurrentDir: false }).newTabsInCurrentDir).toBe(false);
+    expect(normalizeSettings({ newTabsInCurrentDir: 0 }).newTabsInCurrentDir).toBe(true);
+    expect(patchSettingsJson({ a: 1 }, { newTabsInCurrentDir: false })).toEqual({ a: 1, newTabsInCurrentDir: false });
   });
 });

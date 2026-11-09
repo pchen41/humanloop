@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CloseIcon, DownIcon, UpIcon } from './icons';
 import { terminals } from './terminals';
 
 interface Props {
@@ -42,7 +43,7 @@ export function FindBar({ tabId, query, onQuery, onClose, focusSignal, keys }: P
     else if (!found) setResult({ index: -1, count: 0 });
   };
 
-  const status = !query || !result ? '' : result.count === 0 ? 'No results' : result.index >= 0 ? `${result.index + 1} of ${result.count}` : `${result.count} found`;
+  const status = !query || !result ? '' : result.count === 0 ? 'No matches' : result.index >= 0 ? `${result.index + 1} of ${result.count}` : `${result.count} found`;
 
   return (
     <div className="find-bar" role="search">
@@ -50,6 +51,7 @@ export function FindBar({ tabId, query, onQuery, onClose, focusSignal, keys }: P
         ref={input}
         value={query}
         placeholder="Find"
+        aria-label="Find in terminal"
         spellCheck={false}
         onChange={(e) => {
           onQuery(e.target.value);
@@ -66,14 +68,14 @@ export function FindBar({ tabId, query, onQuery, onClose, focusSignal, keys }: P
         }}
       />
       <span className="find-status">{status}</span>
-      <button type="button" className="ghost" title={keys.previous ? `Previous (${keys.previous})` : 'Previous'} onClick={() => search(query, 'previous')}>
-        ‹
+      <button type="button" className="ib" aria-label="Previous match" title={keys.previous ? `Previous (${keys.previous})` : 'Previous'} onClick={() => search(query, 'previous')}>
+        <UpIcon />
       </button>
-      <button type="button" className="ghost" title={keys.next ? `Next (${keys.next})` : 'Next'} onClick={() => search(query, 'next')}>
-        ›
+      <button type="button" className="ib" aria-label="Next match" title={keys.next ? `Next (${keys.next})` : 'Next'} onClick={() => search(query, 'next')}>
+        <DownIcon />
       </button>
-      <button type="button" className="ghost" title="Close (Esc)" onClick={onClose}>
-        ×
+      <button type="button" className="ib" aria-label="Close find" title="Close (Esc)" onClick={onClose}>
+        <CloseIcon />
       </button>
     </div>
   );

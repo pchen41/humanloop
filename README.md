@@ -1,7 +1,7 @@
 # Humanloop
 
 A Mac app for running many Claude Code sessions in parallel. Each task has its
-own zsh tabs, and tasks sit in queues (Your Turn, Agent's Turn, Parked, Done)
+own zsh tabs, and tasks sit in queues (Your turn, Agent's turn, Parked, Done)
 sorted by priority, then by how long they have waited.
 
 ## Develop
