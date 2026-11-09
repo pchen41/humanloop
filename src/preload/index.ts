@@ -41,7 +41,6 @@ const api: HumanloopApi = {
   chooseDirectory: (current) => ipcRenderer.invoke(IPC.chooseDirectory, current),
 
   newTab: (taskId, fromTabId) => ipcRenderer.invoke(IPC.newTab, taskId, fromTabId),
-  reportCwd: (tabId, url) => ipcRenderer.send(IPC.reportCwd, tabId, url),
   closeTab: (tabId) => ipcRenderer.invoke(IPC.closeTab, tabId),
 
   ptyAttach: (tabId, cols, rows, restart) => ipcRenderer.invoke(IPC.ptyAttach, tabId, cols, rows, restart === true),

@@ -253,17 +253,17 @@ describe('review fixes: prompts per tool call', () => {
     expect(run([post('Bash', { command: 'ls' }), post('Bash', { command: 'ls' })], two)?.state).toBe('working');
   });
 
-  it('keeps questions from two MCP servers apart', () => {
+  it('needs an answer to each open MCP question', () => {
     const two = run([
       ev('SessionStart'),
       ev('UserPromptSubmit'),
-      ev('Elicitation', { mcp_server_name: 'github' }),
-      ev('Elicitation', { mcp_server_name: 'linear' }),
+      ev('Elicitation'),
+      ev('Elicitation'),
       ev('Notification', { notification_type: 'elicitation_dialog' }),
     ]);
-    const one = run([ev('ElicitationResult', { mcp_server_name: 'github' })], two);
+    const one = run([ev('ElicitationResult')], two);
     expect(one?.state).toBe('needsYou');
-    expect(run([ev('ElicitationResult', { mcp_server_name: 'linear' })], one)?.state).toBe('working');
+    expect(run([ev('ElicitationResult')], one)?.state).toBe('working');
   });
 
   it("keeps the session's starting directory for resume", () => {

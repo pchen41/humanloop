@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, watch } from 'node:fs';
-import { homedir, hostname } from 'node:os';
+import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { COMMAND_IDS, commandById, type CommandId } from '../shared/commands';
@@ -20,7 +20,7 @@ import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
 import { agentFor, effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
-import { currentHookStatus, installWithConfirm, removeWithConfirm, resolveClaudeConfigDir } from './hookInstaller';
+import { currentHookStatus, installWithConfirm, removeWithConfirm, shortPath as claudeSettingsPath } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
 import {
   acceleratorFromInput,
@@ -56,13 +56,6 @@ let stateReadError: { aside: string; error: string } | undefined;
 let state: AppState = stateAfterLaunch(
   readJson(stateFile, EMPTY_STATE, normalizeState, (aside, error) => (stateReadError = { aside, error })),
 );
-/**
- * settings.json as last read from disk, before cleanup. If the file is
- * deleted, the next save starts from this rather than from the cleaned-up
- * settings in effect, which would pin cleanup results (such as a default
- * shortcut set aside for a conflict) into the new file.
- */
-let lastSettingsJson: Record<string, unknown> | undefined;
 let settings: Settings = readSettingsFile() ?? DEFAULT_SETTINGS;
 let win: BrowserWindow | undefined;
 /** Esc and Ctrl-C, plain and in the kitty keyboard protocol's CSI-u form. */
@@ -82,7 +75,6 @@ const ptys = new PtyManager({
   },
   exit(tabId, exit) {
     tracker.clear(tabId);
-    reportedDirs.delete(tabId); // a restarted shell reports for itself
     win?.webContents.send(IPC.ptyExit, tabId, exit);
   },
 });
@@ -226,7 +218,6 @@ function readSettingsFile(): Settings | undefined {
     console.error(`Could not read ${settingsFile}: ${r.error}`);
     return undefined;
   }
-  if (r.value) lastSettingsJson = r.value;
   return r.value && normalizeSettings(r.value);
 }
 
@@ -242,8 +233,8 @@ function updateSettings(patch: SettingsPatch): void {
     settingsFileError(r.error);
     return;
   }
-  // If the file was deleted, start from what it last said, not the defaults.
-  const out = patchSettingsJson(r.value ?? lastSettingsJson ?? { ...settings, shortcuts: {} }, patch);
+  // A missing file (never written, or deleted) starts from the defaults.
+  const out = patchSettingsJson(r.value ?? {}, patch);
   try {
     // Through a symlink (e.g. into a dotfiles repo) to the file it points at, keeping the link.
     writeJsonSync(symlinkTarget(settingsFile), out);
@@ -251,7 +242,6 @@ function updateSettings(patch: SettingsPatch): void {
     showError("Couldn't save settings", String(err));
     return;
   }
-  lastSettingsJson = out;
   applySettings(normalizeSettings(out));
 }
 
@@ -274,7 +264,7 @@ function setShortcut(id: CommandId, value: string | null, takeFrom?: CommandId):
     settingsFileError(r.error);
     return {};
   }
-  const current = r.value ? normalizeSettings(r.value) : lastSettingsJson ? normalizeSettings(lastSettingsJson) : settings;
+  const current = r.value ? normalizeSettings(r.value) : DEFAULT_SETTINGS;
   const fallback = commandById(id).accelerator;
   const accelerator = value === null ? fallback : value;
   // A shortcut equal to the default is saved as "use the default", so later default changes still apply.
@@ -421,42 +411,20 @@ function editCommand(cmd: TerminalEditCommand): void {
 
 /** Where each new tab's shell starts, until it does. Runtime only: after a restart tabs start in the task's directory. */
 const startDirs = new Map<string, string>();
-/** The directory each tab's shell last reported with OSC 7, as a file:// URL. */
-const reportedDirs = new Map<string, string>();
 
 /**
- * A new tab opens where you are: in the current tab's directory. That's the
- * one its shell last reported (OSC 7, which some shells and prompts send),
- * else the shell's own current directory from the system. Without a current
- * tab it's the task's default directory, then the global one, then home.
+ * A new tab opens where you are: in the current tab's shell's directory
+ * (wherever you last cd'd), from the system. Without a current tab it's the
+ * task's default directory, then the global one, then home.
  */
 async function newTab(taskId: string, fromTabId: string | undefined): Promise<string> {
   const from = fromTabId && T.findTab(state, fromTabId)?.task.id === taskId ? fromTabId : undefined;
-  // At its prompt the shell's own directory is the truth; OSC 7 can come from
-  // any program's output (an editor, a file you cat). While a program runs,
-  // what it reported is the better guess.
-  const reported = from ? localPath(reportedDirs.get(from)) : undefined;
-  const atPrompt = from !== undefined && ptys.busyProgram(from) === undefined;
-  const dir = from ? (atPrompt ? ((await ptys.cwd(from)) ?? reported) : (reported ?? (await ptys.cwd(from)))) : undefined;
+  const dir = from ? await ptys.cwd(from) : undefined;
   const id = randomUUID();
   if (!T.findTask(state, taskId)) throw new Error(`no task ${taskId}`);
   if (dir && usableCwd(dir) === dir) startDirs.set(id, dir);
   setState(T.addTab(state, taskId, { id, title: 'zsh' }));
   return id;
-}
-
-/** The local path in an OSC 7 file:// URL, or undefined if it names another host (say, over ssh). */
-function localPath(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  try {
-    const u = new URL(url);
-    const host = u.hostname.toLowerCase();
-    const me = hostname().toLowerCase();
-    const local = !host || host === 'localhost' || host === me || host === me.replace(/\.local$/, '') || `${host}.local` === me;
-    return u.protocol === 'file:' && local ? decodeURIComponent(u.pathname) : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 /** Creates, opens and gives a first shell tab to a task in a single state update. */
@@ -488,7 +456,6 @@ function killTab(tabId: string): void {
   tracker.clear(tabId);
   resumeOffers.delete(tabId);
   startDirs.delete(tabId);
-  reportedDirs.delete(tabId);
 }
 
 /** Offers to close the task's tabs, then marks it done. */
@@ -565,6 +532,7 @@ function registerIpc(): void {
         homeDir: homedir(),
         agents: tracker.snapshot(),
         hooks: hookStatus,
+        claudeSettingsPath: claudeSettingsPath(),
         showSettings: show,
         resume: currentResumeOffers(),
       };
@@ -678,11 +646,6 @@ function registerIpc(): void {
   ipcMain.handle(IPC.newTab, (_e, taskId: unknown, fromTabId: unknown) => {
     if (typeof taskId !== 'string') throw new Error('bad task id');
     return newTab(taskId, typeof fromTabId === 'string' ? fromTabId : undefined);
-  });
-  ipcMain.on(IPC.reportCwd, (_e, tabId: unknown, url: unknown) => {
-    if (typeof tabId === 'string' && typeof url === 'string' && url.length < 4096 && T.findTab(state, tabId)) {
-      reportedDirs.set(tabId, url);
-    }
   });
   ipcMain.handle(IPC.closeTab, async (_e, tabId: string) => {
     const found = T.findTab(state, tabId);
@@ -907,8 +870,6 @@ void app.whenReady().then(async () => {
       `It started with no tasks. The file was kept as ${stateReadError.aside.replace(homedir(), '~')}.\n\n${stateReadError.error}`,
     );
   }
-  // Find Claude's config folder from your login shell, then check its hooks there.
-  void resolveClaudeConfigDir().then(refreshHookStatus);
   setState(state); // no-op unless launch reconciliation changed something
   stateStore.save(state);
   updateDockAndPower();

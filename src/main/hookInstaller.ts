@@ -2,7 +2,6 @@
 // the user picks the menu item. Backs the file up first and leaves everything
 // that isn't Humanloop's untouched.
 
-import { execFile } from 'node:child_process';
 import { copyFileSync, existsSync, lstatSync, readFileSync, readlinkSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -12,37 +11,11 @@ import type { HookState } from '../shared/ipc';
 import { writeJsonSync } from './store';
 
 /**
- * Claude Code's config folder: $CLAUDE_CONFIG_DIR if your shell sets it,
- * else ~/.claude. Read from a login shell, because that's the environment
- * Claude runs in inside Humanloop's tabs (the app itself may have been opened
- * from Finder, without your shell's variables).
+ * Claude Code's config folder: $CLAUDE_CONFIG_DIR if Humanloop was started
+ * with it set, else ~/.claude. Settings shows the path, so a different setup
+ * is easy to spot.
  */
-let configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
-/** Settles once the login shell has been asked; install and remove wait for it. */
-let configReady: Promise<void> | undefined;
-
-/**
- * Asks a login shell for $CLAUDE_CONFIG_DIR. The shell starts with the
- * variables a tab gets, including one set when Humanloop was launched, so its
- * answer is what Claude sees in a tab. Runs once; later calls share it.
- */
-export function resolveClaudeConfigDir(): Promise<void> {
-  configReady ??= new Promise((done) => {
-    const MARK = '__humanloop_config_dir__';
-    const env: Record<string, string> = { HOME: homedir(), PATH: '/usr/bin:/bin:/usr/sbin:/sbin', TERM: 'dumb' };
-    for (const name of ['CLAUDE_CONFIG_DIR', 'ZDOTDIR', 'USER', 'LOGNAME', 'SHELL']) {
-      const v = process.env[name];
-      if (v) env[name] = v;
-    }
-    execFile('/bin/zsh', ['-lic', `printf '\\n${MARK}%s\\n' "$CLAUDE_CONFIG_DIR"`], { timeout: 5000, env }, (_err, stdout) => {
-      const line = String(stdout ?? '').split('\n').find((l) => l.startsWith(MARK));
-      const dir = line?.slice(MARK.length).trim();
-      if (line !== undefined) configDir = dir ? resolve(homedir(), dir.replace(/^~(?=\/|$)/, homedir())) : join(homedir(), '.claude');
-      done();
-    });
-  });
-  return configReady;
-}
+const configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
 
 /** Claude Code's managed (organisation-wide) settings on macOS, if any. */
 function readManaged(): Json {
@@ -59,7 +32,7 @@ function settingsFile(): string {
 }
 
 /** The settings file as shown to you, with ~ for your home folder. */
-function shortPath(): string {
+export function shortPath(): string {
   const p = settingsFile();
   return p.startsWith(homedir() + '/') ? `~${p.slice(homedir().length)}` : p;
 }
@@ -129,13 +102,9 @@ function stamp(): string {
  * open (by you or by Claude Code) are kept, then backs it up and writes the
  * change with the same permissions. Returns the backup path, if any.
  */
-export function applyChange(change: (settings: Json) => Json, expectedPath?: string): string | undefined {
+export function applyChange(change: (settings: Json) => Json): string | undefined {
   const r = read();
   if (!r.ok) throw new Error(r.error);
-  // The file you confirmed is the file that gets written.
-  if (expectedPath !== undefined && r.path !== expectedPath) {
-    throw new Error(`Claude Code's settings moved to ${r.path} while the dialog was open. Nothing was changed; try again.`);
-  }
   let backup: string | undefined;
   let mode: number | undefined;
   if (r.text !== undefined) {
@@ -152,7 +121,6 @@ async function message(win: BrowserWindow | undefined, opts: Electron.MessageBox
 }
 
 export async function installWithConfirm(win: BrowserWindow | undefined): Promise<void> {
-  await resolveClaudeConfigDir();
   const r = read();
   if (!r.ok) {
     await message(win, { type: 'error', message: 'Could not install hooks', detail: r.error });
@@ -172,7 +140,7 @@ export async function installWithConfirm(win: BrowserWindow | undefined): Promis
   });
   if (response !== 0) return;
   try {
-    const backup = applyChange(installHooks, r.path);
+    const backup = applyChange(installHooks);
     await message(win, {
       type: 'info',
       message: 'Hooks installed',
@@ -184,7 +152,6 @@ export async function installWithConfirm(win: BrowserWindow | undefined): Promis
 }
 
 export async function removeWithConfirm(win: BrowserWindow | undefined): Promise<void> {
-  await resolveClaudeConfigDir();
   const r = read();
   if (!r.ok) {
     await message(win, { type: 'error', message: 'Could not remove hooks', detail: r.error });
@@ -200,7 +167,7 @@ export async function removeWithConfirm(win: BrowserWindow | undefined): Promise
   });
   if (response !== 0) return;
   try {
-    applyChange(removeHooks, r.path);
+    applyChange(removeHooks);
   } catch (err) {
     await message(win, { type: 'error', message: 'Could not remove hooks', detail: String(err) });
   }

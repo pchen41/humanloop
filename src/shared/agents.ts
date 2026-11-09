@@ -53,10 +53,6 @@ export interface HookEvent {
   tool_name?: unknown;
   tool_input?: unknown;
   is_interrupt?: unknown;
-  mcp_server_name?: unknown;
-  server_name?: unknown;
-  elicitation_id?: unknown;
-  request_id?: unknown;
   background_tasks?: unknown;
 }
 
@@ -155,21 +151,6 @@ function answeredBy(waiting: string[], started: string[], who: string, ev: HookE
   return left;
 }
 
-/** An MCP question's key: the agent, the server and the request, when the event names them. */
-function elicitationKey(who: string, ev: HookEvent): string {
-  const str = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? String(v) : '');
-  return `${who}|elicitation:${str(ev.mcp_server_name ?? ev.server_name)}:${str(ev.elicitation_id ?? ev.request_id)}`;
-}
-
-/** The questions left once one is answered: that one, else one from the same server, else the agent's oldest. */
-function elicitationAnswered(waiting: string[], who: string, ev: HookEvent): string[] {
-  const key = elicitationKey(who, ev);
-  if (waiting.includes(key)) return removeOne(waiting, key);
-  const server = key.slice(0, key.lastIndexOf(':') + 1);
-  const match = waiting.find((e) => e.startsWith(server)) ?? waiting.find((e) => e.startsWith(`${who}|elicitation`));
-  return match ? removeOne(waiting, match) : waiting;
-}
-
 /**
  * Applies one hook event to a tab's agent. Returns undefined when the tab no
  * longer has a Claude session (SessionEnd).
@@ -241,9 +222,10 @@ export function applyHookEvent(prev: TabAgent | undefined, ev: HookEvent): TabAg
       // Identical parallel calls each get their own entry, so answering one leaves the other open.
       return finish(prev, { ...a, waitingOn: [...a.waitingOn, toolKey(who, ev)] });
     case 'Elicitation':
-      return finish(prev, { ...a, waitingOn: [...a.waitingOn, elicitationKey(who, ev)] });
+      // One entry per open question, so two at once need two answers.
+      return finish(prev, { ...a, waitingOn: [...a.waitingOn, `${who}|elicitation`] });
     case 'ElicitationResult':
-      return finish(prev, { ...a, waitingOn: elicitationAnswered(a.waitingOn, who, ev) });
+      return finish(prev, { ...a, waitingOn: removeOne(a.waitingOn, `${who}|elicitation`) });
     case 'Notification':
       if (ev.notification_type === 'permission_prompt') {
         // Usually a PermissionRequest (of this agent or, without an agent_id
@@ -254,8 +236,8 @@ export function applyHookEvent(prev: TabAgent | undefined, ev: HookEvent): TabAg
       }
       if (ev.notification_type === 'elicitation_dialog') {
         // Usually Elicitation already recorded it.
-        if (a.waitingOn.some((e) => e.startsWith(`${who}|elicitation`))) return finish(prev, a);
-        return finish(prev, { ...a, waitingOn: [...a.waitingOn, `${who}|elicitation::`] });
+        if (a.waitingOn.includes(`${who}|elicitation`)) return finish(prev, a);
+        return finish(prev, { ...a, waitingOn: [...a.waitingOn, `${who}|elicitation`] });
       }
       if (ev.notification_type === 'idle_prompt' && a.turn === 'working') return finish(prev, { ...a, turn: 'idle' });
       return finish(prev, a);

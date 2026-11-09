@@ -10,6 +10,8 @@ const api = window.humanloop;
 interface Props {
   settings: Settings;
   hooks: HookState;
+  /** Claude Code's settings.json, where the hooks go. */
+  claudeSettingsPath: string;
   homeDir: string;
   onClose(): void;
 }
@@ -24,7 +26,7 @@ const HOOK_TEXT: Record<HookState, string> = {
 };
 
 /** Settings apply as you change them; there is no Save. */
-export function SettingsView({ settings, hooks, homeDir, onClose: close }: Props) {
+export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, onClose: close }: Props) {
   const [cwd, setCwd] = useState(settings.defaultCwd ?? '');
   // Follow changes made elsewhere (e.g. editing settings.json by hand).
   useEffect(() => setCwd(settings.defaultCwd ?? ''), [settings.defaultCwd]);
@@ -139,6 +141,9 @@ export function SettingsView({ settings, hooks, homeDir, onClose: close }: Props
         <section>
           <h3>Claude Code hooks</h3>
           <p className={`section-hint hooks-${hooks}`}>{HOOK_TEXT[hooks]}</p>
+          <p className="section-hint">
+            In <span className="resume-cwd">{claudeSettingsPath}</span>
+          </p>
           <div className="row-buttons">
             {hooks !== 'installed' && hooks !== 'disabled' && (
               <button type="button" className={hooks === 'missing' ? 'primary' : ''} onClick={() => void api.installHooks()}>

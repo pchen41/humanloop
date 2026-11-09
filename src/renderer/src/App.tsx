@@ -19,6 +19,7 @@ interface Loaded {
   homeDir: string;
   agents: Record<string, TabAgent>;
   hooks: HookState;
+  claudeSettingsPath: string;
   resume: Record<string, ResumeOffer>;
 }
 
@@ -322,7 +323,13 @@ export function App() {
         />
       )}
       {settingsOpen && (
-        <SettingsView settings={data.settings} hooks={data.hooks} homeDir={data.homeDir} onClose={closeSettings} />
+        <SettingsView
+          settings={data.settings}
+          hooks={data.hooks}
+          claudeSettingsPath={data.claudeSettingsPath}
+          homeDir={data.homeDir}
+          onClose={closeSettings}
+        />
       )}
     </div>
   );

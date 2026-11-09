@@ -17,6 +17,8 @@ export interface InitialData {
   /** Claude sessions by tab id. */
   agents: Record<string, TabAgent>;
   hooks: HookState;
+  /** Where Humanloop installs its hooks: Claude Code's settings.json, with ~ for home. */
+  claudeSettingsPath: string;
   /** Settings was chosen from the menu before this window existed. */
   showSettings: boolean;
   /** A menu command chosen before this window existed, to run once it has loaded. */
@@ -96,8 +98,6 @@ export interface HumanloopApi {
 
   /** Adds a shell tab to the task, starting in `fromTabId`'s current directory if given. */
   newTab(taskId: string, fromTabId?: string): Promise<string>;
-  /** A tab's shell reported its directory (OSC 7, a file:// URL). */
-  reportCwd(tabId: string, url: string): void;
   /** Asks for confirmation if a program is still running, then closes the tab. */
   closeTab(tabId: string): Promise<boolean>;
 
@@ -153,7 +153,6 @@ export const IPC = {
   editTask: 'task:edit',
   chooseDirectory: 'dialog:directory',
   newTab: 'tab:new',
-  reportCwd: 'tab:cwd',
   closeTab: 'tab:close',
   ptyAttach: 'pty:attach',
   ptyWrite: 'pty:write',

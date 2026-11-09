@@ -98,11 +98,6 @@ class TerminalHandle {
     this.term.loadAddon(new WebLinksAddon((_e, url) => openLink(url)));
     this.term.attachCustomKeyEventHandler((e) => this.handleKey(e));
     this.term.onData((data) => this.input(data));
-    // OSC 7: the shell reporting its directory, so a new tab can open there.
-    this.term.parser.registerOscHandler(7, (data) => {
-      api.reportCwd(this.tabId, data);
-      return true;
-    });
     this.term.onTitleChange((title) => {
       this.title = title;
       this.onTitle();
