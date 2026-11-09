@@ -25,13 +25,15 @@ recording. This is a visual and copy redesign on top of it, plus one new setting
 
 | File | Shows |
 | --- | --- |
-| `Main.html` | Main window in use: 10 tasks across queues, open task with 4 mixed-state tabs, description line with a clickable link |
+| `Main.html` | Main window in use: 10 tasks across queues, title in the top bar, open task with 4 mixed-state tabs, description line with a clickable link |
 | `ManyTasks.html` | 30+ tasks, compact 30px rows, Agent's turn and Done collapsed, ⌘K jump palette |
 | `NoTasks.html` | First launch, no tasks |
 | `TaskNoTabs.html` | Open task with no tabs |
 | `YourTurnEmpty.html` | Empty Your turn queue and the popover after pressing ⌘↩ with nothing waiting |
 | `TaskEditor.html` | Edit sheet, Turn rules disclosure closed (default) |
 | `TaskEditorTurns.html` | Edit sheet, Turn rules open with one override |
+| `TitleHover.html` | Over-long task title: hover-revealed task actions, full-title tooltips in the bar and the sidebar |
+| `TabMenu.html` | Tab menu open on the active tab: Mute tab, per-tab turn rules with a submenu open, Close; one muted tab |
 | `Resume.html` | After relaunch: one-line resume offer in the tab, resumable dots in the sidebar |
 | `SettingsGeneral.html` | Settings: Turn rules, Tabs, Notifications & power, Claude Code |
 | `SettingsShortcuts.html` | Settings: shortcuts list, a recording in progress, a conflict |
@@ -118,7 +120,11 @@ wraps); `TitleHover.html` shows one.
 ### Header controls
 
 - Next button: mint tint (`rgba(111,210,176,.13)`), mint text, label `Next  <title of the
-  task ⌘↩ would open>  ⌘↩`, title truncated at ~340px. When nothing needs you the button is
+  task ⌘↩ would open>  ⌘↩`, title truncated at ~340px. The shortcut is a keycap: 14px mono
+  glyphs (they render small, so this matches the 12.5px label optically) in a 20px box with
+  6px padding, 1px mint border at 40%, no fill, 4px radius, 90% opacity. The earlier filled
+  10.5px chip was too small to read from a distance. Same keycap on the Resume button; the
+  quiet grey Next uses a line-colour border. When nothing needs you the button is
   grey, reads `Next ⌘↩`, and pressing it shows a popover under the button for ~3s:
   "Nothing else needs you" / "All N tasks are with Claude." No notice anywhere else.
 - No turn meter, no counts in the header.
@@ -147,9 +153,33 @@ description never wraps in the header; the full text lives in the editor.
 
 ### Tabs
 
-Underline tabs, 36px: 9px state glyph + name, 18px apart, active tab fg/1 with a 2px fg/1
-underline, inactive fg/3. No close marks or sub-labels; close via ⌘W or hover-revealed ×.
-Trailing + icon button for new tab. Glyph colours follow the dot rules above.
+Underline tabs, 36px: 9px state glyph + name, active tab fg/1 with a 2px fg/1 underline,
+inactive fg/3. Each tab is at least 100px and at most 220px wide (name ellipsises), 4px
+apart, padded 8px left and 4px right so the first glyph lines up with the title's 20px
+edge (the strip is padded 12px left). Trailing + icon button for new tab. Glyph colours
+follow the dot rules above. Full name in a tooltip.
+
+No close ×. At the right end of the active tab, and of any tab under the pointer, a 18px
+chevron button opens the tab menu (`TabMenu.html`). Close is in that menu and on ⌘W.
+
+Muted tab: the glyph is a dim filled disc (surface/5-ish `#3A3A42`, light `#C4C4CB`) and
+the name is fg/5. A muted tab is left out when deciding whose turn the task is; its
+sidebar dot uses the same dim disc.
+
+### Tab menu
+
+A plain menu under the tab (surface/2, 1px line, radius 8, 5px padding, 268px wide, 28px
+rows, no help text). Rows, top to bottom:
+- "Mute tab", a checkmark item (a check at the right while muted; the main menu reserves
+  no check column, so labels start 10px in; the submenu keeps a 12px one for its radio check). "Mute" rather than "Park": parking is
+  a task-level state with its own queue, and a muted tab simply stops asking for attention.
+- "Subagents" and "Background shells", each showing the tab's resolved value at the right in
+  fg/4 ("Wait for them" / "Ignore them") and opening a submenu of three radio items:
+  "Task's setting" with the task's value as a dim suffix (e.g. "wait"), "Wait for them",
+  "Ignore them". "Task's setting" is the default and stores nothing, so the tab follows the
+  task. The submenu opens to the right, aligned with its row.
+- "Close tab" in red (destructive) with ⌘W at the right.
+No descriptions in the menu; Settings and the task editor carry the help lines.
 
 ### Terminal
 
@@ -189,16 +219,19 @@ Fields, each label-above-control with an optional one-line help:
 - Priority: segmented P0 P1 P2 P3 in mono, help "Lower is more urgent." Default P2.
 - Description: textarea. Links in it are clickable where the description is shown.
 - Turn rules: a disclosure row, closed by default. Closed label: "Turn rules · Same as
-  Settings" (or "Turn rules · N overrides"). Open, it shows three fields:
-  - Multiple Claude tabs — "After one finishes (default)" / "After all finish"
+  Settings" (or "Turn rules · N overrides"). Open, a help line reads "Default follows
+  Settings. Tabs follow the task unless set in their menu." and three fields follow, each a three-option segmented control whose first
+  option is "Default" with the resolved global value as a dim suffix (e.g. "Default · wait"):
+  - Multiple Claude tabs — Default / "After one finishes" / "After all finish"
     Help: "Decides when a task with more than one Claude running becomes your turn."
-  - Background subagents — "Wait for them (default)" / "Ignore them"
+  - Background subagents — Default / "Wait for them" / "Ignore them"
     Help: "Whether a task stays Claude's turn while subagents it started are still running."
-  - Background shells — "Wait for them (default)" / "Ignore them"
+  - Background shells — Default / "Wait for them" / "Ignore them"
     Help: "Whether a task stays Claude's turn while dev servers or watchers it started are
     still running."
-  The global value carries a small "default" suffix inside its segment. Selecting the other
-  value tints that segment mint. There is no Inherit option and no override badge.
+  Default stores nothing, so the task tracks Settings. An explicit value tints its segment
+  mint. The same control appears in the tab menu with "Task's setting" as the first option,
+  so a tab tracks its task the same way. No override badge on rows.
 - No directory field. Tabs follow the global "open in current directory" setting.
 
 Footer: "Delete task…" (red text, left), Cancel, Save ⌘↩ (mint tint).

@@ -20,6 +20,8 @@ body{margin:0;background:#111113}
 .btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
 .btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
 .btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.btn .kk{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1;font-weight:500;opacity:.9;height:20px;padding:0 6px;box-sizing:border-box;border:1px solid rgba(111,210,176,.4);border-radius:4px;display:inline-flex;align-items:center;margin-right:-2px}
+.btn.quiet .kk{border-color:#2a2a31}
 .btn.solid{border-color:#2f2f36;background:#1f1f24;color:#ededf1}
 .acts{display:flex;gap:2px;flex:none;opacity:0;transition:opacity .12s}
 .sep{opacity:0;transition:opacity .12s}
@@ -41,14 +43,21 @@ body{margin:0;background:#111113}
 .dots{display:flex;gap:4px;flex:none}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
 .d.sh{border:1px solid #5a5a66}
+.d.pk{background:#3a3a42}
 .d.rs{border:1.5px dashed #6fd2b0}
 .age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
 .age.you{color:#6fd2b0}
 .g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
 .g.sh{border:1.5px solid #5a5a66}
+.g.pk{background:#3a3a42}
 .g.rs{border:1.5px dashed #6fd2b0}
-.tab{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:18px}
+.tab{display:inline-flex;align-items:center;gap:8px;height:36px;min-width:100px;max-width:220px;padding:0 4px 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:4px;text-align:left}
 .tab.on{color:#ededf1;border-bottom-color:#ededf1}
+.tab .tn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab.pk{color:#55555e}
+.tm{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:4px;color:#6f6f7a;padding:0;opacity:0}
+.tab.on .tm,.tab:hover .tm,.tab.menu .tm{opacity:1}
+.tab.menu .tm{background:#26262b;color:#ededf1}
 .term{margin:0;font-size:12.5px;line-height:18px;color:#cfcfd6;white-space:pre}
 .c-dim{color:#7d7d89}.c-grn{color:#6ccf9a}.c-blu{color:#7eb0ff}.c-wht{color:#f2f2f6}
 .meta{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12px;line-height:16px;margin:0}
@@ -99,14 +108,14 @@ body{margin:0;background:#111113}
       <span class="sep" aria-hidden="true" style="width: 1px; height: 16px; background: #2a2a31; margin: 0 6px; flex: none"></span>
       <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
       <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
-      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</span><span class="k">⌘↩</span></button>
+      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</span><span class="kk">⌘↩</span></button>
     </div>
 
-    <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #222227">
-      <button class="tab on" role="tab" aria-selected="true"><span class="g rs"></span><span>claude</span></button>
-      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>claude · review</span></button>
-      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>vite dev</span></button>
-      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>vitest --watch</span></button>
+    <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px 0 12px; border-bottom: 1px solid #222227">
+      <div class="tab on" role="tab" aria-selected="true" title="claude"><span class="g rs"></span><span class="tn">claude</span><button class="tm" aria-label="Options for claude"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <div class="tab" role="tab" aria-selected="false" title="claude · review"><span class="g sh"></span><span class="tn">claude · review</span><button class="tm" aria-label="Options for claude · review"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <div class="tab" role="tab" aria-selected="false" title="vite dev"><span class="g sh"></span><span class="tn">vite dev</span><button class="tm" aria-label="Options for vite dev"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <div class="tab" role="tab" aria-selected="false" title="vitest --watch"><span class="g sh"></span><span class="tn">vitest --watch</span><button class="tm" aria-label="Options for vitest --watch"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
       <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
     </div>
 
@@ -114,7 +123,7 @@ body{margin:0;background:#111113}
       <div role="dialog" aria-label="Resume Claude session" style="flex: none; margin: 16px 20px 8px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; background: #141417; border: 1px solid #26262b; border-radius: 8px">
         <span class="g rs"></span>
         <span style="flex: 1; min-width: 0; font-size: 12.5px; color: #a3a3ad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Claude was running here until 10:41 · <span class="mono">~/Documents/humanloop</span></span>
-        <button class="btn primary" style="height: 26px">Resume <span class="k">⌘↩</span></button>
+        <button class="btn primary" style="height: 26px">Resume <span class="kk">⌘↩</span></button>
         <button class="btn" style="height: 26px">Dismiss</button>
       </div>
 <pre class="term" style="padding: 4px 20px 16px; margin: 0; flex: 1"><span class="c-dim">Last login: Sat Nov  8 10:43:07 on ttys014</span>

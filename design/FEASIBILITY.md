@@ -73,6 +73,17 @@ decisions and stay in even though they are not trivial.
   second `THEME` and a `matchMedia` listener to swap it on open terminals. Values are in
   SPEC.md. A couple of hours; do it last.
 
+- **Per-tab turn rules and muted tabs** (**asked for**). `Tab` gains `muted?: boolean` and
+  `policy?: Partial<Pick<Policy,'subagentsBusy'|'backgroundShellsBusy'>>`; `normalize.ts`
+  validates both. `taskAgentState` in `agents.ts` skips muted tabs and resolves each tab's
+  policy as tab → task → global before reading hook state. A tab menu (`TabMenu.html`)
+  replaces the × on tabs: Mute tab, two submenus for the turn rules, Close tab. Tabs get a
+  100–220px width and a tooltip. Half a day plus tests for the resolution order.
+- **Explicit inherit option on turn rules** (**asked for**). `PolicyControls` goes back to
+  three options: Default (resolved value as suffix) / the two values; picking Default
+  stores `undefined`. In the tab menu the rules are submenus whose first item reads
+  "Task's setting". The editor's disclosure says how many fields are overridden.
+
 ## Drop for now (new features the mockups show but nobody asked for)
 
 - The ⌘K jump palette. New UI, search, and a command; ⌘K is also Clear terminal today.

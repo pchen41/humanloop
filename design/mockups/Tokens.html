@@ -36,12 +36,14 @@ body{margin:0;background:#111113}
 .d.ok{border:1.5px solid #6fd2b0}
 .d.sh{border:1px solid #6a6a76}
 .d.rs{border:1.5px dashed #6fd2b0}
+.d.pk{background:#3a3a42}
 .g{width:10px;height:10px;border-radius:50%;box-sizing:border-box;display:inline-block}
 .g.w{background:#5b9cf6;box-shadow:0 0 0 3px rgba(91,156,246,.22)}
 .g.n{background:#6fd2b0;box-shadow:0 0 0 3px rgba(111,210,176,.25)}
 .g.ok{border:2px solid #6fd2b0}
 .g.sh{border:1.5px solid #6a6a76}
 .g.rs{border:1.5px dashed #6fd2b0}
+.g.pk{background:#3a3a42}
 .age{font-size:11px;color:#8a8a95}
 .age.you{color:#6fd2b0}
 .age.agent{color:#7fb0f8}
@@ -137,6 +139,7 @@ body{margin:0;background:#111113}
         <div>Claude done</div><div class="c"><span class="g ok"></span></div><div class="c"><span class="d ok"></span></div><div> Your turn, per the "several tabs" rule</div>
         <div>No Claude (shell)</div><div class="c"><span class="g sh"></span></div><div class="c"><span class="d sh"></span></div><div> Your turn if nothing else runs</div>
         <div>Can resume</div><div class="c"><span class="g rs"></span></div><div class="c"><span class="d rs"></span></div><div> Your turn, after a restart</div>
+        <div>Muted tab</div><div class="c"><span class="g pk"></span></div><div class="c"><span class="d pk"></span></div><div> Nowhere; the tab is left out of the decision</div>
       </div>
       <h3>Priority · P0–P3, default P2</h3>
       <div style="display: flex; gap: 14px; align-items: center; font-size: 12px; color: #a3a3ad; flex-wrap: wrap">
