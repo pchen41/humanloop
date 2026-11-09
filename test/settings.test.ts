@@ -66,3 +66,11 @@ describe('per-task overrides', () => {
     expect(T.findTask(Q.reconcile(s, Q.agentStateOf(agents, DEFAULT_POLICY), 10), 'dev')?.queue).toBe('agentsTurn');
   });
 });
+
+describe('notifications and keep-awake settings', () => {
+  it('default to notifications on and keep-awake off, and take booleans only', () => {
+    expect(normalizeSettings({})).toMatchObject({ notifications: true, keepAwake: false });
+    expect(normalizeSettings({ notifications: false, keepAwake: 'yes' })).toMatchObject({ notifications: false, keepAwake: false });
+    expect(patchSettingsJson({}, { keepAwake: true, notifications: 'no' as never })).toEqual({ keepAwake: true });
+  });
+});

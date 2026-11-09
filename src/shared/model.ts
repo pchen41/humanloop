@@ -89,16 +89,22 @@ export interface Settings {
   /** Action id -> Electron accelerator string. Missing entries use the defaults. */
   shortcuts: Record<string, string>;
   defaultCwd?: string;
+  /** Notify when a task moves into Your Turn while Humanloop is in the background. */
+  notifications: boolean;
+  /** Keep the Mac from idle-sleeping while Claude is working in any task. */
+  keepAwake: boolean;
 }
 
 export const EMPTY_STATE: AppState = { tasks: [], history: [], historyIndex: -1 };
 
-export const DEFAULT_SETTINGS: Settings = { policy: DEFAULT_POLICY, shortcuts: {} };
+export const DEFAULT_SETTINGS: Settings = { policy: DEFAULT_POLICY, shortcuts: {}, notifications: true, keepAwake: false };
 
 /** A change made in the settings screen. A null defaultCwd clears it. */
 export interface SettingsPatch {
   policy?: Partial<Policy>;
   defaultCwd?: string | null;
+  notifications?: boolean;
+  keepAwake?: boolean;
 }
 
 /**
@@ -117,6 +123,9 @@ export function patchSettingsJson(raw: Record<string, unknown>, patch: SettingsP
     const cwd = patch.defaultCwd?.trim();
     if (cwd) out.defaultCwd = cwd;
     else delete out.defaultCwd;
+  }
+  for (const key of ['notifications', 'keepAwake'] as const) {
+    if (typeof patch[key] === 'boolean') out[key] = patch[key];
   }
   return out;
 }

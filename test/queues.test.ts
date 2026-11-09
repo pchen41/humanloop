@@ -195,3 +195,13 @@ describe('review fixes', () => {
     expect(ids(Q.reconcile(s, agents({}), 100), 'yourTurn')).toEqual(['b', 'a']);
   });
 });
+
+describe('arrivals', () => {
+  it('lists only tasks that came back from Agent’s Turn', () => {
+    const prev = withTasks(['w', 5, 1, 'agentsTurn'], ['p', 5, 2, 'agentsTurn'], ['y', 5, 3]);
+    let next = Q.reconcile(prev, agents({ p: 'working' }), 10); // w stopped, p still working
+    next = Q.parkTask(next, 'y', 10);
+    expect(Q.arrivals(prev, next).map((t) => t.id)).toEqual(['w']);
+    expect(Q.arrivals(next, next)).toEqual([]);
+  });
+});

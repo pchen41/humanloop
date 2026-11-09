@@ -27,6 +27,62 @@ function useNow(): number {
   return now;
 }
 
+const WIDTH_KEY = 'sidebarWidth';
+const DEFAULT_WIDTH = 268;
+const MIN_WIDTH = 200;
+const MAX_WIDTH = 520;
+
+function applyWidth(px: number): void {
+  document.documentElement.style.setProperty('--sidebar-width', `${px}px`);
+}
+
+// The width you dragged to is a per-machine preference; storage may be unavailable.
+try {
+  const saved = Number(localStorage.getItem(WIDTH_KEY));
+  if (saved >= MIN_WIDTH && saved <= MAX_WIDTH) applyWidth(saved);
+} catch {
+  // keep the default
+}
+
+/** Drag the sidebar's right edge to resize it; double-click resets it. */
+function Resizer() {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    let width = DEFAULT_WIDTH;
+    const move = (ev: PointerEvent) => {
+      width = Math.round(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, ev.clientX)));
+      applyWidth(width);
+    };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      document.body.classList.remove('resizing');
+      try {
+        localStorage.setItem(WIDTH_KEY, String(width));
+      } catch {
+        // not saved; fine
+      }
+    };
+    width = handle.parentElement?.getBoundingClientRect().width ?? DEFAULT_WIDTH;
+    document.body.classList.add('resizing');
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  };
+  const reset = () => {
+    applyWidth(DEFAULT_WIDTH);
+    try {
+      localStorage.removeItem(WIDTH_KEY);
+    } catch {
+      // ignore
+    }
+  };
+  return <div className="sidebar-resizer" onPointerDown={onPointerDown} onDoubleClick={reset} title="Drag to resize" />;
+}
+
 export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew }: Props) {
   const now = useNow();
   const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
@@ -40,6 +96,7 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
 
   return (
     <nav className="sidebar" data-testid="sidebar">
+      <Resizer />
       <div className="sidebar-top" />
       <div className="queues">
         {QUEUES.map((queue) => {

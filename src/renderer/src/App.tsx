@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommandId } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
-import type { HookState } from '../../shared/ipc';
+import type { HookState, ResumeOffer } from '../../shared/ipc';
 import type { AppState, Settings, Task } from '../../shared/model';
 import { findTask } from '../../shared/tasks';
 import { SettingsView } from './SettingsView';
@@ -18,6 +18,7 @@ interface Loaded {
   homeDir: string;
   agents: Record<string, TabAgent>;
   hooks: HookState;
+  resume: Record<string, ResumeOffer>;
 }
 
 /** The selected tab of a task, falling back to its first tab. */
@@ -32,6 +33,7 @@ export function App() {
   const [chosenTab, setChosenTab] = useState<Record<string, string>>({});
   const [editor, setEditor] = useState<EditorMode>();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [find, setFind] = useState<{ query: string; focusSignal: number }>();
   /** Bumped each time Next task finds nothing else, so the notice restarts. */
   const [nothingElse, setNothingElse] = useState(0);
   const clearNotice = useCallback(() => setNothingElse(0), []);
@@ -58,6 +60,10 @@ export function App() {
       early.hooks = hooks;
       setData((d) => d && { ...d, hooks });
     });
+    const offResume = api.onResume((resume) => {
+      early.resume = resume;
+      setData((d) => d && { ...d, resume });
+    });
     void api.getInitialData().then((d) => {
       if (alive && d.showSettings) setSettingsOpen(true);
       if (alive) setData({ ...d, ...early });
@@ -69,6 +75,7 @@ export function App() {
       offSettings();
       offAgents();
       offHooks();
+      offResume();
     };
   }, []);
 
@@ -143,6 +150,15 @@ export function App() {
       case 'clearTerminal':
         if (activeTabId) terminals.peek(activeTabId)?.term.clear();
         return;
+      case 'find':
+        if (activeTabId) setFind((f) => ({ query: f?.query ?? '', focusSignal: (f?.focusSignal ?? 0) + 1 }));
+        return;
+      case 'findNext':
+      case 'findPrevious':
+        if (!activeTabId) return;
+        if (find?.query) terminals.peek(activeTabId)?.find(find.query, id === 'findNext' ? 'next' : 'previous');
+        else setFind((f) => ({ query: f?.query ?? '', focusSignal: (f?.focusSignal ?? 0) + 1 }));
+        return;
       case 'nextTask':
         void api.nextTask().then((r) => {
           if (r.nothingElse) setNothingElse((n) => n + 1);
@@ -202,6 +218,10 @@ export function App() {
     setEditor(undefined);
     if (activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
   }, [activeTabId]);
+  const closeFind = useCallback(() => {
+    setFind(undefined);
+    if (activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
+  }, [activeTabId]);
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
     if (!editor && activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
@@ -238,9 +258,13 @@ export function App() {
         onNewTab={newTab}
         onEdit={() => setEditor({ kind: 'edit', task: openTask })}
         focusTerminal={!editor && !settingsOpen}
+        resume={data.resume}
+        find={find}
+        onFindQuery={(query) => setFind((f) => f && { ...f, query })}
+        onCloseFind={closeFind}
       />
     );
-  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, settingsOpen]);
+  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, settingsOpen, find, closeFind]);
 
   if (!data || !state) return null;
 

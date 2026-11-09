@@ -17,6 +17,13 @@ export interface InitialData {
   hooks: HookState;
   /** Settings was chosen from the menu before this window existed. */
   showSettings: boolean;
+  /** Claude sessions from before the restart that can be resumed, by tab id. */
+  resume: Record<string, ResumeOffer>;
+}
+
+export interface ResumeOffer {
+  sessionId: string;
+  cwd: string;
 }
 
 export interface HumanloopApi {
@@ -28,6 +35,13 @@ export interface HumanloopApi {
   onHooks(cb: (hooks: HookState) => void): () => void;
   /** The app menu's Settings… item was chosen. */
   onShowSettings(cb: () => void): () => void;
+  onResume(cb: (offers: Record<string, ResumeOffer>) => void): () => void;
+  /**
+   * Types `claude --resume` for the tab's previous session into its shell, in
+   * that session's directory. Returns why it couldn't, if it couldn't.
+   */
+  resumeSession(tabId: string): Promise<string | undefined>;
+  dismissResume(tabId: string): void;
 
   /** Saves a change from the settings screen to settings.json. */
   updateSettings(patch: SettingsPatch): Promise<void>;
@@ -84,6 +98,9 @@ export const IPC = {
   agents: 'app:agents',
   hooks: 'app:hooks',
   showSettings: 'app:show-settings',
+  resume: 'app:resume',
+  resumeSession: 'resume:run',
+  dismissResume: 'resume:dismiss',
   updateSettings: 'settings:update',
   openSettingsFile: 'settings:open-file',
   installHooks: 'hooks:install',

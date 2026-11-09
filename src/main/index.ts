@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { COMMANDS } from '../shared/commands';
-import { IPC, TERMINAL_EDIT, type InitialData, type TerminalEditCommand } from '../shared/ipc';
+import { IPC, TERMINAL_EDIT, type InitialData, type ResumeOffer, type TerminalEditCommand } from '../shared/ipc';
 import {
   DEFAULT_SETTINGS,
   patchSettingsJson,
@@ -21,6 +21,7 @@ import { AgentTracker } from './agentTracker';
 import { currentHookStatus, installWithConfirm, removeWithConfirm } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
 import { acceleratorFor, buildMenu, type MenuContext } from './menu';
+import { dismissNotification, keepAwake, notify, setDockBadge } from './dock';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
 import { JsonStore, readJson, readJsonObject, writeJsonSync } from './store';
@@ -66,6 +67,17 @@ const tracker = new AgentTracker({
   onChange: () => {
     win?.webContents.send(IPC.agents, tracker.snapshot());
     setState(state); // agent state changed: re-file tasks
+    updateDockAndPower();
+  },
+  onSession: (tabId, session) => {
+    const found = T.findTab(state, tabId);
+    if (!found) return;
+    const saved = found.tab.claudeSession;
+    if (saved?.id !== session?.id || saved?.cwd !== session?.cwd) {
+      setState(T.updateTab(state, tabId, { claudeSession: session }));
+    }
+    // A new session in the tab replaces the one from before the restart.
+    if (resumeOffers.delete(tabId)) sendResumeOffers();
   },
   // HUMANLOOP_HOOK_LOG=1 records every hook delivery, for checking how Claude Code behaves.
   logFile: process.env.HUMANLOOP_HOOK_LOG ? join(userData, 'hook-events.jsonl') : undefined,
@@ -77,14 +89,71 @@ function stateOf(): Q.AgentStateOf {
   return Q.agentStateOf(tracker.snapshot(), settings.policy);
 }
 
+/**
+ * Claude sessions that were running in tabs when Humanloop last quit. Each tab
+ * shows a Resume banner until you resume, dismiss, start another session in
+ * it, or close it. Runtime only.
+ */
+const resumeOffers = new Map<string, ResumeOffer>();
+for (const task of state.tasks) {
+  for (const tab of task.tabs) {
+    if (tab.claudeSession) resumeOffers.set(tab.id, { sessionId: tab.claudeSession.id, cwd: tab.claudeSession.cwd });
+  }
+}
+
+function currentResumeOffers(): Record<string, ResumeOffer> {
+  return Object.fromEntries([...resumeOffers].filter(([tabId]) => T.findTab(state, tabId)));
+}
+
+function sendResumeOffers(): void {
+  win?.webContents.send(IPC.resume, currentResumeOffers());
+}
+
 /** Every update goes through here, so tasks are always filed by their current agent state. */
 function setState(next: AppState): void {
   next = Q.reconcile(next, stateOf(), Date.now());
   if (next === state) return;
+  const prev = state;
   state = next;
   stateStore.save(state);
   win?.webContents.send(IPC.state, state);
   updateMenuContext();
+  updateDockAndPower();
+  notifyArrivals(prev);
+}
+
+/** A notification for each task that came back to Your Turn while Humanloop was in the background. */
+function notifyArrivals(prev: AppState): void {
+  if (state.openTaskId && state.openTaskId !== prev.openTaskId) dismissNotification(state.openTaskId);
+  if (!settings.notifications || BrowserWindow.getFocusedWindow()) return;
+  const of = stateOf();
+  for (const task of Q.arrivals(prev, state)) {
+    const s = of(task);
+    notify(task.id, task.title, s === 'needsYou' ? 'Claude needs you' : s === 'none' ? 'Claude exited' : 'Claude is done', () =>
+      showTask(task.id),
+    );
+  }
+}
+
+/** Brings the window forward (opening one if needed) with the task open. */
+function showTask(id: string): void {
+  if (!win) win = createWindow();
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  if (T.findTask(state, id)) setState(T.openTask(state, id, Date.now()));
+}
+
+/** The Your Turn count on the Dock, and keep-awake while Claude is working in any task (parked ones too). */
+function updateDockAndPower(): void {
+  setDockBadge(T.tasksInQueue(state, 'yourTurn').length);
+  const of = stateOf();
+  keepAwake(settings.keepAwake && state.tasks.some((t) => of(t) === 'working'));
+}
+
+/** Single-quotes a value for zsh. */
+function shellQuote(s: string): string {
+  return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
 // ---------- settings ----------
@@ -136,6 +205,7 @@ function applySettings(next: Settings): void {
   installMenu();
   win?.webContents.send(IPC.settings, settings);
   setState(state);
+  updateDockAndPower(); // keep-awake may have been switched, with no task moving
 }
 
 function watchSettings(): void {
@@ -257,6 +327,7 @@ async function confirm(message: string, detail: string, action: string): Promise
 function killTab(tabId: string): void {
   ptys.kill(tabId);
   tracker.clear(tabId);
+  resumeOffers.delete(tabId);
 }
 
 /** Offers to close the task's tabs, then marks it done. */
@@ -323,11 +394,43 @@ function registerIpc(): void {
     (): InitialData => {
       const show = settingsPending;
       settingsPending = false;
-      return { state, settings, homeDir: homedir(), agents: tracker.snapshot(), hooks: hookStatus, showSettings: show };
+      return {
+        state,
+        settings,
+        homeDir: homedir(),
+        agents: tracker.snapshot(),
+        hooks: hookStatus,
+        showSettings: show,
+        resume: currentResumeOffers(),
+      };
     },
   );
   ipcMain.handle(IPC.updateSettings, (_e, patch: SettingsPatch) => {
     if (typeof patch === 'object' && patch !== null && !Array.isArray(patch)) updateSettings(patch);
+  });
+  ipcMain.handle(IPC.resumeSession, (_e, tabId: string): string | undefined => {
+    const offer = resumeOffers.get(tabId);
+    if (!offer) return undefined;
+    // The command is typed into the terminal, where control characters act
+    // before the shell parses quotes, so a path containing them is refused.
+    if (!/^[\w-]+$/.test(offer.sessionId) || /[\x00-\x1f\x7f]/.test(offer.cwd)) {
+      return "This session's details look wrong, so Humanloop won't type them into your shell.";
+    }
+    if (!ptys.has(tabId)) return 'The shell in this tab has exited. Press Return in it to start a new one.';
+    const program = ptys.foregroundProcess(tabId);
+    if (!isShell(program)) return `${program} is running in this tab. Quit it first, then resume.`;
+    resumeOffers.delete(tabId);
+    sendResumeOffers();
+    // Ctrl-U clears anything already typed at the prompt.
+    const cd = offer.cwd ? `cd -- ${shellQuote(offer.cwd)} && ` : '';
+    ptys.write(tabId, `\x15${cd}claude --resume ${offer.sessionId}\r`);
+    return undefined;
+  });
+  ipcMain.on(IPC.dismissResume, (_e, tabId: string) => {
+    if (!resumeOffers.delete(tabId)) return;
+    sendResumeOffers();
+    // Forget the old session, so the banner doesn't come back after the next restart.
+    if (T.findTab(state, tabId)?.tab.claudeSession) setState(T.updateTab(state, tabId, { claudeSession: undefined }));
   });
   ipcMain.on(IPC.openSettingsFile, () => void shell.openPath(settingsFile));
   ipcMain.handle(IPC.installHooks, async () => {
@@ -551,6 +654,7 @@ void app.whenReady().then(async () => {
   win = createWindow();
   setState(state); // no-op unless launch reconciliation changed something
   stateStore.save(state);
+  updateDockAndPower();
 
   if (process.env.HUMANLOOP_SMOKE) {
     void runSmokeTest({

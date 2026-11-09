@@ -6,6 +6,7 @@
 
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SearchAddon, type ISearchOptions } from '@xterm/addon-search';
 import { Terminal, type ITheme } from '@xterm/xterm';
 
 const api = window.humanloop;
@@ -41,10 +42,19 @@ function openLink(url: string): void {
   window.open(url);
 }
 
+/** Find highlights. The addon needs #RRGGBB colors. */
+const SEARCH_COLORS = {
+  matchBackground: '#4b4320',
+  matchOverviewRuler: '#8a7a3a',
+  activeMatchBackground: '#a8862c',
+  activeMatchColorOverviewRuler: '#f0b35e',
+};
+
 class TerminalHandle {
   readonly term: Terminal;
   readonly el: HTMLDivElement;
   private fit = new FitAddon();
+  private search = new SearchAddon({ highlightLimit: 2000 });
   private opened = false;
   private attached = false;
   private exited: number | undefined;
@@ -73,6 +83,7 @@ class TerminalHandle {
       linkHandler: { activate: (_e, uri) => openLink(uri) },
     });
     this.term.loadAddon(this.fit);
+    this.term.loadAddon(this.search);
     this.term.loadAddon(new WebLinksAddon((_e, url) => openLink(url)));
     this.term.attachCustomKeyEventHandler((e) => this.handleKey(e));
     this.term.onData((data) => this.input(data));
@@ -126,6 +137,27 @@ class TerminalHandle {
 
   focus(): void {
     this.term.focus();
+  }
+
+  /** Finds `query` in the scrollback, highlighting every match. False if there is none. */
+  find(query: string, direction: 'next' | 'previous', incremental = false): boolean {
+    if (!query) {
+      this.search.clearDecorations();
+      return false;
+    }
+    const opts: ISearchOptions = { incremental, decorations: SEARCH_COLORS };
+    return direction === 'next' ? this.search.findNext(query, opts) : this.search.findPrevious(query, opts);
+  }
+
+  clearFind(): void {
+    this.search.clearDecorations();
+    this.term.clearSelection();
+  }
+
+  /** Match counts as you search: index is -1 when the active match isn't known. */
+  onFindResults(cb: (index: number, count: number) => void): () => void {
+    const sub = this.search.onDidChangeResults((r) => cb(r.resultIndex, r.resultCount));
+    return () => sub.dispose();
   }
 
   write(data: string): void {

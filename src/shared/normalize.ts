@@ -5,6 +5,7 @@ import {
   cleanPolicy,
   DEFAULT_POLICY,
   DEFAULT_PRIORITY,
+  DEFAULT_SETTINGS,
   QUEUES,
   type AppState,
   type Priority,
@@ -118,7 +119,12 @@ export function normalizeSettings(raw: unknown): Settings {
       if (KNOWN_COMMANDS.has(k) && typeof v === 'string') shortcuts[k] = v;
     }
   }
-  const out: Settings = { policy: { ...DEFAULT_POLICY, ...cleanPolicy(raw.policy) }, shortcuts };
+  const out: Settings = {
+    policy: { ...DEFAULT_POLICY, ...cleanPolicy(raw.policy) },
+    shortcuts,
+    notifications: typeof raw.notifications === 'boolean' ? raw.notifications : DEFAULT_SETTINGS.notifications,
+    keepAwake: typeof raw.keepAwake === 'boolean' ? raw.keepAwake : DEFAULT_SETTINGS.keepAwake,
+  };
   const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;
   return out;

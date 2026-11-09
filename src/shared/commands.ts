@@ -18,6 +18,9 @@ export type CommandId =
   | 'tab8'
   | 'tab9'
   | 'clearTerminal'
+  | 'find'
+  | 'findNext'
+  | 'findPrevious'
   | 'nextTask'
   | 'back'
   | 'forward'
@@ -46,6 +49,9 @@ export const COMMANDS: CommandDef[] = [
   { id: 'prevTab', label: 'Show Previous Tab', accelerator: 'CmdOrCtrl+Shift+[' },
   ...tabCommands,
   { id: 'clearTerminal', label: 'Clear Terminal', accelerator: 'CmdOrCtrl+K' },
+  { id: 'find', label: 'Find…', accelerator: 'CmdOrCtrl+F' },
+  { id: 'findNext', label: 'Find Next', accelerator: 'CmdOrCtrl+G' },
+  { id: 'findPrevious', label: 'Find Previous', accelerator: 'CmdOrCtrl+Shift+G' },
   { id: 'nextTask', label: 'Next Task', accelerator: 'CmdOrCtrl+Return' },
   { id: 'back', label: 'Back', accelerator: 'CmdOrCtrl+[' },
   { id: 'forward', label: 'Forward', accelerator: 'CmdOrCtrl+]' },

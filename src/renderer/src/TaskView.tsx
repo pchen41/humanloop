@@ -1,10 +1,14 @@
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { commandById, type CommandId } from '../../shared/commands';
 import { effectiveTabState, type TabAgent } from '../../shared/agents';
 import { effectivePolicy, type Settings, type Task } from '../../shared/model';
+import type { ResumeOffer } from '../../shared/ipc';
 import { AgentDot, backgroundSummary } from './AgentDot';
+import { FindBar } from './FindBar';
 import { formatAccelerator, shortenHome } from './format';
 import { terminals } from './terminals';
+
+const api = window.humanloop;
 
 interface Props {
   task: Task;
@@ -17,9 +21,17 @@ interface Props {
   onNewTab(): void;
   onEdit(): void;
   focusTerminal: boolean;
+  resume: Record<string, ResumeOffer>;
+  /** The find bar, when open. */
+  find: { query: string; focusSignal: number } | undefined;
+  onFindQuery(query: string): void;
+  onCloseFind(): void;
 }
 
-export function TaskView({ task, activeTabId, settings, homeDir, agents, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal }: Props) {
+export function TaskView(props: Props) {
+  const { task, activeTabId, settings, homeDir, agents, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal } = props;
+  const offer = activeTabId ? props.resume[activeTabId] : undefined;
+  const [resumeError, setResumeError] = useState<{ tabId: string; text: string }>();
   // Terminal titles (set by programs like Claude Code) live outside React.
   useSyncExternalStore(terminals.subscribe, terminals.getVersion);
   const key = (id: CommandId) => formatAccelerator(settings.shortcuts[id] ?? commandById(id).accelerator);
@@ -82,8 +94,45 @@ export function TaskView({ task, activeTabId, settings, homeDir, agents, onSelec
         </button>
       </div>
 
+      {offer && activeTabId && (
+        <div className="resume-banner">
+          <span>
+            {resumeError?.tabId === activeTabId ? (
+              <span className="resume-error">{resumeError.text}</span>
+            ) : (
+              <>
+                Claude was running in this tab before Humanloop quit
+                <span className="resume-cwd">{shortenHome(offer.cwd, homeDir)}</span>
+              </>
+            )}
+          </span>
+          <button
+            className="primary"
+            onClick={() =>
+              void api.resumeSession(activeTabId).then((text) => setResumeError(text ? { tabId: activeTabId, text } : undefined))
+            }
+          >
+            Resume Session
+          </button>
+          <button className="ghost" onClick={() => api.dismissResume(activeTabId)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {activeTabId ? (
-        <TerminalPane key={activeTabId} tabId={activeTabId} focus={focusTerminal} />
+        <div className="terminal-area">
+          {props.find && (
+            <FindBar
+              tabId={activeTabId}
+              query={props.find.query}
+              focusSignal={props.find.focusSignal}
+              onQuery={props.onFindQuery}
+              onClose={props.onCloseFind}
+            />
+          )}
+          <TerminalPane key={activeTabId} tabId={activeTabId} focus={focusTerminal && !props.find} />
+        </div>
       ) : (
         <div className="empty-main">
           <p>This task has no tabs.</p>

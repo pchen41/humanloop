@@ -41,6 +41,13 @@ export function reconcile(state: AppState, stateOf: AgentStateOf, now: number): 
   return moves.reduce((s, t, i) => moveTask(s, t.id, queueFor(stateOf(t)), now + i), state);
 }
 
+/** Tasks that came back from Agent's Turn to Your Turn between two states: Claude finished or needs you. */
+export function arrivals(prev: AppState, next: AppState): Task[] {
+  if (prev.tasks === next.tasks) return [];
+  const before = new Map(prev.tasks.map((t) => [t.id, t.queue]));
+  return next.tasks.filter((t) => t.queue === 'yourTurn' && before.get(t.id) === 'agentsTurn');
+}
+
 export interface NextTaskResult {
   state: AppState;
   /** Nothing else is in Your Turn: the open task stays open (and unfiled). */

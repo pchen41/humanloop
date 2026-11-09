@@ -29,6 +29,11 @@ export interface AgentTrackerOptions {
   /** The pid of the tab's shell, or undefined if the tab has no running shell. */
   shellPid(tabId: string): number | undefined;
   onChange(): void;
+  /**
+   * The tab's Claude session started, changed (/clear, /resume) or ended
+   * (SessionEnd: undefined). Saved so the session can be resumed after a restart.
+   */
+  onSession?(tabId: string, session: { id: string; cwd: string } | undefined): void;
   /** When set, every delivery is appended here as a JSON line (for checking hook behaviour). */
   logFile?: string;
 }
@@ -130,6 +135,9 @@ export class AgentTracker {
     if (after === before) return;
     if (after) this.agents.set(d.tabId, after);
     else this.agents.delete(d.tabId);
+    if (after?.sessionId !== before?.sessionId || after?.cwd !== before?.cwd) {
+      this.opts.onSession?.(d.tabId, after && { id: after.sessionId, cwd: after.cwd ?? '' });
+    }
     this.opts.onChange();
   }
 

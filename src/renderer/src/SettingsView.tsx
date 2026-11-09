@@ -84,6 +84,32 @@ export function SettingsView({ settings, hooks, homeDir, onClose }: Props) {
         </section>
 
         <section>
+          <h3>While you're away</h3>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.notifications}
+              onChange={(e) => void api.updateSettings({ notifications: e.target.checked })}
+            />
+            <span>
+              Notify me when a task comes back to Your Turn
+              <small>Only while Humanloop isn't the active app. Clicking the notification opens the task.</small>
+            </span>
+          </label>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.keepAwake}
+              onChange={(e) => void api.updateSettings({ keepAwake: e.target.checked })}
+            />
+            <span>
+              Keep the Mac awake while Claude is working
+              <small>Stops idle sleep while Claude is working in any task. Closing the lid still puts the Mac to sleep.</small>
+            </span>
+          </label>
+        </section>
+
+        <section>
           <h3>Claude Code hooks</h3>
           <p className={`section-hint hooks-${hooks}`}>{HOOK_TEXT[hooks]}</p>
           <div className="row-buttons">
