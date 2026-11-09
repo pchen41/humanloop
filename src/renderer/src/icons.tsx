@@ -18,10 +18,12 @@ export function ForwardIcon() {
   );
 }
 
+/** Drawn at its own pixel size, lines on whole device pixels at 2x, so it stays sharp. */
 function Plus({ size }: { size: number }) {
+  const c = size / 2 - 0.25;
   return (
-    <svg width={size} height={size} viewBox="0 0 14 14" strokeWidth="1.6" {...stroke} aria-hidden>
-      <path d="M7 2.5v9M2.5 7h9" />
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} strokeWidth="1.5" {...stroke} aria-hidden>
+      <path d={`M${c} 3v${size - 6}M3 ${c}h${size - 6}`} />
     </svg>
   );
 }
@@ -29,12 +31,16 @@ function Plus({ size }: { size: number }) {
 export const NewTaskIcon = () => <Plus size={15} />;
 export const NewTabIcon = () => <Plus size={13} />;
 
-/** An eight-tooth gear. */
+/**
+ * Two sliders. The tracks sit on whole device pixels on a 2x screen
+ * (1 unit = 1 CSS px, 1.5 wide, centred on .25), so they stay sharp.
+ */
 export function SettingsIcon() {
   return (
-    <svg width="15" height="15" viewBox="0 0 16 16" strokeWidth="1.3" {...stroke} aria-hidden>
-      <path d="M6.76 2.85 7.01 1.07h1.98l.25 1.78 1.53.63 1.43-1.08 1.4 1.4-1.08 1.43.63 1.53 1.78.25v1.98l-1.78.25-.63 1.53 1.08 1.43-1.4 1.4-1.43-1.08-1.53.63-.25 1.78H7.01l-.25-1.78-1.53-.63-1.43 1.08-1.4-1.4 1.08-1.43-.63-1.53-1.78-.25V7.01l1.78-.25.63-1.53L2.4 3.8l1.4-1.4 1.43 1.08z" />
-      <circle cx="8" cy="8" r="2.1" />
+    <svg width="15" height="15" viewBox="0 0 15 15" strokeWidth="1.5" {...stroke} aria-hidden>
+      <path d="M2.25 4.25h5M11.75 4.25h1M2.25 10.75h1M7.75 10.75h5" />
+      <circle cx="9.5" cy="4.25" r="1.75" />
+      <circle cx="5.5" cy="10.75" r="1.75" />
     </svg>
   );
 }

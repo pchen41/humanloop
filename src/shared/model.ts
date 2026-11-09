@@ -30,7 +30,7 @@ export interface Policy {
 export const DEFAULT_POLICY: Policy = {
   multiAgent: 'any',
   subagentsBusy: true,
-  backgroundShellsBusy: false,
+  backgroundShellsBusy: true,
 };
 
 export const POLICY_KEYS = ['multiAgent', 'subagentsBusy', 'backgroundShellsBusy'] as const;

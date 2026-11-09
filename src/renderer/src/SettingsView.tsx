@@ -165,11 +165,11 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
           <h2 id="settings-notifications">Notifications &amp; power</h2>
           <div className="srow">
             <div className="t">
-              <b>Notify me when a task comes back to me</b>
+              <b>Notify me when a task needs my attention</b>
               <span className="help">Only while Humanloop is in the background.</span>
             </div>
             <Toggle
-              label="Notify me when a task comes back to me"
+              label="Notify me when a task needs my attention"
               on={settings.notifications}
               onChange={(on) => void api.updateSettings({ notifications: on })}
             />

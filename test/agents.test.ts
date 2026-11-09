@@ -145,8 +145,8 @@ describe('taskAgentState', () => {
     const sub = [agent('idle', [{ id: '1', type: 'subagent', status: 'running' }])];
     const shell = [agent('idle', [{ id: '1', type: 'shell', status: 'running' }])];
     expect(taskAgentState(sub, DEFAULT_POLICY)).toBe('working'); // subagents count by default
-    expect(taskAgentState(shell, DEFAULT_POLICY)).toBe('idle'); // background shells don't
-    expect(taskAgentState(shell, { ...DEFAULT_POLICY, backgroundShellsBusy: true })).toBe('working');
+    expect(taskAgentState(shell, DEFAULT_POLICY)).toBe('working'); // and so do background shells
+    expect(taskAgentState(shell, { ...DEFAULT_POLICY, backgroundShellsBusy: false })).toBe('idle');
   });
 });
 

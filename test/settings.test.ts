@@ -28,8 +28,8 @@ describe('patchSettingsJson', () => {
   });
 
   it('reads back through normalizeSettings', () => {
-    const out = normalizeSettings(patchSettingsJson({}, { policy: { backgroundShellsBusy: true } }));
-    expect(out.policy).toEqual({ ...DEFAULT_POLICY, backgroundShellsBusy: true });
+    const out = normalizeSettings(patchSettingsJson({}, { policy: { backgroundShellsBusy: false } }));
+    expect(out.policy).toEqual({ ...DEFAULT_POLICY, backgroundShellsBusy: false });
     expect(normalizeSettings({ defaultCwd: '   ' }).defaultCwd).toBeUndefined();
   });
 });
@@ -60,11 +60,12 @@ describe('per-task overrides', () => {
     let s = T.createTask(EMPTY_STATE, { title: 'dev', description: '', priority: 2 }, 'dev', 1);
     s = T.addTab(s, 'dev', { id: 't', title: 'zsh' });
     const agents = { t: shell };
-    // By default background shells are ignored, so the task is your turn.
-    expect(Q.reconcile(s, Q.agentStateOf(agents, DEFAULT_POLICY), 10)).toBe(s);
+    const ignoreShells = { ...DEFAULT_POLICY, backgroundShellsBusy: false };
+    // Settings ignore background shells, so the task is your turn.
+    expect(Q.reconcile(s, Q.agentStateOf(agents, ignoreShells), 10)).toBe(s);
     // This task counts them as busy.
     s = T.updateTask(s, 'dev', { policy: { backgroundShellsBusy: true } });
-    expect(T.findTask(Q.reconcile(s, Q.agentStateOf(agents, DEFAULT_POLICY), 10), 'dev')?.queue).toBe('agentsTurn');
+    expect(T.findTask(Q.reconcile(s, Q.agentStateOf(agents, ignoreShells), 10), 'dev')?.queue).toBe('agentsTurn');
   });
 });
 

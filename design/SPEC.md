@@ -194,7 +194,7 @@ Fields, each label-above-control with an optional one-line help:
     Help: "Decides when a task with more than one Claude running becomes your turn."
   - Background subagents — "Wait for them (default)" / "Ignore them"
     Help: "Whether a task stays Claude's turn while subagents it started are still running."
-  - Background shells — "Wait for them" / "Ignore them (default)"
+  - Background shells — "Wait for them (default)" / "Ignore them"
     Help: "Whether a task stays Claude's turn while dev servers or watchers it started are
     still running."
   The global value carries a small "default" suffix inside its segment. Selecting the other
@@ -219,7 +219,7 @@ Tabs
 - "Default directory" input + Choose… (folder picker).
 
 Notifications & power
-- "Notify me when a task comes back to me" (toggle). Help: "Only while Humanloop is in the
+- "Notify me when a task needs my attention" (toggle). Help: "Only while Humanloop is in the
   background."
 - "Keep the Mac awake while Claude is working" (toggle).
 

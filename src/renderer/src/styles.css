@@ -618,7 +618,9 @@ body.resizing * {
 .settings-title {
   flex: 1;
   margin: 0;
-  font-size: 13px;
+  /* Same as a task's title, so the bar's heading doesn't change size between views. */
+  font-size: 15px;
+  line-height: 20px;
   font-weight: 600;
 }
 .task-name {
