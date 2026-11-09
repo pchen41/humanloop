@@ -12,12 +12,13 @@
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "package": "npm run build && electron-builder --mac --dir",
+    "package": "npm run build && NO_UPDATE_NOTIFIER=1 electron-builder --mac --dir",
     "smoke": "npm run package && node scripts/smoke.mjs"
   },
   "build": {
     "appId": "dev.humanloop.app",
     "productName": "Humanloop",
+    "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "dist",
       "buildResources": "build"

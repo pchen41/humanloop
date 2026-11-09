@@ -20,6 +20,9 @@ npm run package    # dist/mac-arm64/Humanloop.app (ad-hoc signed)
 npm run smoke      # package, then launch it headlessly and check a shell works
 ```
 
+Packaging works offline: it bundles the Electron already in `node_modules` and
+skips electron-builder's update check.
+
 Data lives in `~/Library/Application Support/Humanloop`: `state.json` (tasks and
 tabs, written by the app) and `settings.json` (what the Settings screen, ⌘,,
 saves; you can also edit it by hand, and changes apply as soon as you save).
