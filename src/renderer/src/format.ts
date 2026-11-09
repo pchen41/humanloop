@@ -34,6 +34,11 @@ const KEY_SYMBOLS: Record<string, string> = {
   numdec: 'Num .',
 };
 
+/** A button's tooltip: its name and, if it has one, its shortcut ("Edit task  ⌘E"). */
+export function tip(label: string, key: string): string {
+  return key ? `${label}  ${key}` : label;
+}
+
 /** "CmdOrCtrl+Shift+T" -> ["⌘", "⇧", "T"], one entry per key cap. */
 export function acceleratorKeys(accel: string | undefined): string[] {
   if (!accel) return [];

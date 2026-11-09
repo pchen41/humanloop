@@ -6,9 +6,8 @@ import { effectivePolicy, type Settings, type Task } from '../../shared/model';
 import type { ResumeOffer } from '../../shared/ipc';
 import { backgroundSummary, Glyph, tabGlyphKind } from './Glyph';
 import { FindBar } from './FindBar';
-import { formatAccelerator, linkify, shellQuote, shortenHome } from './format';
+import { formatAccelerator, linkify, shellQuote, shortenHome, tip } from './format';
 import { CloseIcon, NewTabIcon } from './icons';
-import { tip } from './Sidebar';
 import { terminals } from './terminals';
 
 const api = window.humanloop;
@@ -22,9 +21,6 @@ interface Props {
   onSelectTab(tabId: string): void;
   onCloseTab(tabId: string): void;
   onNewTab(): void;
-  onEdit(): void;
-  onPark(): void;
-  onDone(): void;
   focusTerminal: boolean;
   resume: Record<string, ResumeOffer>;
   /** The find bar, when open. */
@@ -34,7 +30,7 @@ interface Props {
 }
 
 export function TaskView(props: Props) {
-  const { task, activeTabId, settings, homeDir, agents, resume, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal } = props;
+  const { task, activeTabId, settings, homeDir, agents, resume, onSelectTab, onCloseTab, onNewTab, focusTerminal } = props;
   const offer = activeTabId ? resume[activeTabId] : undefined;
   const policy = effectivePolicy(settings.policy, task.policy);
 
@@ -51,43 +47,29 @@ export function TaskView(props: Props) {
 
   return (
     <div className="task-view">
-      <header className={`task-header ${description ? 'with-description' : ''}`}>
-        <div className="task-heading">
-          <h1 title={task.title}>{task.title}</h1>
-          {description && (
-            <p className="task-description" title={task.description}>
-              {linkify(description).map((part, i) =>
-                part.href ? (
-                  <a
-                    key={i}
-                    href={part.href}
-                    onClick={(e) => {
-                      // The main process opens it in the default browser.
-                      e.preventDefault();
-                      window.open(part.href);
-                    }}
-                  >
-                    {part.text}
-                  </a>
-                ) : (
-                  part.text
-                ),
-              )}
-            </p>
+      {/* The title is in the top bar; the description, if any, sits just under it. */}
+      {description && (
+        <p className="task-description" title={task.description}>
+          {linkify(description).map((part, i) =>
+            part.href ? (
+              <a
+                key={i}
+                href={part.href}
+                title={part.href}
+                onClick={(e) => {
+                  // The main process opens it in the default browser.
+                  e.preventDefault();
+                  window.open(part.href);
+                }}
+              >
+                {part.text}
+              </a>
+            ) : (
+              part.text
+            ),
           )}
-        </div>
-        <div className="task-actions">
-          <button className="btn" onClick={onEdit} title={tip('Edit task', key('editTask'))}>
-            Edit
-          </button>
-          <button className="btn" onClick={props.onPark} title={tip(task.queue === 'parked' ? 'Unpark task' : 'Park task', key('parkTask'))}>
-            {task.queue === 'parked' ? 'Unpark' : 'Park'}
-          </button>
-          <button className="btn" onClick={props.onDone} title={tip(task.queue === 'done' ? 'Reopen task' : 'Mark done', key('markDone'))}>
-            {task.queue === 'done' ? 'Reopen' : 'Done'}
-          </button>
-        </div>
-      </header>
+        </p>
+      )}
 
       <div className="tab-bar" role="tablist" aria-label="Terminal tabs">
         {task.tabs.map((tab) => {

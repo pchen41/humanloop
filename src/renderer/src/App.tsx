@@ -5,10 +5,11 @@ import type { HookState, ResumeOffer } from '../../shared/ipc';
 import type { AppState, Settings, Task } from '../../shared/model';
 import { acceleratorFor, sameAccelerator } from '../../shared/shortcuts';
 import { findTask, tasksInQueue } from '../../shared/tasks';
-import { formatAccelerator } from './format';
-import { NewTaskIcon, SettingsIcon } from './icons';
+import { formatAccelerator, tip } from './format';
+import { DoneIcon, EditIcon, NewTaskIcon, ParkIcon, SettingsIcon } from './icons';
 import { SettingsView } from './SettingsView';
-import { Sidebar, tip } from './Sidebar';
+import { Sidebar } from './Sidebar';
+import { TruncationTooltip } from './Tooltip';
 import { TaskEditor, type EditorMode } from './TaskEditor';
 import { TaskView } from './TaskView';
 import { setOptionAsMeta, terminals } from './terminals';
@@ -230,6 +231,10 @@ export function App() {
   const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  // A shortcut being recorded in Settings would take the editor's key presses.
+  useEffect(() => {
+    if (editor) api.stopRecording();
+  }, [editor]);
 
   // The task menu's Edit item. A ref reads the current state without re-subscribing.
   const stateRef = useRef(state);
@@ -308,9 +313,6 @@ export function App() {
         onSelectTab={(tabId) => selectTab(openTask.id, tabId)}
         onCloseTab={closeTab}
         onNewTab={newTab}
-        onEdit={() => setEditor({ kind: 'edit', task: openTask })}
-        onPark={() => void api.toggleParked()}
-        onDone={() => void api.toggleDone()}
         focusTerminal={!editor}
         resume={data.resume}
         find={find}
@@ -340,38 +342,72 @@ export function App() {
         }}
         onEdit={(task) => setEditor({ kind: 'edit', task })}
         onMenu={onTaskMenu}
+        settingsOpen={settingsOpen}
         onBack={() => commandRef.current('back')}
         onForward={() => commandRef.current('forward')}
       />
       <main className="main" inert={!!editor}>
         <header className="main-header">
-          {settingsOpen && <h1>Settings</h1>}
-          <span className="spacer" />
-          {!settingsOpen && (
-            <>
-              <button className="ib" onClick={() => setEditor({ kind: 'create' })} title={tip('New task', key('newTask'))} aria-label="New task">
-                <NewTaskIcon />
-              </button>
-              <button className="ib" onClick={() => api.openSettings()} title="Settings (⌘,)" aria-label="Settings">
-                <SettingsIcon />
-              </button>
-            </>
+          {/* The title (and the bar's empty space) drags the window, so it gets no mouse events. */}
+          {settingsOpen ? (
+            <h1 className="settings-title">Settings</h1>
+          ) : openTask ? (
+            <h1 className="task-name">{openTask.title}</h1>
+          ) : (
+            <span className="spacer" />
           )}
-          <button
-            className={`btn next ${nextUp ? 'primary' : 'quiet'}`}
-            disabled={state.tasks.length === 0}
-            onClick={() => commandRef.current('nextTask')}
-            title={nextUp ? `Open ${nextUp.title}` : 'Nothing else needs you'}
-          >
-            <span className={nextUp ? 'next-word' : ''}>Next</span>
-            {nextUp && <span className="next-title">{nextUp.title}</span>}
-            {key('nextTask') && <span className="k">{key('nextTask')}</span>}
-          </button>
-          {settingsOpen && (
-            <button className="btn" onClick={closeSettings}>
-              Close <span className="k">esc</span>
+          {/* The controls don't drag. Pointing at any of them shows the task's own actions. */}
+          <div className="header-controls">
+            {openTask && !settingsOpen && (
+              <>
+                <div className="task-actions">
+                  <TaskAction label="Edit task" keys={key('editTask')} onClick={() => setEditor({ kind: 'edit', task: openTask })}>
+                    <EditIcon />
+                  </TaskAction>
+                  <TaskAction
+                    label={openTask.queue === 'parked' ? 'Unpark task' : 'Park task'}
+                    keys={key('parkTask')}
+                    onClick={() => void api.toggleParked()}
+                  >
+                    <ParkIcon />
+                  </TaskAction>
+                  <TaskAction
+                    label={openTask.queue === 'done' ? 'Reopen task' : 'Mark done'}
+                    keys={key('markDone')}
+                    onClick={() => void api.toggleDone()}
+                  >
+                    <DoneIcon />
+                  </TaskAction>
+                </div>
+                <span className="header-sep" aria-hidden />
+              </>
+            )}
+            {!settingsOpen && (
+              <>
+                <button className="ib" onClick={() => setEditor({ kind: 'create' })} title={tip('New task', key('newTask'))} aria-label="New task">
+                  <NewTaskIcon />
+                </button>
+                <button className="ib" onClick={() => api.openSettings()} title={tip('Settings', '⌘,')} aria-label="Settings">
+                  <SettingsIcon />
+                </button>
+              </>
+            )}
+            <button
+              className={`btn next ${nextUp ? 'primary' : 'quiet'}`}
+              disabled={state.tasks.length === 0}
+              onClick={() => commandRef.current('nextTask')}
+              title={nextUp ? `Open ${nextUp.title}` : 'Nothing else needs you'}
+            >
+              <span className={nextUp ? 'next-word' : ''}>Next</span>
+              {nextUp && <span className="next-title">{nextUp.title}</span>}
+              {key('nextTask') && <span className="k">{key('nextTask')}</span>}
             </button>
-          )}
+            {settingsOpen && (
+              <button className="btn" onClick={closeSettings}>
+                Close <span className="k">esc</span>
+              </button>
+            )}
+          </div>
           {nothingElse > 0 && (
             <Popover key={nothingElse} onDone={clearNotice}>
               <strong>Nothing else needs you</strong>
@@ -402,7 +438,16 @@ export function App() {
           submitRef={submitEditor}
         />
       )}
+      <TruncationTooltip />
     </div>
+  );
+}
+
+function TaskAction({ label, keys, onClick, children }: { label: string; keys: string; onClick(): void; children: React.ReactNode }) {
+  return (
+    <button className="ib" onClick={onClick} title={tip(label, keys)} aria-label={label}>
+      {children}
+    </button>
   );
 }
 

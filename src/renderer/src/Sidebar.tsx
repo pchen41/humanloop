@@ -6,7 +6,7 @@ import { canGoBack, canGoForward } from '../../shared/queues';
 import { acceleratorFor } from '../../shared/shortcuts';
 import { tasksInQueue } from '../../shared/tasks';
 import { Glyph, tabGlyphKind } from './Glyph';
-import { formatAccelerator, formatWait } from './format';
+import { formatAccelerator, formatWait, tip } from './format';
 import { BackIcon, ForwardIcon } from './icons';
 
 interface Props {
@@ -19,6 +19,8 @@ interface Props {
   onOpen(id: string): void;
   onEdit(task: Task): void;
   onMenu(task: Task): void;
+  /** Settings covers the task: Back returns to it, and there is nothing to go Forward to. */
+  settingsOpen: boolean;
   onBack(): void;
   onForward(): void;
 }
@@ -90,7 +92,7 @@ function Resizer() {
   return <div className="sidebar-resizer" onPointerDown={onPointerDown} onDoubleClick={reset} title="Drag to resize" />;
 }
 
-export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit, onMenu, onBack, onForward }: Props) {
+export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit, onMenu, settingsOpen, onBack, onForward }: Props) {
   const now = useNow();
   const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
     yourTurn: false,
@@ -110,13 +112,13 @@ export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit
     <nav className="sidebar" data-testid="sidebar" inert={inert} aria-label="Task queues">
       <Resizer />
       <div className="sidebar-top">
-        <button className="ib" onClick={onBack} disabled={!canGoBack(state)} title={tip('Back', key('back'))} aria-label="Back">
+        <button className="ib" onClick={onBack} disabled={!settingsOpen && !canGoBack(state)} title={tip('Back', key('back'))} aria-label="Back">
           <BackIcon />
         </button>
         <button
           className="ib"
           onClick={onForward}
-          disabled={!canGoForward(state)}
+          disabled={settingsOpen || !canGoForward(state)}
           title={tip('Forward', key('forward'))}
           aria-label="Forward"
         >
@@ -180,7 +182,6 @@ function TaskRow(props: {
 }) {
   const { task, settings, agents, resume } = props;
   const policy = effectivePolicy(settings.policy, task.policy);
-  const tooltip = [task.title, task.description].filter(Boolean).join('\n');
   return (
     <button
       className={`task-row ${props.open ? 'open' : ''}`}
@@ -191,7 +192,8 @@ function TaskRow(props: {
         e.preventDefault();
         props.onMenu(task);
       }}
-      title={tooltip}
+      data-tip={task.title}
+      data-tip-measure=".task-title"
     >
       {/* P2 and P3 show no chip; the order within the queue carries them. */}
       {task.priority <= 1 && <span className={`priority p${task.priority}`}>P{task.priority}</span>}
@@ -206,9 +208,4 @@ function TaskRow(props: {
       <span className={`task-wait ${task.queue === 'yourTurn' ? 'you' : ''}`}>{props.wait}</span>
     </button>
   );
-}
-
-/** "Back (⌘[)" */
-export function tip(label: string, key: string): string {
-  return key ? `${label} (${key})` : label;
 }

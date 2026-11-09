@@ -40,6 +40,8 @@
   --shadow-sheet: 0 32px 80px rgba(0, 0, 0, 0.65);
   --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45);
   --link-line: #4a4a54;
+  --bg-tooltip: #2a2a31;
+  --line-tooltip: #36363e;
 
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
@@ -95,6 +97,8 @@
     --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.18);
     --shadow-pop: 0 10px 28px rgba(0, 0, 0, 0.14);
     --link-line: #b8b8c0;
+    --bg-tooltip: #ffffff;
+    --line-tooltip: #cfcfd6;
     color-scheme: light;
   }
 }
@@ -371,8 +375,18 @@ textarea.in {
 }
 .dots {
   display: flex;
-  flex: none;
+  flex: 0 1 auto;
   gap: 4px;
+  /* Many tabs in a narrow sidebar: the dots clip at half the row rather than
+     squeezing out the title and age. The padding keeps the needs-you ring. */
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  padding: 2px;
+  margin: -2px;
+}
+.dots .glyph {
+  flex: none;
 }
 .dots .glyph {
   width: 6px;
@@ -597,22 +611,68 @@ body.resizing * {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 12px 0 16px;
+  gap: 2px;
+  padding: 0 12px 0 20px;
   -webkit-app-region: drag;
 }
-.main-header h1 {
-  margin: 0 0 0 4px;
+.settings-title {
+  flex: 1;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
+}
+.task-name {
+  flex: 1;
+  /* In a narrow window the Next button gives way first. */
+  min-width: 120px;
+  margin: 0 8px 0 0;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.header-controls {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+/* Edit, Park, Mark done: shown while the pointer is over the bar's controls, or one has focus.
+   (Not the whole bar: the title and empty space drag the window, so they get no mouse events.) */
+.task-actions,
+.header-sep {
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.task-actions {
+  display: flex;
+  gap: 2px;
+}
+.header-controls:hover .task-actions,
+.header-controls:hover .header-sep,
+.header-controls:focus-within .task-actions,
+.header-controls:focus-within .header-sep {
+  opacity: 1;
+}
+.header-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--line-card);
 }
 .main-header .spacer {
   flex: 1;
 }
-.main-header .ib + .next {
-  margin-left: 6px;
+.header-controls .ib + .next {
+  margin-left: 8px;
 }
-.main-header .next + .btn {
+.header-controls .next + .btn {
   margin-left: 8px;
 }
 .next {
@@ -683,6 +743,22 @@ body.resizing * {
   color: var(--fg-2);
 }
 
+/* For cut-off titles; see Tooltip.tsx. */
+.tooltip {
+  position: fixed;
+  z-index: 30;
+  padding: 5px 8px;
+  background: var(--bg-tooltip);
+  color: var(--fg-1);
+  border: 1px solid var(--line-tooltip);
+  border-radius: 6px;
+  box-shadow: var(--shadow-pop);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
 /* ---------- task ---------- */
 
 .task-view {
@@ -691,36 +767,11 @@ body.resizing * {
   display: flex;
   flex-direction: column;
 }
-.task-header {
-  flex: none;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 20px;
-}
-.task-header.with-description {
-  align-items: flex-start;
-  padding: 10px 20px 8px;
-}
-.task-heading {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.task-heading h1 {
-  margin: 0;
-  font-size: 15px;
-  line-height: 20px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .task-description {
+  flex: none;
+  /* Not pulled up under the top bar: that strip drags the window, even over a link. */
   margin: 0;
+  padding: 0 20px 10px;
   font-size: 12px;
   line-height: 16px;
   color: var(--fg-3);
@@ -735,14 +786,6 @@ body.resizing * {
   text-underline-offset: 2px;
   text-decoration-color: var(--link-line);
   cursor: pointer;
-}
-.task-actions {
-  flex: none;
-  display: flex;
-  gap: 2px;
-}
-.task-header.with-description .task-actions {
-  margin-top: -4px;
 }
 
 .tab-bar {
