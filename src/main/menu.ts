@@ -48,7 +48,6 @@ export function buildMenu(settings: Settings, h: MenuHandlers): Menu {
         cmd('newTask'),
         { type: 'separator' },
         cmd('newTab'),
-        cmd('newClaudeTab'),
         { type: 'separator' },
         cmd('closeTab'),
       ],

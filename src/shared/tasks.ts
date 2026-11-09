@@ -1,7 +1,7 @@
 // Pure state updates for tasks, tabs and history. No Electron imports, so
 // these run in unit tests and in either process.
 
-import type { AppState, Queue, Tab, Task, TaskDraft } from './model';
+import { DEFAULT_PRIORITY, type AppState, type Queue, type Tab, type Task, type TaskDraft } from './model';
 
 export const HISTORY_LIMIT = 500;
 
@@ -29,11 +29,15 @@ function mapTask(state: AppState, id: string, fn: (t: Task) => Task): AppState {
   return { ...state, tasks };
 }
 
+/** Keeps only the editable fields, with valid values. Drafts arrive over IPC, so nothing is trusted. */
 function cleanDraft(draft: Partial<TaskDraft>): Partial<TaskDraft> {
-  const out: Partial<TaskDraft> = { ...draft };
-  if (out.title !== undefined) out.title = out.title.trim() || 'Untitled task';
-  if (out.description !== undefined) out.description = out.description.trim();
-  if ('defaultCwd' in out) out.defaultCwd = out.defaultCwd?.trim() || undefined;
+  const out: Partial<TaskDraft> = {};
+  if (typeof draft.title === 'string') out.title = draft.title.trim() || 'Untitled task';
+  if (typeof draft.description === 'string') out.description = draft.description.trim();
+  if (Number.isInteger(draft.priority) && draft.priority! >= 0 && draft.priority! <= 9) out.priority = draft.priority;
+  if ('defaultCwd' in draft) {
+    out.defaultCwd = typeof draft.defaultCwd === 'string' ? draft.defaultCwd.trim() || undefined : undefined;
+  }
   return out;
 }
 
@@ -42,7 +46,7 @@ export function createTask(state: AppState, draft: TaskDraft, id: string, now: n
     id,
     title: 'Untitled task',
     description: '',
-    priority: draft.priority,
+    priority: DEFAULT_PRIORITY,
     queue: 'yourTurn',
     enteredAt: now,
     policy: {},

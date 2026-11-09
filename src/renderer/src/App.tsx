@@ -29,9 +29,21 @@ export function App() {
 
   useEffect(() => {
     let alive = true;
-    void api.getInitialData().then((d) => alive && setData(d));
-    const offState = api.onState((state) => setData((d) => d && { ...d, state }));
-    const offSettings = api.onSettings((settings) => setData((d) => d && { ...d, settings }));
+    // Updates can arrive before the initial snapshot does. Keep the newest of
+    // each so the older snapshot never overwrites them.
+    let early: Partial<Loaded> = {};
+    const offState = api.onState((state) => {
+      early.state = state;
+      setData((d) => d && { ...d, state });
+    });
+    const offSettings = api.onSettings((settings) => {
+      early.settings = settings;
+      setData((d) => d && { ...d, settings });
+    });
+    void api.getInitialData().then((d) => {
+      if (alive) setData({ ...d, ...early });
+      early = {};
+    });
     return () => {
       alive = false;
       offState();
@@ -53,9 +65,9 @@ export function App() {
   }, []);
 
   const newTab = useCallback(
-    async (kind: 'shell' | 'claude') => {
+    async () => {
       if (!openTask) return;
-      const id = await api.newTab(openTask.id, kind);
+      const id = await api.newTab(openTask.id);
       selectTab(openTask.id, id);
     },
     [openTask, selectTab],
@@ -90,10 +102,7 @@ export function App() {
         if (openTask) setEditor({ kind: 'edit', task: openTask });
         return;
       case 'newTab':
-        void newTab('shell');
-        return;
-      case 'newClaudeTab':
-        void newTab('claude');
+        void newTab();
         return;
       case 'closeTab':
         if (activeTabId) void closeTab(activeTabId);
@@ -118,11 +127,19 @@ export function App() {
   };
   useEffect(() => api.onCommand((id) => commandRef.current(id)), []);
 
-  const onTaskMenu = useCallback(async (task: Task) => {
-    const choice = await api.showTaskMenu(task.id);
-    if (choice === 'edit') setEditor({ kind: 'edit', task });
-    if (choice === 'delete') await api.deleteTask(task.id);
-  }, []);
+  const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
+
+  // The task menu's Edit item. A ref reads the current state without re-subscribing.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  useEffect(
+    () =>
+      api.onEditTask((id) => {
+        const task = stateRef.current && findTask(stateRef.current, id);
+        if (task) setEditor({ kind: 'edit', task });
+      }),
+    [],
+  );
 
   const closeEditor = useCallback(() => {
     setEditor(undefined);

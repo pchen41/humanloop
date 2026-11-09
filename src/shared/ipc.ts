@@ -3,8 +3,6 @@
 import type { CommandId } from './commands';
 import type { AppState, Settings, TaskDraft } from './model';
 
-export type TabKind = 'shell' | 'claude';
-
 export interface InitialData {
   state: AppState;
   settings: Settings;
@@ -22,11 +20,13 @@ export interface HumanloopApi {
   /** Asks for confirmation, then closes the task's shells and deletes it. */
   deleteTask(id: string): Promise<boolean>;
   openTask(id: string): Promise<void>;
-  /** Shows the native context menu for a task and resolves with the choice. */
-  showTaskMenu(id: string): Promise<'edit' | 'delete' | undefined>;
+  /** Shows the native context menu for a task (Edit, Delete). */
+  showTaskMenu(id: string): void;
+  /** The task menu's Edit item was chosen. */
+  onEditTask(cb: (id: string) => void): () => void;
   chooseDirectory(current?: string): Promise<string | undefined>;
 
-  newTab(taskId: string, kind: TabKind): Promise<string>;
+  newTab(taskId: string): Promise<string>;
   /** Asks for confirmation if a program is still running, then closes the tab. */
   closeTab(tabId: string): Promise<boolean>;
   setTabTitle(tabId: string, title: string): void;
@@ -54,6 +54,7 @@ export const IPC = {
   deleteTask: 'task:delete',
   openTask: 'task:open',
   taskMenu: 'task:menu',
+  editTask: 'task:edit',
   chooseDirectory: 'dialog:directory',
   newTab: 'tab:new',
   closeTab: 'tab:close',

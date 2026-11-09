@@ -118,3 +118,38 @@ describe('normalize', () => {
     expect(settings.policy).toEqual({ multiAgent: 'all', subagentsBusy: true, backgroundShellsBusy: false });
   });
 });
+
+describe('review fixes', () => {
+  it('keeps the history index on the same entry after dropping missing tasks', () => {
+    const s = normalizeState({
+      tasks: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+      history: [
+        { taskId: 'a', openedAt: 1 },
+        { taskId: 'missing', openedAt: 2 },
+        { taskId: 'b', openedAt: 3 },
+        { taskId: 'c', openedAt: 4 },
+      ],
+      historyIndex: 2, // points at b
+    });
+    expect(s.history.map((h) => h.taskId)).toEqual(['a', 'b', 'c']);
+    expect(s.history[s.historyIndex]?.taskId).toBe('b');
+  });
+
+  it('merges neighbours left adjacent by a dropped entry', () => {
+    const s = normalizeState({
+      tasks: [{ id: 'a' }, { id: 'b' }],
+      history: [{ taskId: 'a' }, { taskId: 'gone' }, { taskId: 'a' }, { taskId: 'b' }],
+      historyIndex: 2,
+    });
+    expect(s.history.map((h) => h.taskId)).toEqual(['a', 'b']);
+    expect(s.historyIndex).toBe(0);
+  });
+
+  it('ignores invalid fields in drafts sent over IPC', () => {
+    const bad = { title: 'T', description: 'D', priority: 100, queue: 'done', tabs: 'x' } as never;
+    let s = T.createTask(EMPTY_STATE, bad, 'a', 1);
+    expect(T.findTask(s, 'a')).toMatchObject({ priority: 5, queue: 'yourTurn', tabs: [] });
+    s = T.updateTask(s, 'a', { priority: -1, title: 7 } as never);
+    expect(T.findTask(s, 'a')).toMatchObject({ priority: 5, title: 'T' });
+  });
+});

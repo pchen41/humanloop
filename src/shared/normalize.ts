@@ -71,17 +71,31 @@ export function normalizeState(raw: unknown, now = Date.now()): AppState {
       seen.add(t.id);
       return true;
     });
-  const history = (Array.isArray(raw.history) ? raw.history : [])
-    .filter((h): h is Obj => isObj(h) && typeof h.taskId === 'string' && seen.has(h.taskId))
-    .map((h) => ({ taskId: h.taskId as string, openedAt: num(h.openedAt) ?? now }))
-    .slice(-HISTORY_LIMIT);
-  const idx = num(raw.historyIndex) ?? history.length - 1;
+  // Drop entries for missing tasks while keeping the index on the same entry it pointed at.
+  const rawHistory = Array.isArray(raw.history) ? raw.history : [];
+  const rawIndex = num(raw.historyIndex) ?? rawHistory.length - 1;
+  let history: AppState['history'] = [];
+  let historyIndex = -1;
+  rawHistory.forEach((h, i) => {
+    if (!isObj(h) || typeof h.taskId !== 'string' || !seen.has(h.taskId)) return;
+    if (history.at(-1)?.taskId === h.taskId) {
+      if (i <= rawIndex) historyIndex = history.length - 1;
+      return;
+    }
+    history.push({ taskId: h.taskId, openedAt: num(h.openedAt) ?? now });
+    if (i <= rawIndex) historyIndex = history.length - 1;
+  });
+  if (history.length > HISTORY_LIMIT) {
+    historyIndex -= history.length - HISTORY_LIMIT;
+    history = history.slice(-HISTORY_LIMIT);
+  }
+  if (history.length) historyIndex = Math.max(0, Math.min(historyIndex, history.length - 1));
   const openTaskId = str(raw.openTaskId);
   return {
     tasks,
     openTaskId: openTaskId && seen.has(openTaskId) ? openTaskId : undefined,
     history,
-    historyIndex: history.length ? Math.max(0, Math.min(Math.trunc(idx), history.length - 1)) : -1,
+    historyIndex,
   };
 }
 

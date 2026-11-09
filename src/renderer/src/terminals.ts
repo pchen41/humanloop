@@ -36,6 +36,11 @@ const THEME: ITheme = {
 
 type Listener = () => void;
 
+/** The main process opens http(s) links in the default browser and blocks the rest. */
+function openLink(url: string): void {
+  window.open(url);
+}
+
 class TerminalHandle {
   readonly term: Terminal;
   readonly el: HTMLDivElement;
@@ -63,9 +68,12 @@ class TerminalHandle {
       macOptionClickForcesSelection: true,
       allowProposedApi: true,
       cursorBlink: true,
+      // OSC 8 links (labeled links printed by programs like Claude Code). xterm's
+      // default opens a blank window first, which the app blocks, so open the URL directly.
+      linkHandler: { activate: (_e, uri) => openLink(uri) },
     });
     this.term.loadAddon(this.fit);
-    this.term.loadAddon(new WebLinksAddon((_e, url) => window.open(url)));
+    this.term.loadAddon(new WebLinksAddon((_e, url) => openLink(url)));
     this.term.attachCustomKeyEventHandler((e) => this.handleKey(e));
     this.term.onData((data) => this.input(data));
     this.term.onTitleChange((title) => {
@@ -136,8 +144,16 @@ class TerminalHandle {
 
   private async attach(): Promise<void> {
     this.attached = true;
-    const { replay } = await api.ptyAttach(this.tabId, this.term.cols, this.term.rows);
-    if (replay) this.term.write(replay);
+    try {
+      const { replay } = await api.ptyAttach(this.tabId, this.term.cols, this.term.rows);
+      if (replay) this.term.write(replay);
+    } catch (err) {
+      // Let Return try again, the same way as after the shell exits.
+      this.attached = false;
+      this.exited = -1;
+      const msg = err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': /, '') : String(err);
+      this.term.write(`\r\n\x1b[31m[Could not start a shell: ${msg}. Press Return to try again.]\x1b[0m\r\n`);
+    }
   }
 
   private async restart(): Promise<void> {

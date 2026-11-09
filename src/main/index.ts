@@ -4,7 +4,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { COMMANDS } from '../shared/commands';
-import { IPC, TERMINAL_EDIT, type InitialData, type TabKind, type TerminalEditCommand } from '../shared/ipc';
+import { IPC, TERMINAL_EDIT, type InitialData, type TerminalEditCommand } from '../shared/ipc';
 import { DEFAULT_SETTINGS, EMPTY_STATE, type AppState, type Settings, type TaskDraft } from '../shared/model';
 import { normalizeSettings, normalizeState, stateAfterLaunch } from '../shared/normalize';
 import * as T from '../shared/tasks';
@@ -34,8 +34,6 @@ let state: AppState = stateAfterLaunch(readJson(stateFile, EMPTY_STATE, normaliz
 let settings: Settings = readJson(settingsFile, DEFAULT_SETTINGS, normalizeSettings);
 let win: BrowserWindow | undefined;
 let terminalFocused = false;
-/** Typed into a new tab's shell when it first starts (used by New Claude Tab). */
-const initialInput = new Map<string, string>();
 /** Lets the smoke test watch terminal output. */
 let outputObserver: ((tabId: string, data: string) => void) | undefined;
 
@@ -101,11 +99,21 @@ function editCommand(cmd: TerminalEditCommand): void {
 
 // ---------- tasks and tabs ----------
 
-function newTab(taskId: string, kind: TabKind): string {
+function newTab(taskId: string): string {
   const id = randomUUID();
-  setState(T.addTab(state, taskId, { id, title: kind === 'claude' ? 'claude' : 'zsh' }));
-  if (kind === 'claude') initialInput.set(id, 'claude\r');
+  setState(T.addTab(state, taskId, { id, title: 'zsh' }));
   return id;
+}
+
+/** Creates, opens and gives a first shell tab to a task in a single state update. */
+function createTask(draft: TaskDraft): { taskId: string; tabId: string } {
+  const taskId = randomUUID();
+  const tabId = randomUUID();
+  const now = Date.now();
+  let next = T.createTask(state, draft, taskId, now);
+  next = T.addTab(next, taskId, { id: tabId, title: 'zsh' });
+  setState(T.openTask(next, taskId, now));
+  return { taskId, tabId };
 }
 
 function isShell(name: string | undefined): boolean {
@@ -123,45 +131,39 @@ async function confirm(message: string, detail: string, action: string): Promise
   return response === 0;
 }
 
+async function deleteTaskWithConfirm(id: string): Promise<boolean> {
+  const task = T.findTask(state, id);
+  if (!task) return false;
+  const tabs = task.tabs.length;
+  const ok = await confirm(
+    `Delete “${task.title}”?`,
+    `${tabs ? `This closes its ${tabs === 1 ? 'tab' : `${tabs} tabs`} and removes` : 'This removes'} it from your history. You can't undo this.`,
+    'Delete',
+  );
+  if (!ok) return false;
+  // Tabs may have changed while the dialog was open.
+  for (const tab of T.findTask(state, id)?.tabs ?? []) ptys.kill(tab.id);
+  setState(T.deleteTask(state, id));
+  return true;
+}
+
 function registerIpc(): void {
   ipcMain.handle(IPC.getInitialData, (): InitialData => ({ state, settings, homeDir: homedir() }));
 
-  ipcMain.handle(IPC.createTask, (_e, draft: TaskDraft) => {
-    const id = randomUUID();
-    setState(T.openTask(T.createTask(state, draft, id, Date.now()), id, Date.now()));
-    newTab(id, 'shell');
-    return id;
-  });
+  ipcMain.handle(IPC.createTask, (_e, draft: TaskDraft) => createTask(draft).taskId);
   ipcMain.handle(IPC.updateTask, (_e, id: string, patch: Partial<TaskDraft>) => {
     setState(T.updateTask(state, id, patch));
   });
-  ipcMain.handle(IPC.deleteTask, async (_e, id: string) => {
-    const task = T.findTask(state, id);
-    if (!task) return false;
-    const tabs = task.tabs.length;
-    const ok = await confirm(
-      `Delete “${task.title}”?`,
-      `${tabs ? `This closes its ${tabs === 1 ? 'tab' : `${tabs} tabs`} and removes` : 'This removes'} it from your history. You can't undo this.`,
-      'Delete',
-    );
-    if (!ok) return false;
-    for (const tab of task.tabs) ptys.kill(tab.id);
-    setState(T.deleteTask(state, id));
-    return true;
-  });
+  ipcMain.handle(IPC.deleteTask, (_e, id: string) => deleteTaskWithConfirm(id));
   ipcMain.handle(IPC.openTask, (_e, id: string) => {
     setState(T.openTask(state, id, Date.now()));
   });
-  ipcMain.handle(IPC.taskMenu, () => {
-    return new Promise<'edit' | 'delete' | undefined>((resolve) => {
-      const menu = Menu.buildFromTemplate([
-        { label: 'Edit Task…', click: () => resolve('edit') },
-        { type: 'separator' },
-        { label: 'Delete Task…', click: () => resolve('delete') },
-      ]);
-      // The close callback can run before the click handler, so give the click a moment.
-      menu.popup({ window: win, callback: () => setTimeout(() => resolve(undefined), 100) });
-    });
+  ipcMain.on(IPC.taskMenu, (_e, id: string) => {
+    Menu.buildFromTemplate([
+      { label: 'Edit Task…', click: () => win?.webContents.send(IPC.editTask, id) },
+      { type: 'separator' },
+      { label: 'Delete Task…', click: () => void deleteTaskWithConfirm(id) },
+    ]).popup({ window: win });
   });
   ipcMain.handle(IPC.chooseDirectory, async (_e, current?: string) => {
     const opts: Electron.OpenDialogOptions = {
@@ -172,7 +174,7 @@ function registerIpc(): void {
     return res.canceled ? undefined : res.filePaths[0];
   });
 
-  ipcMain.handle(IPC.newTab, (_e, taskId: string, kind: TabKind) => newTab(taskId, kind));
+  ipcMain.handle(IPC.newTab, (_e, taskId: string) => newTab(taskId));
   ipcMain.handle(IPC.closeTab, async (_e, tabId: string) => {
     const found = T.findTab(state, tabId);
     if (!found) return false;
@@ -181,7 +183,6 @@ function registerIpc(): void {
       return false;
     }
     ptys.kill(tabId);
-    initialInput.delete(tabId);
     setState(T.closeTab(state, found.task.id, tabId));
     return true;
   });
@@ -193,14 +194,11 @@ function registerIpc(): void {
   ipcMain.handle(IPC.ptyAttach, (_e, tabId: string, cols: number, rows: number) => {
     const found = T.findTab(state, tabId);
     if (!found) throw new Error(`no tab ${tabId}`);
-    const input = initialInput.get(tabId);
-    initialInput.delete(tabId);
     return ptys.attach(tabId, {
       cols,
       rows,
       cwd: usableCwd(found.task.defaultCwd ?? settings.defaultCwd),
       env: shellEnv({ HUMANLOOP_TAB: tabId, TERM_PROGRAM: 'Humanloop', TERM_PROGRAM_VERSION: app.getVersion() }),
-      initialInput: input,
     });
   });
   ipcMain.on(IPC.ptyWrite, (_e, tabId: string, data: string) => ptys.write(tabId, data));
@@ -240,6 +238,11 @@ function createWindow(): BrowserWindow {
   w.on('closed', () => {
     if (win === w) win = undefined;
     terminalFocused = false;
+    ptys.detachAll();
+  });
+  // A reload replaces the renderer and its terminals; tabs re-attach as they are shown.
+  w.webContents.on('did-start-navigation', (details) => {
+    if (details.isMainFrame && !details.isSameDocument) ptys.detachAll();
   });
   // Links open in the browser; the window itself never navigates away.
   w.webContents.setWindowOpenHandler(({ url }) => {
@@ -248,14 +251,17 @@ function createWindow(): BrowserWindow {
   });
   w.webContents.on('will-navigate', (e) => e.preventDefault());
 
-  if (process.env.ELECTRON_RENDERER_URL) void w.loadURL(process.env.ELECTRON_RENDERER_URL);
+  // Only dev builds load from the Vite dev server; a packaged app always loads its own files.
+  if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) void w.loadURL(process.env.ELECTRON_RENDERER_URL);
   else void w.loadFile(join(__dirname, '../renderer/index.html'));
   return w;
 }
 
 // ---------- lifecycle ----------
 
-let quitConfirmed = false;
+/** Set once the quit has been confirmed and state is safely on disk. */
+let readyToQuit = false;
+let quitting = false;
 
 app.on('second-instance', () => {
   if (!win) win = createWindow();
@@ -268,19 +274,28 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', (e) => {
-  if (quitConfirmed || process.env.HUMANLOOP_SMOKE) return;
-  const busy = busyTabs(state.tasks.flatMap((t) => t.tabs.map((tab) => tab.id)));
-  if (!busy.length) return;
+  if (readyToQuit) return;
   e.preventDefault();
-  void confirm(
-    'Quit Humanloop?',
-    `${busy.length === 1 ? 'A program is' : `${busy.length} programs are`} still running in your tabs. Quitting stops them.`,
-    'Quit',
-  ).then((ok) => {
-    if (!ok) return;
-    quitConfirmed = true;
-    app.quit();
-  });
+  if (quitting) return;
+  quitting = true;
+  void (async () => {
+    try {
+      const busy = busyTabs(state.tasks.flatMap((t) => t.tabs.map((tab) => tab.id)));
+      const ok =
+        !busy.length ||
+        (await confirm(
+          'Quit Humanloop?',
+          `${busy.length === 1 ? 'A program is' : `${busy.length} programs are`} still running in your tabs. Quitting stops them.`,
+          'Quit',
+        ));
+      if (!ok) return;
+      await stateStore.flush();
+      readyToQuit = true;
+      app.quit();
+    } finally {
+      quitting = false;
+    }
+  })();
 });
 
 app.on('will-quit', () => {
@@ -303,11 +318,7 @@ void app.whenReady().then(() => {
   if (process.env.HUMANLOOP_SMOKE) {
     void runSmokeTest({
       win,
-      createTaskAndTab: () => {
-        const id = randomUUID();
-        setState(T.openTask(T.createTask(state, { title: 'Smoke test', description: '', priority: 5 }, id, Date.now()), id, Date.now()));
-        return { taskId: id, tabId: newTab(id, 'shell') };
-      },
+      createTaskAndTab: () => createTask({ title: 'Smoke test', description: '', priority: 5 }),
       writeToTab: (tabId, data) => ptys.write(tabId, data),
       observeOutput: (fn) => {
         outputObserver = fn;

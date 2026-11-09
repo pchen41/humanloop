@@ -13,10 +13,6 @@ const LOW_WATER = 128 * 1024;
 const REPLAY_LIMIT = 256 * 1024;
 /** How often batched output is sent to the renderer. */
 const FLUSH_MS = 8;
-/** Initial input waits for this long a pause in the shell's startup output... */
-const INPUT_QUIET_MS = 150;
-/** ...or this long at most. */
-const INPUT_FALLBACK_MS = 3000;
 
 export interface PtySink {
   data(tabId: string, data: string): void;
@@ -29,6 +25,8 @@ interface Entry {
   pending: string;
   unacked: number;
   paused: boolean;
+  /** False while no window is showing this tab's output (closed or reloading). */
+  attached: boolean;
   exited?: number;
 }
 
@@ -37,8 +35,6 @@ export interface SpawnOptions {
   cols: number;
   rows: number;
   env: Record<string, string>;
-  /** Typed into the shell once it starts, e.g. "claude\r". */
-  initialInput?: string;
 }
 
 /** Variables that must not leak from the app's own environment into tab shells. */
@@ -97,9 +93,13 @@ export class PtyManager {
   attach(tabId: string, opts: SpawnOptions): { replay: string } {
     const existing = this.entries.get(tabId);
     if (existing && existing.exited === undefined) {
+      // The replay already contains anything still pending, so drop it to
+      // avoid drawing the same output twice.
+      existing.pending = '';
+      existing.attached = true;
       existing.unacked = 0;
       this.updatePause(existing);
-      existing.proc.resize(opts.cols, opts.rows);
+      this.resize(tabId, opts.cols, opts.rows);
       return { replay: existing.replay };
     }
     this.spawn(tabId, opts);
@@ -116,7 +116,7 @@ export class PtyManager {
       cwd: opts.cwd,
       env: opts.env,
     });
-    const entry: Entry = { proc, replay: '', pending: '', unacked: 0, paused: false };
+    const entry: Entry = { proc, replay: '', pending: '', unacked: 0, paused: false, attached: true };
     this.entries.set(tabId, entry);
 
     proc.onData((data) => {
@@ -130,29 +130,6 @@ export class PtyManager {
       this.flush();
       this.sink.exit(tabId, exitCode);
     });
-    if (opts.initialInput) this.typeWhenReady(entry, opts.initialInput);
-  }
-
-  /**
-   * Types into the shell once its startup output has gone quiet, so the input
-   * lands at the prompt instead of being echoed above it.
-   */
-  private typeWhenReady(entry: Entry, input: string): void {
-    let done = false;
-    let quiet: NodeJS.Timeout | undefined;
-    const type = () => {
-      if (done) return;
-      done = true;
-      clearTimeout(quiet);
-      clearTimeout(fallback);
-      sub.dispose();
-      if (entry.exited === undefined) entry.proc.write(input);
-    };
-    const sub = entry.proc.onData(() => {
-      clearTimeout(quiet);
-      quiet = setTimeout(type, INPUT_QUIET_MS);
-    });
-    const fallback = setTimeout(type, INPUT_FALLBACK_MS);
   }
 
   write(tabId: string, data: string): void {
@@ -204,6 +181,20 @@ export class PtyManager {
     }
   }
 
+  /**
+   * The window closed or is reloading. Shells keep running and their output
+   * goes only to the replay buffer, so nothing pauses waiting for acks that
+   * will never come. Each tab re-attaches when it is next shown.
+   */
+  detachAll(): void {
+    for (const e of this.entries.values()) {
+      e.attached = false;
+      e.pending = '';
+      e.unacked = 0;
+      if (e.exited === undefined) this.updatePause(e);
+    }
+  }
+
   killAll(): void {
     for (const id of [...this.entries.keys()]) this.kill(id);
   }
@@ -227,6 +218,10 @@ export class PtyManager {
     this.flushTimer = undefined;
     for (const [tabId, e] of this.entries) {
       if (!e.pending) continue;
+      if (!e.attached) {
+        e.pending = '';
+        continue;
+      }
       const data = e.pending;
       e.pending = '';
       e.unacked += data.length;

@@ -5,7 +5,6 @@ export type CommandId =
   | 'newTask'
   | 'editTask'
   | 'newTab'
-  | 'newClaudeTab'
   | 'closeTab'
   | 'nextTab'
   | 'prevTab'
@@ -36,8 +35,7 @@ const tabCommands: CommandDef[] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({
 export const COMMANDS: CommandDef[] = [
   { id: 'newTask', label: 'New Task…', accelerator: 'CmdOrCtrl+N' },
   { id: 'editTask', label: 'Edit Task…', accelerator: 'CmdOrCtrl+E' },
-  { id: 'newTab', label: 'New Shell Tab', accelerator: 'CmdOrCtrl+T' },
-  { id: 'newClaudeTab', label: 'New Claude Tab', accelerator: 'CmdOrCtrl+Shift+T' },
+  { id: 'newTab', label: 'New Tab', accelerator: 'CmdOrCtrl+T' },
   { id: 'closeTab', label: 'Close Tab', accelerator: 'CmdOrCtrl+W' },
   { id: 'nextTab', label: 'Show Next Tab', accelerator: 'CmdOrCtrl+Shift+]' },
   { id: 'prevTab', label: 'Show Previous Tab', accelerator: 'CmdOrCtrl+Shift+[' },

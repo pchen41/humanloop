@@ -19,10 +19,11 @@ const api: HumanloopApi = {
   updateTask: (id, patch) => ipcRenderer.invoke(IPC.updateTask, id, patch),
   deleteTask: (id) => ipcRenderer.invoke(IPC.deleteTask, id),
   openTask: (id) => ipcRenderer.invoke(IPC.openTask, id),
-  showTaskMenu: (id) => ipcRenderer.invoke(IPC.taskMenu, id),
+  showTaskMenu: (id) => ipcRenderer.send(IPC.taskMenu, id),
+  onEditTask: (cb) => listen(IPC.editTask, cb),
   chooseDirectory: (current) => ipcRenderer.invoke(IPC.chooseDirectory, current),
 
-  newTab: (taskId, kind) => ipcRenderer.invoke(IPC.newTab, taskId, kind),
+  newTab: (taskId) => ipcRenderer.invoke(IPC.newTab, taskId),
   closeTab: (tabId) => ipcRenderer.invoke(IPC.closeTab, tabId),
   setTabTitle: (tabId, title) => ipcRenderer.send(IPC.setTabTitle, tabId, title),
 

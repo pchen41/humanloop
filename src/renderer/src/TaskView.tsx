@@ -11,7 +11,7 @@ interface Props {
   homeDir: string;
   onSelectTab(tabId: string): void;
   onCloseTab(tabId: string): void;
-  onNewTab(kind: 'shell' | 'claude'): void;
+  onNewTab(): void;
   onEdit(): void;
   focusTerminal: boolean;
 }
@@ -68,11 +68,8 @@ export function TaskView({ task, activeTabId, settings, homeDir, onSelectTab, on
             </div>
           );
         })}
-        <button className="tab-new" onClick={() => onNewTab('shell')} title={`New shell tab (${key('newTab')})`}>
+        <button className="tab-new" onClick={onNewTab} title={`New tab (${key('newTab')})`}>
           +
-        </button>
-        <button className="tab-new" onClick={() => onNewTab('claude')} title={`New Claude tab (${key('newClaudeTab')})`}>
-          + Claude
         </button>
       </div>
 
@@ -81,14 +78,9 @@ export function TaskView({ task, activeTabId, settings, homeDir, onSelectTab, on
       ) : (
         <div className="empty-main">
           <p>This task has no tabs.</p>
-          <div className="row">
-            <button className="primary" onClick={() => onNewTab('shell')}>
-              New Shell <kbd>{key('newTab')}</kbd>
-            </button>
-            <button onClick={() => onNewTab('claude')}>
-              New Claude Tab <kbd>{key('newClaudeTab')}</kbd>
-            </button>
-          </div>
+          <button className="primary" onClick={onNewTab}>
+            New Tab <kbd>{key('newTab')}</kbd>
+          </button>
         </div>
       )}
     </div>

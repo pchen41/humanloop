@@ -6,6 +6,7 @@ import { rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 const DEBOUNCE_MS = 250;
+const RETRY_MS = 5000;
 
 let tmpCounter = 0;
 function tmpPath(file: string): string {
@@ -37,11 +38,10 @@ export function writeJsonSync(file: string, value: unknown): void {
 }
 
 export class JsonStore<T> {
+  /** Newest value not yet known to be on disk. */
   private latest: T | undefined;
   private timer: NodeJS.Timeout | undefined;
   private chain: Promise<void> = Promise.resolve();
-  /** Bumped by every write, so an older async write never lands over a newer one. */
-  private generation = 0;
 
   constructor(readonly file: string) {
     mkdirSync(dirname(file), { recursive: true });
@@ -49,32 +49,47 @@ export class JsonStore<T> {
 
   save(value: T): void {
     this.latest = value;
-    if (!this.timer) this.timer = setTimeout(() => this.writeLatest(), DEBOUNCE_MS);
+    if (!this.timer) this.timer = setTimeout(() => void this.write(), DEBOUNCE_MS);
   }
 
-  private writeLatest(): void {
+  /** Writes the newest value. Writes run one at a time, in order. */
+  private write(): Promise<void> {
+    clearTimeout(this.timer);
     this.timer = undefined;
-    const value = this.latest;
-    if (value === undefined) return;
-    this.latest = undefined;
-    const json = JSON.stringify(value, null, 2) + '\n';
-    const gen = ++this.generation;
-    this.chain = this.chain
-      .then(async () => {
-        const tmp = tmpPath(this.file);
-        await writeFile(tmp, json);
-        if (gen === this.generation) await rename(tmp, this.file);
-        else await unlink(tmp);
-      })
-      .catch((err) => console.error(`Could not save ${this.file}:`, err));
+    this.chain = this.chain.then(async () => {
+      const value = this.latest;
+      if (value === undefined) return;
+      const tmp = tmpPath(this.file);
+      try {
+        await writeFile(tmp, JSON.stringify(value, null, 2) + '\n');
+        await rename(tmp, this.file);
+        // Only clear it if nothing newer arrived while writing.
+        if (this.latest === value) this.latest = undefined;
+      } catch (err) {
+        console.error(`Could not save ${this.file}:`, err);
+        await unlink(tmp).catch(() => {});
+        // Keep the value pending and try again later.
+        if (!this.timer) this.timer = setTimeout(() => void this.write(), RETRY_MS);
+      }
+    });
+    return this.chain;
   }
 
-  /** Writes any pending value right away. Called on quit. */
+  /** Waits for any write in progress, then writes whatever is still pending. Call before quitting. */
+  async flush(): Promise<void> {
+    await this.write();
+    clearTimeout(this.timer);
+    this.timer = undefined;
+  }
+
+  /**
+   * Last-resort synchronous write for when the app is exiting without
+   * waiting. Prefer flush(), which cannot race with a write in progress.
+   */
   flushSync(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
     if (this.latest !== undefined) {
-      this.generation++;
       writeJsonSync(this.file, this.latest);
       this.latest = undefined;
     }
