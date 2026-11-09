@@ -154,11 +154,11 @@ describe('review fixes', () => {
   });
 });
 
-describe('priority scale P0–P3', () => {
-  it('maps older P4–P9 priorities onto the new scale', () => {
-    const task = (priority: number) => ({ id: `t${priority}`, title: 'T', priority, queue: 'yourTurn', tabs: [] });
-    const s = normalizeState({ tasks: [0, 3, 4, 5, 6, 7, 9, 10].map(task), history: [], historyIndex: -1 });
-    expect(s.tasks.map((t) => t.priority)).toEqual([0, 3, 2, 2, 2, 3, 3, 2]);
+describe('priorities', () => {
+  it('takes only P0–P3 from disk', () => {
+    const task = (priority: unknown) => ({ id: `t${String(priority)}`, title: 'T', priority, queue: 'yourTurn', tabs: [] });
+    const s = normalizeState({ tasks: [0, 3, 4, 9, 1.5, 'x'].map(task), history: [], historyIndex: -1 });
+    expect(s.tasks.map((t) => t.priority)).toEqual([0, 3, 2, 2, 2, 2]);
   });
 
   it('accepts only P0–P3 from the editor', () => {

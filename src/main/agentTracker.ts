@@ -43,7 +43,13 @@ export interface AgentTrackerOptions {
 export class AgentTracker {
   private agents = new Map<string, TabAgent>();
   /** claude pid -> whether it belongs to that shell. Only definite answers are cached. */
-  private verdicts = new Map<number, { shell: number; ok: boolean }>();
+  /**
+   * pid -> whether it belongs to that shell, for the session that asked. A
+   * different session from the same pid is checked again: the pid may have
+   * been reused (a rejected nested `claude -p` exits; a new top-level claude
+   * gets its pid).
+   */
+  private verdicts = new Map<number, { shell: number; session: string; ok: boolean }>();
   /** claude processes whose events were accepted. A process below one of them is a nested `claude -p`. */
   private claudePids = new Set<number>();
   /** The claude pids accepted for each tab, forgotten when the tab's shell goes (pids get reused). */
@@ -110,9 +116,9 @@ export class AgentTracker {
    * shell is `shell`: the shell must be an ancestor, with no other known
    * claude process in between. Undefined if the process table was unreadable.
    */
-  private async belongs(pid: number, shell: number): Promise<boolean | undefined> {
+  private async belongs(pid: number, shell: number, session: string): Promise<boolean | undefined> {
     const cached = this.verdicts.get(pid);
-    if (cached && cached.shell === shell) return cached.ok;
+    if (cached && cached.shell === shell && cached.session === session) return cached.ok;
     // `exec claude` replaces the shell, so the claude process is the shell itself.
     if (pid === shell) return true;
     const table = await this.table();
@@ -121,21 +127,24 @@ export class AgentTracker {
     let ok = false;
     let cur = table.get(pid);
     for (let hop = 0; cur !== undefined && cur > 1 && hop < MAX_HOPS; hop++) {
+      // After `exec claude` the shell pid is itself a Claude session, so
+      // anything below it is nested: check that before the shell match.
+      if (this.claudePids.has(cur)) break; // nested inside another Claude session
       if (cur === shell) {
         ok = true;
         break;
       }
-      if (this.claudePids.has(cur)) break; // nested inside another Claude session
       cur = table.get(cur);
     }
     if (this.verdicts.size > 1024) this.verdicts.clear();
-    this.verdicts.set(pid, { shell, ok });
+    this.verdicts.set(pid, { shell, session, ok });
     return ok;
   }
 
   private async apply(d: HookDelivery, gen: number): Promise<void> {
     const shell = this.opts.shellPid(d.tabId);
-    const ok = shell !== undefined && d.pid !== undefined ? await this.belongs(d.pid, shell) : false;
+    const session = typeof d.event.session_id === 'string' ? d.event.session_id : '';
+    const ok = shell !== undefined && d.pid !== undefined ? await this.belongs(d.pid, shell, session) : false;
     // The tab may have closed or restarted while we looked.
     const current = (this.generations.get(d.tabId) ?? 0) === gen && this.opts.shellPid(d.tabId) === shell;
     const accepted = ok === true && current;

@@ -6,6 +6,7 @@ import {
   DEFAULT_POLICY,
   DEFAULT_PRIORITY,
   DEFAULT_SETTINGS,
+  PRIORITIES,
   QUEUES,
   type AppState,
   type Priority,
@@ -22,15 +23,8 @@ const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
-/**
- * Priorities used to run P0 to P9 (default P5). Older values above P3 map onto
- * the new scale: P4–P6 to P2 (so the old default lands on the new one), P7–P9 to P3.
- */
 function priority(v: unknown): Priority {
-  const n = num(v);
-  if (n === undefined || !Number.isInteger(n) || n < 0 || n > 9) return DEFAULT_PRIORITY;
-  if (n <= 3) return n as Priority;
-  return n <= 6 ? 2 : 3;
+  return PRIORITIES.includes(v as Priority) ? (v as Priority) : DEFAULT_PRIORITY;
 }
 
 function tab(v: unknown): Tab | undefined {

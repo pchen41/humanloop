@@ -27,7 +27,7 @@ export type HookEventName = (typeof HOOK_EVENTS)[number];
  */
 export const HOOK_COMMAND =
   // -q (first) skips ~/.curlrc, whose options (like -w) could print into Claude's context.
-  '[ -z "$HUMANLOOP_SOCK" ] || curl -q -s -o /dev/null --max-time 1 --unix-socket "$HUMANLOOP_SOCK" ' +
+  '[ -z "$HUMANLOOP_SOCK" ] || curl -q -s -o /dev/null --max-time 1.8 --unix-socket "$HUMANLOOP_SOCK" ' +
   '-H "X-Tab: $HUMANLOOP_TAB" -H "X-Pid: $PPID" --data-binary @- http://humanloop/hook; exit 0';
 
 /** Seconds Claude waits for the hook before giving up. */

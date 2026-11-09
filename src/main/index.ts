@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, watch } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { homedir, hostname } from 'node:os';
+import { basename, dirname, join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { COMMAND_IDS, commandById, type CommandId } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type ResumeOffer, type TerminalEditCommand } from '../shared/ipc';
@@ -18,7 +18,7 @@ import {
 import { normalizeSettings, normalizeState, stateAfterLaunch } from '../shared/normalize';
 import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
-import { effectiveTabState } from '../shared/agents';
+import { agentFor, effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
 import { currentHookStatus, installWithConfirm, removeWithConfirm, resolveClaudeConfigDir } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
@@ -32,7 +32,7 @@ import { buildMenu, type MenuContext } from './menu';
 import { dismissNotification, keepAwake, notify, setDockBadge } from './dock';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
-import { JsonStore, keepPreviousCopy, readJson, readJsonObject, writeJsonSync } from './store';
+import { JsonStore, readJson, readJsonObject, symlinkTarget, writeJsonSync } from './store';
 
 // Dev builds keep their own data so they never touch the installed app's tasks.
 if (process.env.HUMANLOOP_USER_DATA) {
@@ -51,15 +51,27 @@ const stateFile = join(userData, 'state.json');
 const settingsFile = join(userData, 'settings.json');
 const stateStore = new JsonStore<AppState>(stateFile);
 
-keepPreviousCopy(stateFile);
 /** Set if state.json couldn't be read at launch; shown once the window is up. */
 let stateReadError: { aside: string; error: string } | undefined;
 let state: AppState = stateAfterLaunch(
   readJson(stateFile, EMPTY_STATE, normalizeState, (aside, error) => (stateReadError = { aside, error })),
 );
+/**
+ * settings.json as last read from disk, before cleanup. If the file is
+ * deleted, the next save starts from this rather than from the cleaned-up
+ * settings in effect, which would pin cleanup results (such as a default
+ * shortcut set aside for a conflict) into the new file.
+ */
+let lastSettingsJson: Record<string, unknown> | undefined;
 let settings: Settings = readSettingsFile() ?? DEFAULT_SETTINGS;
 let win: BrowserWindow | undefined;
-let terminalFocused = false;
+/** Esc and Ctrl-C, plain and in the kitty keyboard protocol's CSI-u form. */
+const INTERRUPT_KEYS = new Set(['\x1b', '\x1b[27u', '\x03', '\x1b[99;5u']);
+
+/** Whether the window's page has loaded and is listening for commands. */
+let rendererReady = false;
+/** Recent renderer crash times, to stop reloading a page that crashes as it loads. */
+const crashes: number[] = [];
 /** Lets the smoke test watch terminal output. */
 let outputObserver: ((tabId: string, data: string) => void) | undefined;
 
@@ -168,7 +180,7 @@ function updateDockAndPower(): void {
   const working = state.tasks.some((task) => {
     const policy = effectivePolicy(settings.policy, task.policy);
     return task.tabs.some((tab) => {
-      const agent = agents[tab.id];
+      const agent = agentFor(agents, tab.id);
       return agent !== undefined && effectiveTabState(agent, policy) === 'working';
     });
   });
@@ -212,8 +224,10 @@ function readSettingsFile(): Settings | undefined {
     console.error(`Could not read ${settingsFile}: ${r.error}`);
     return undefined;
   }
+  if (r.value) lastSettingsJson = r.value;
   return r.value && normalizeSettings(r.value);
 }
+
 
 /**
  * Saves a settings screen change. Applies it to the file as it is on disk, so
@@ -226,10 +240,11 @@ function updateSettings(patch: SettingsPatch): void {
     settingsFileError(r.error);
     return;
   }
-  // If the file was deleted, start from the settings in effect, not the defaults.
-  const out = patchSettingsJson(r.value ?? { ...settings }, patch);
+  // If the file was deleted, start from what it last said, not the defaults.
+  const out = patchSettingsJson(r.value ?? lastSettingsJson ?? { ...settings, shortcuts: {} }, patch);
   try {
-    writeJsonSync(settingsFile, out);
+    // Through a symlink (e.g. into a dotfiles repo) to the file it points at, keeping the link.
+    writeJsonSync(symlinkTarget(settingsFile), out);
   } catch (err) {
     showError("Couldn't save settings", String(err));
     return;
@@ -256,7 +271,7 @@ function setShortcut(id: CommandId, value: string | null, takeFrom?: CommandId):
     settingsFileError(r.error);
     return {};
   }
-  const current = r.value ? normalizeSettings(r.value) : settings;
+  const current = r.value ? normalizeSettings(r.value) : lastSettingsJson ? normalizeSettings(lastSettingsJson) : settings;
   const fallback = commandById(id).accelerator;
   const accelerator = value === null ? fallback : value;
   // A shortcut equal to the default is saved as "use the default", so later default changes still apply.
@@ -283,17 +298,27 @@ function finishRecording(r: RecordResult | undefined): void {
 
 function watchSettings(): void {
   let timer: NodeJS.Timeout | undefined;
-  try {
-    watch(userData, (_event, name) => {
-      if (name !== 'settings.json') return;
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        const next = readSettingsFile();
-        if (next) applySettings(next);
-      }, 200);
-    });
-  } catch (err) {
-    console.error('Could not watch settings.json:', err);
+  const reload = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const next = readSettingsFile();
+      if (next) applySettings(next);
+    }, 200);
+  };
+  // The folder is watched, not the file, so atomic saves (write a temp file,
+  // rename it over) are seen. If settings.json is a symlink, the folder of the
+  // file it points at is watched too.
+  const target = symlinkTarget(settingsFile);
+  const watched = new Map([[userData, 'settings.json']]);
+  if (target !== settingsFile) watched.set(dirname(target), basename(target));
+  for (const [dir, file] of watched) {
+    try {
+      watch(dir, (_event, name) => {
+        if (name === file) reload();
+      }).on('error', (err) => console.error(`Stopped watching ${dir}:`, err));
+    } catch (err) {
+      console.error(`Could not watch ${dir}:`, err);
+    }
   }
 }
 
@@ -335,14 +360,26 @@ let settingsPending = false;
 /** A menu command chosen while no window was open; the new window runs it once loaded. */
 let commandPending: CommandId | undefined;
 
-/** Sends a menu command to the window, opening one first if there is none (the app keeps running without one). */
+/**
+ * Commands that still make sense once a closed window reopens: ones that
+ * create or open something. Others (⌘W, ⌘K, tab switching) act on a tab you
+ * can't see, so with no window they only bring it back.
+ */
+const COMMANDS_WITHOUT_WINDOW = new Set<CommandId>(['newTask', 'nextTask', 'back', 'forward']);
+
+/** Sends a menu command to the window. The app keeps running without one; then the window opens first. */
 function runCommand(id: CommandId): void {
-  if (win) {
+  if (win && rendererReady) {
     win.webContents.send(IPC.command, id);
     return;
   }
-  commandPending = id;
-  win = createWindow();
+  // A page still loading can't receive commands yet: it collects this one when it asks for its data.
+  if (win) commandPending = id;
+  else {
+    commandPending = COMMANDS_WITHOUT_WINDOW.has(id) ? id : undefined;
+    win = createWindow();
+  }
+  win.show();
 }
 
 function showSettings(): void {
@@ -367,19 +404,46 @@ function updateMenuContext(): void {
   if (menuReady && JSON.stringify(menuContext()) !== menuContextKey) installMenu();
 }
 
+/** The renderer works out what Copy and Select All mean (a terminal, or the page) and calls back for the page. */
 function editCommand(cmd: TerminalEditCommand): void {
-  if (!win) return;
-  if (terminalFocused) win.webContents.send(TERMINAL_EDIT, cmd);
-  else if (cmd === 'copy') win.webContents.copy();
-  else win.webContents.selectAll();
+  win?.webContents.send(TERMINAL_EDIT, cmd);
 }
 
 // ---------- tasks and tabs ----------
 
-function newTab(taskId: string): string {
+/** Where each new tab's shell starts, until it does. Runtime only: after a restart tabs start in the task's directory. */
+const startDirs = new Map<string, string>();
+/** The directory each tab's shell last reported with OSC 7, as a file:// URL. */
+const reportedDirs = new Map<string, string>();
+
+/**
+ * A new tab opens where you are: in the current tab's directory. That's the
+ * one its shell last reported (OSC 7, which some shells and prompts send),
+ * else the shell's own current directory from the system. Without a current
+ * tab it's the task's default directory, then the global one, then home.
+ */
+async function newTab(taskId: string, fromTabId: string | undefined): Promise<string> {
+  const from = fromTabId && T.findTab(state, fromTabId)?.task.id === taskId ? fromTabId : undefined;
+  const dir = from ? (localPath(reportedDirs.get(from)) ?? (await ptys.cwd(from))) : undefined;
   const id = randomUUID();
+  if (!T.findTask(state, taskId)) throw new Error(`no task ${taskId}`);
+  if (dir && usableCwd(dir) === dir) startDirs.set(id, dir);
   setState(T.addTab(state, taskId, { id, title: 'zsh' }));
   return id;
+}
+
+/** The local path in an OSC 7 file:// URL, or undefined if it names another host (say, over ssh). */
+function localPath(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const me = hostname().toLowerCase();
+    const local = !host || host === 'localhost' || host === me || host === me.replace(/\.local$/, '') || `${host}.local` === me;
+    return u.protocol === 'file:' && local ? decodeURIComponent(u.pathname) : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Creates, opens and gives a first shell tab to a task in a single state update. */
@@ -393,13 +457,9 @@ function createTask(draft: TaskDraft): { taskId: string; tabId: string } {
   return { taskId, tabId };
 }
 
-function isShell(name: string | undefined): boolean {
-  return !name || /^-?(zsh|bash|sh|login)$/.test(name);
-}
-
-/** Tabs whose foreground program is something other than the shell. */
+/** Tabs where a program is running, not just the shell at its prompt. */
 function busyTabs(tabIds: string[]): string[] {
-  return tabIds.filter((id) => !isShell(ptys.foregroundProcess(id)));
+  return tabIds.filter((id) => ptys.busyProgram(id) !== undefined);
 }
 
 async function confirm(message: string, detail: string, action: string): Promise<boolean> {
@@ -413,6 +473,8 @@ function killTab(tabId: string): void {
   ptys.kill(tabId);
   tracker.clear(tabId);
   resumeOffers.delete(tabId);
+  startDirs.delete(tabId);
+  reportedDirs.delete(tabId);
 }
 
 /** Offers to close the task's tabs, then marks it done. */
@@ -477,6 +539,7 @@ function registerIpc(): void {
   ipcMain.handle(
     IPC.getInitialData,
     (): InitialData => {
+      rendererReady = true;
       const show = settingsPending;
       const command = commandPending;
       settingsPending = false;
@@ -517,16 +580,18 @@ function registerIpc(): void {
       return "This session's details look wrong, so Humanloop won't type them into your shell.";
     }
     if (!ptys.has(tabId)) return 'The shell in this tab has exited. Press Return in it to start a new one.';
-    const program = ptys.foregroundProcess(tabId);
-    if (!isShell(program)) return `${program} is running in this tab. Quit it first, then resume.`;
+    const program = ptys.busyProgram(tabId);
+    if (program) return `${program} is running in this tab. Quit it first, then resume.`;
     resumeOffers.delete(tabId);
     sendResumeOffers();
-    // Ctrl-C first gives a fresh prompt whatever the shell was doing: it drops
-    // a half-typed line, a continuation prompt (after a trailing \), a `read`
-    // waiting for input, and vi command mode. The foreground program is the
-    // shell itself, so nothing else receives it.
+    // Once you've typed in the tab, Ctrl-C first gives a fresh prompt whatever
+    // the shell was doing: it drops a half-typed line, a continuation prompt
+    // (after a trailing \), a `read` waiting for input, and vi command mode.
+    // In an untouched new shell it's left out, since it would cut short your
+    // startup files if they're still loading; the command waits as typeahead.
+    const fresh = ptys.typedInto(tabId) ? '\x03' : '';
     const cd = offer.cwd ? `cd -- ${shellQuote(offer.cwd)} && ` : '';
-    ptys.write(tabId, `\x03${cd}claude --resume ${offer.sessionId}\r`);
+    ptys.write(tabId, `${fresh}${cd}claude --resume ${offer.sessionId}\r`);
     return undefined;
   });
   ipcMain.on(IPC.dismissResume, (_e, tabId: string) => {
@@ -545,12 +610,15 @@ function registerIpc(): void {
     refreshHookStatus();
   });
 
-  ipcMain.handle(IPC.createTask, (_e, draft: TaskDraft) => createTask(draft).taskId);
+  // Values from the renderer are checked here; the shared functions assume valid ids.
+  ipcMain.handle(IPC.createTask, (_e, draft: unknown) =>
+    createTask(typeof draft === 'object' && draft !== null ? (draft as TaskDraft) : ({} as TaskDraft)).taskId,
+  );
   ipcMain.handle(IPC.updateTask, (_e, id: string, patch: Partial<TaskDraft>) => {
     if (T.findTask(state, id) && typeof patch === 'object' && patch !== null) setState(T.updateTask(state, id, patch));
   });
-  ipcMain.handle(IPC.openTask, (_e, id: string) => {
-    setState(T.openTask(state, id, Date.now()));
+  ipcMain.handle(IPC.openTask, (_e, id: unknown) => {
+    if (typeof id === 'string' && T.findTask(state, id)) setState(T.openTask(state, id, Date.now()));
   });
   ipcMain.handle(IPC.nextTask, () => {
     const r = Q.nextTask(state, stateOf(), Date.now());
@@ -593,12 +661,20 @@ function registerIpc(): void {
     return res.canceled ? undefined : res.filePaths[0];
   });
 
-  ipcMain.handle(IPC.newTab, (_e, taskId: string) => newTab(taskId));
+  ipcMain.handle(IPC.newTab, (_e, taskId: unknown, fromTabId: unknown) => {
+    if (typeof taskId !== 'string') throw new Error('bad task id');
+    return newTab(taskId, typeof fromTabId === 'string' ? fromTabId : undefined);
+  });
+  ipcMain.on(IPC.reportCwd, (_e, tabId: unknown, url: unknown) => {
+    if (typeof tabId === 'string' && typeof url === 'string' && url.length < 4096 && T.findTab(state, tabId)) {
+      reportedDirs.set(tabId, url);
+    }
+  });
   ipcMain.handle(IPC.closeTab, async (_e, tabId: string) => {
     const found = T.findTab(state, tabId);
     if (!found) return false;
-    const program = ptys.foregroundProcess(tabId);
-    if (!isShell(program) && !(await confirm('Close this tab?', `${program} is still running in it.`, 'Close Tab'))) {
+    const program = ptys.busyProgram(tabId);
+    if (program && !(await confirm('Close this tab?', `${program} is still running in it.`, 'Close Tab'))) {
       return false;
     }
     // The tab may have gone while the dialog was open.
@@ -611,11 +687,12 @@ function registerIpc(): void {
   ipcMain.handle(IPC.ptyAttach, (_e, tabId: string, cols: number, rows: number, restart: boolean) => {
     const found = T.findTab(state, tabId);
     if (!found) throw new Error(`no tab ${tabId}`);
-    if (restart === true) tracker.clear(tabId);
+    // Restarting replaces an exited shell; a live one (and its Claude) is left alone.
+    if (restart === true && !ptys.has(tabId)) tracker.clear(tabId);
     return ptys.attach(tabId, {
       cols,
       rows,
-      cwd: usableCwd(found.task.defaultCwd ?? settings.defaultCwd),
+      cwd: usableCwd(startDirs.get(tabId) ?? found.task.defaultCwd ?? settings.defaultCwd),
       env: shellEnv({
         HUMANLOOP_TAB: tabId,
         HUMANLOOP_SOCK: hookSocket,
@@ -624,14 +701,20 @@ function registerIpc(): void {
       }),
     }, restart === true);
   });
-  ipcMain.on(IPC.ptyWrite, (_e, tabId: string, data: string) => {
-    // A lone Esc byte is the Esc key (arrow keys and Option combos arrive as longer sequences).
-    // `\x1b[27u` is Esc when a program has turned on the kitty keyboard protocol.
-    if (data === '\x1b' || data === '\x1b[27u') tracker.interrupt(tabId);
+  ipcMain.on(IPC.ptyWrite, (_e, tabId: unknown, data: unknown) => {
+    if (typeof tabId !== 'string' || typeof data !== 'string') return;
+    // Esc and Ctrl-C both stop Claude's turn, and neither fires a hook. A lone
+    // byte is the key itself (arrows and Option combos arrive as longer
+    // sequences); the CSI-u forms are the same keys under the kitty keyboard protocol.
+    if (INTERRUPT_KEYS.has(data)) tracker.interrupt(tabId);
     ptys.write(tabId, data);
   });
-  ipcMain.on(IPC.ptyResize, (_e, tabId: string, cols: number, rows: number) => ptys.resize(tabId, cols, rows));
-  ipcMain.on(IPC.ptyAck, (_e, tabId: string, chars: number) => ptys.ack(tabId, chars));
+  ipcMain.on(IPC.ptyResize, (_e, tabId: unknown, cols: unknown, rows: unknown) => {
+    if (typeof tabId === 'string' && typeof cols === 'number' && typeof rows === 'number') ptys.resize(tabId, cols, rows);
+  });
+  ipcMain.on(IPC.ptyAck, (_e, tabId: unknown, chars: unknown) => {
+    if (typeof tabId === 'string' && typeof chars === 'number') ptys.ack(tabId, chars);
+  });
   // The page is unloading (a reload): its terminals are going away, and tabs
   // re-attach as the new page shows them. This comes from the page itself
   // rather than a navigation event, because a navigation the window blocks
@@ -640,12 +723,15 @@ function registerIpc(): void {
     if (e.sender !== win?.webContents) return;
     ptys.detachAll();
     finishRecording(undefined);
-    terminalFocused = false;
+    rendererReady = false;
   });
-  ipcMain.on(IPC.terminalFocus, (_e, focused: boolean) => {
-    terminalFocused = focused;
+  ipcMain.on(IPC.pageEdit, (_e, cmd: TerminalEditCommand) => {
+    if (cmd === 'copy') win?.webContents.copy();
+    else if (cmd === 'selectAll') win?.webContents.selectAll();
   });
-  ipcMain.on(IPC.clipboard, (_e, text: string) => clipboard.writeText(text));
+  ipcMain.on(IPC.clipboard, (_e, text: unknown) => {
+    if (typeof text === 'string') clipboard.writeText(text);
+  });
 }
 
 // ---------- window ----------
@@ -681,7 +767,7 @@ function createWindow(): BrowserWindow {
   w.on('closed', () => {
     if (win === w) win = undefined;
     finishRecording(undefined);
-    terminalFocused = false;
+    rendererReady = false;
     ptys.detachAll();
   });
 
@@ -691,8 +777,20 @@ function createWindow(): BrowserWindow {
     console.error('Renderer gone:', details.reason);
     ptys.detachAll();
     finishRecording(undefined);
-    terminalFocused = false;
-    if (details.reason !== 'clean-exit' && !w.isDestroyed()) w.reload();
+    rendererReady = false;
+    if (details.reason === 'clean-exit' || w.isDestroyed()) return;
+    // Reload, unless the page keeps crashing as it loads.
+    const now = Date.now();
+    crashes.push(now);
+    while (crashes.length && crashes[0]! < now - 60_000) crashes.shift();
+    if (crashes.length <= 3) {
+      w.reload();
+      return;
+    }
+    showError(
+      'Humanloop keeps crashing',
+      `Its window crashed ${crashes.length} times in the last minute (${details.reason}), so it wasn't reloaded again. Your shells are still running; use View > Reload or reopen the window to try again.`,
+    );
   });
   // While recording a shortcut, the key press goes to the recorder instead of the menu or page.
   w.webContents.on('before-input-event', (e, input) => {
@@ -748,6 +846,9 @@ app.on('before-quit', (e) => {
         ));
       if (!ok) return;
       await stateStore.flush();
+      hookServer.stop(); // sessions ending now shouldn't clear their resume records
+      // Give shells and their programs a moment to exit, then make sure they have.
+      await ptys.shutdown();
       readyToQuit = true;
       app.quit();
     } finally {

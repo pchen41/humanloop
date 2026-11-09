@@ -2,7 +2,7 @@
 // (Next task, Park, Done, Back, Forward). Pure functions over AppState, so
 // they run in unit tests; the main process feeds in each task's agent state.
 
-import { taskAgentState, type TabAgent, type TaskAgentState } from './agents';
+import { agentFor, taskAgentState, type TabAgent, type TaskAgentState } from './agents';
 import { effectivePolicy, type AppState, type Policy, type Queue, type Task } from './model';
 import { findTask, moveTask, openTask, tasksInQueue } from './tasks';
 
@@ -13,7 +13,7 @@ export type AgentStateOf = (task: Task) => TaskAgentState;
 export function agentStateOf(agents: Record<string, TabAgent | undefined>, globalPolicy: Policy): AgentStateOf {
   return (task) =>
     taskAgentState(
-      task.tabs.map((t) => agents[t.id]),
+      task.tabs.map((t) => agentFor(agents, t.id)),
       effectivePolicy(globalPolicy, task.policy),
     );
 }

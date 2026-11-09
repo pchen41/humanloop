@@ -53,6 +53,7 @@ describe('per-task overrides', () => {
       state: 'idle',
       turn: 'idle',
       waitingOn: [],
+      started: [],
       interrupted: false,
       backgroundTasks: [{ id: 'b', type: 'shell', status: 'running' }],
     };

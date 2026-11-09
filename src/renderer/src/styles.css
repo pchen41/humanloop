@@ -100,7 +100,8 @@ button.primary kbd {
 
 .sidebar {
   position: relative;
-  width: var(--sidebar-width);
+  /* Never so wide that the terminal is squeezed out of a narrow window. */
+  width: clamp(200px, var(--sidebar-width), calc(100vw - 400px));
   flex: none;
   display: flex;
   flex-direction: column;

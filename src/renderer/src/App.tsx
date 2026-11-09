@@ -89,10 +89,10 @@ export function App() {
   const newTab = useCallback(
     async () => {
       if (!openTask) return;
-      const id = await api.newTab(openTask.id);
+      const id = await api.newTab(openTask.id, activeTabId);
       selectTab(openTask.id, id);
     },
-    [openTask, selectTab],
+    [openTask, activeTabId, selectTab],
   );
 
   const closeTab = useCallback(
@@ -217,22 +217,28 @@ export function App() {
     [],
   );
 
+  /** Where typing goes once a dialog closes: the find bar if it's open, else the terminal. */
+  const refocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      const find = document.querySelector<HTMLInputElement>('.find-bar input');
+      if (find) find.focus();
+      else if (activeTabId) terminals.peek(activeTabId)?.focus();
+    });
+  }, [activeTabId]);
   const closeEditor = useCallback(() => {
     setEditor(undefined);
-    if (activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
-  }, [activeTabId]);
+    refocus();
+  }, [refocus]);
   const closeFind = useCallback(() => {
     setFind(undefined);
     if (activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
   }, [activeTabId]);
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
-    requestAnimationFrame(() => {
-      // Back to the editor if Settings opened over it, else the terminal.
-      if (editor) document.querySelector<HTMLElement>('.modal input')?.focus();
-      else if (activeTabId) terminals.peek(activeTabId)?.focus();
-    });
-  }, [activeTabId, editor]);
+    // Back to the editor if Settings opened over it.
+    if (editor) requestAnimationFrame(() => document.querySelector<HTMLElement>('.modal input')?.focus());
+    else refocus();
+  }, [editor, refocus]);
 
   const view = useMemo(() => {
     if (!state || !data) return null;

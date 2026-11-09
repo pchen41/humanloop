@@ -94,10 +94,12 @@ export function Sidebar({ inert, state, settings, agents, onOpen, onEdit, onMenu
     done: true,
   });
   const stateOf = agentStateOf(agents, settings.policy);
-  // Keep the open task in view, e.g. after Next task or Back opens one further down.
+  // Keep the open task in view: after Next task or Back opens one further
+  // down, and when it moves to another queue on its own.
+  const openQueue = state.tasks.find((t) => t.id === state.openTaskId)?.queue;
   useEffect(() => {
     document.querySelector('.task-row.open')?.scrollIntoView({ block: 'nearest' });
-  }, [state.openTaskId]);
+  }, [state.openTaskId, openQueue]);
   const newTaskKey = formatAccelerator(acceleratorFor(settings, 'newTask'));
 
   return (

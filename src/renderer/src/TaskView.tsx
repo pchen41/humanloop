@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CommandId } from '../../shared/commands';
 import { acceleratorFor } from '../../shared/shortcuts';
-import { effectiveTabState, type TabAgent } from '../../shared/agents';
+import { agentFor, effectiveTabState, type TabAgent } from '../../shared/agents';
 import { effectivePolicy, type Settings, type Task } from '../../shared/model';
 import type { ResumeOffer } from '../../shared/ipc';
 import { AgentDot, backgroundSummary } from './AgentDot';
@@ -68,6 +68,7 @@ export function TaskView(props: Props) {
       <div className="tab-bar" role="tablist">
         {task.tabs.map((tab, i) => {
           const title = terminals.peek(tab.id)?.title || tab.title;
+          const agent = agentFor(agents, tab.id);
           return (
             <div
               key={tab.id}
@@ -82,10 +83,10 @@ export function TaskView(props: Props) {
               }}
               title={title}
             >
-              {agents[tab.id] && (
+              {agent && (
                 <AgentDot
-                  state={effectiveTabState(agents[tab.id]!, effectivePolicy(settings.policy, task.policy))}
-                  detail={backgroundSummary(agents[tab.id]!.backgroundTasks)}
+                  state={effectiveTabState(agent, effectivePolicy(settings.policy, task.policy))}
+                  detail={backgroundSummary(agent.backgroundTasks)}
                 />
               )}
               <span className="tab-title">{title}</span>
@@ -137,12 +138,15 @@ export function TaskView(props: Props) {
           className="terminal-area"
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
-            // Dropping files types their paths, quoted, like Terminal does.
+            // Dropping files pastes their paths, quoted, like Terminal does. A
+            // name with control characters is left out: inside a terminal
+            // they act as keys (Ctrl-U, Return), which quoting can't stop.
             e.preventDefault();
-            const paths = api.pathsForFiles([...e.dataTransfer.files]);
-            if (!paths.length) return;
-            api.ptyWrite(activeTabId, paths.map(shellQuote).join(' ') + ' ');
-            terminals.peek(activeTabId)?.focus();
+            const paths = api.pathsForFiles([...e.dataTransfer.files]).filter((p) => !/[\x00-\x1f\x7f]/.test(p));
+            const h = terminals.peek(activeTabId);
+            if (!paths.length || !h) return;
+            h.paste(paths.map(shellQuote).join(' ') + ' ');
+            h.focus();
           }}
         >
           {props.find && (

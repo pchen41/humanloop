@@ -94,7 +94,10 @@ export interface HumanloopApi {
   onEditTask(cb: (id: string) => void): () => void;
   chooseDirectory(current?: string): Promise<string | undefined>;
 
-  newTab(taskId: string): Promise<string>;
+  /** Adds a shell tab to the task, starting in `fromTabId`'s current directory if given. */
+  newTab(taskId: string, fromTabId?: string): Promise<string>;
+  /** A tab's shell reported its directory (OSC 7, a file:// URL). */
+  reportCwd(tabId: string, url: string): void;
   /** Asks for confirmation if a program is still running, then closes the tab. */
   closeTab(tabId: string): Promise<boolean>;
 
@@ -111,8 +114,10 @@ export interface HumanloopApi {
   onPtyExit(cb: (tabId: string, exit: PtyExitInfo) => void): () => void;
 
   /** Lets the Edit menu send ⌘C and ⌘A to the terminal instead of the page. */
-  setTerminalFocused(focused: boolean): void;
+  /** Edit > Copy and Select All: the renderer decides whether they mean a terminal or the page. */
   onTerminalEdit(cb: (cmd: TerminalEditCommand) => void): () => void;
+  /** Runs Copy or Select All on the page itself (a text field, a selection outside the terminals). */
+  pageEdit(cmd: TerminalEditCommand): void;
   writeClipboard(text: string): void;
   /** File paths for files dropped on the window. */
   pathsForFiles(files: File[]): string[];
@@ -148,6 +153,7 @@ export const IPC = {
   editTask: 'task:edit',
   chooseDirectory: 'dialog:directory',
   newTab: 'tab:new',
+  reportCwd: 'tab:cwd',
   closeTab: 'tab:close',
   ptyAttach: 'pty:attach',
   ptyWrite: 'pty:write',
@@ -155,7 +161,7 @@ export const IPC = {
   ptyAck: 'pty:ack',
   ptyData: 'pty:data',
   ptyExit: 'pty:exit',
-  terminalFocus: 'term:focus',
+  pageEdit: 'page:edit',
   unload: 'page:unload',
   clipboard: 'clipboard:write',
 } as const;

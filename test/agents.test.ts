@@ -125,6 +125,7 @@ describe('taskAgentState', () => {
     state,
     turn: state === 'needsYou' ? 'error' : state,
     waitingOn: [],
+    started: [],
     interrupted: false,
     backgroundTasks: bg,
   });
@@ -220,13 +221,49 @@ describe('review fixes: prompts per tool call', () => {
     expect(next?.waitingOn).toEqual([]);
   });
 
-  it('treats a new tool or prompt after Esc as Claude working again', () => {
+  it('ignores a tool event that arrives after Esc, until your next prompt', () => {
     const stopped = applyInterrupt(run([ev('SessionStart'), ev('UserPromptSubmit')]));
-    expect(stopped?.state).toBe('idle');
-    // Esc only closed a menu: Claude carries on with the next tool, and its completion counts.
-    const going = run([ev('PreToolUse', { tool_name: 'Read' })], stopped);
-    expect(going).toMatchObject({ state: 'working', interrupted: false });
-    expect(run([post('Read', {})], stopped)?.state).toBe('idle'); // a lone completion is still stale
+    // The PreToolUse hook was already on its way when you pressed Esc: it must not mark Claude working again.
+    expect(run([ev('PreToolUse', { tool_name: 'Read' })], stopped)?.state).toBe('idle');
+    expect(run([post('Read', {})], stopped)?.state).toBe('idle');
+    expect(run([ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Read' })], stopped)?.state).toBe('working');
+  });
+
+  it('treats a tool cut short by an interrupt as the end of the turn', () => {
+    const a = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('PreToolUse', { tool_name: 'Bash' })]);
+    expect(run([ev('PostToolUseFailure', { tool_name: 'Bash', is_interrupt: true })], a)?.state).toBe('idle');
+  });
+
+  it("doesn't let a different call of the same tool answer a prompt", () => {
+    // Read A was auto-allowed; Read B is waiting for approval.
+    const asked = run([
+      ev('SessionStart'),
+      ev('UserPromptSubmit'),
+      ev('PreToolUse', { tool_name: 'Read', tool_input: { file: 'a' } }),
+      ev('PreToolUse', { tool_name: 'Read', tool_input: { file: 'b' } }),
+      perm('Read', { file: 'b' }),
+    ]);
+    expect(run([post('Read', { file: 'a' })], asked)?.state).toBe('needsYou');
+    expect(run([post('Read', { file: 'a' }), post('Read', { file: 'b' })], asked)?.state).toBe('working');
+  });
+
+  it('keeps identical parallel prompts apart', () => {
+    const two = run([ev('SessionStart'), ev('UserPromptSubmit'), perm('Bash', { command: 'ls' }), perm('Bash', { command: 'ls' })]);
+    expect(run([post('Bash', { command: 'ls' })], two)?.state).toBe('needsYou');
+    expect(run([post('Bash', { command: 'ls' }), post('Bash', { command: 'ls' })], two)?.state).toBe('working');
+  });
+
+  it('keeps questions from two MCP servers apart', () => {
+    const two = run([
+      ev('SessionStart'),
+      ev('UserPromptSubmit'),
+      ev('Elicitation', { mcp_server_name: 'github' }),
+      ev('Elicitation', { mcp_server_name: 'linear' }),
+      ev('Notification', { notification_type: 'elicitation_dialog' }),
+    ]);
+    const one = run([ev('ElicitationResult', { mcp_server_name: 'github' })], two);
+    expect(one?.state).toBe('needsYou');
+    expect(run([ev('ElicitationResult', { mcp_server_name: 'linear' })], one)?.state).toBe('working');
   });
 
   it("keeps the session's starting directory for resume", () => {

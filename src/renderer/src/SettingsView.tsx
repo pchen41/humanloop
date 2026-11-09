@@ -19,7 +19,8 @@ const HOOK_TEXT: Record<HookState, string> = {
   outdated: 'Out of date. Update them so every event reaches Humanloop.',
   missing: "Not installed. Without them Humanloop can't tell when Claude is working or waiting.",
   unreadable: "Claude Code's settings.json can't be read, so Humanloop can't check its hooks.",
-  disabled: 'Installed, but Claude Code\'s settings turn off all hooks (disableAllHooks), so they don\'t run.',
+  disabled:
+    "Installed, but Claude Code's settings (yours or your organisation's) turn these hooks off, so they don't run.",
 };
 
 /** Settings apply as you change them; there is no Save. */

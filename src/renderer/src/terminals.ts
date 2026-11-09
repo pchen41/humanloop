@@ -44,6 +44,13 @@ function openLink(url: string): void {
   window.open(url);
 }
 
+const CMD_EDIT_KEYS: Record<string, string> = {
+  ArrowLeft: '\x01',
+  ArrowRight: '\x05',
+  Backspace: '\x15',
+  Delete: '\x0b',
+};
+
 /** Find highlights. The addon needs #RRGGBB colors. */
 const SEARCH_COLORS = {
   matchBackground: '#4b4320',
@@ -59,6 +66,7 @@ class TerminalHandle {
   private search = new SearchAddon({ highlightLimit: 2000 });
   private opened = false;
   private attached = false;
+  private disposed = false;
   private exited: number | undefined;
   private resizeObserver: ResizeObserver | undefined;
   private fitFrame = 0;
@@ -89,6 +97,11 @@ class TerminalHandle {
     this.term.loadAddon(new WebLinksAddon((_e, url) => openLink(url)));
     this.term.attachCustomKeyEventHandler((e) => this.handleKey(e));
     this.term.onData((data) => this.input(data));
+    // OSC 7: the shell reporting its directory, so a new tab can open there.
+    this.term.parser.registerOscHandler(7, (data) => {
+      api.reportCwd(this.tabId, data);
+      return true;
+    });
     this.term.onTitleChange((title) => {
       this.title = title;
       this.onTitle();
@@ -96,8 +109,14 @@ class TerminalHandle {
   }
 
   private handleKey(e: KeyboardEvent): boolean {
-    // ⌘ shortcuts belong to the app menu, not the shell.
-    if (e.metaKey) return false;
+    if (e.metaKey) {
+      // Mac line editing, as other terminals do it: ⌘←/→ to the start or end
+      // of the line, ⌘⌫ deletes to its start, ⌘⌦ to its end (Ctrl-A/E/U/K).
+      const seq = !e.ctrlKey && !e.altKey && !e.shiftKey ? CMD_EDIT_KEYS[e.key] : undefined;
+      if (seq && e.type === 'keydown') this.input(seq);
+      // Every other ⌘ key belongs to the app menu, not the shell.
+      return false;
+    }
     // Shift+Enter inserts a newline in Claude Code (sent as Esc+Return, like Option+Return).
     if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.altKey) {
       if (e.type === 'keydown') this.input('\x1b\r');
@@ -120,9 +139,6 @@ class TerminalHandle {
     if (!this.opened) {
       this.term.open(this.el);
       this.opened = true;
-      const ta = this.term.textarea;
-      ta?.addEventListener('focus', () => api.setTerminalFocused(true));
-      ta?.addEventListener('blur', () => api.setTerminalFocused(false));
     }
     this.resizeObserver = new ResizeObserver(() => this.scheduleFit());
     this.resizeObserver.observe(host);
@@ -139,6 +155,10 @@ class TerminalHandle {
 
   focus(): void {
     this.term.focus();
+  }
+
+  isShown(): boolean {
+    return this.el.isConnected;
   }
 
   /** Finds `query` in the scrollback, highlighting every match. False if there is none. */
@@ -177,14 +197,21 @@ class TerminalHandle {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.hide();
     this.term.dispose();
+  }
+
+  /** Types text into the terminal as a paste (bracketed, so the shell or Claude takes it literally). */
+  paste(text: string): void {
+    this.term.paste(text);
   }
 
   private async attach(restart = false): Promise<void> {
     this.attached = true;
     try {
       const { replay, exited } = await api.ptyAttach(this.tabId, this.term.cols, this.term.rows, restart);
+      if (this.disposed) return; // the tab closed while it was attaching
       if (replay) this.term.write(replay);
       if (exited) this.ended(exited);
     } catch (err) {
@@ -241,11 +268,18 @@ class TerminalRegistry {
       this.handles.get(tabId)?.ended(exit);
     });
     api.onTerminalEdit((cmd) => {
-      const h = this.focused();
-      if (!h) return;
+      // A text field or dialog with focus gets the page's own Copy / Select
+      // All. Otherwise they act on the terminal on screen, even if you clicked
+      // the sidebar after selecting text in it.
+      const active = document.activeElement;
+      const terminalFocused = !!this.focused();
+      const inField = !terminalFocused && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement);
+      const h = this.focused() ?? this.onScreen();
+      if (inField || !h || document.querySelector('.modal')) return api.pageEdit(cmd);
       if (cmd === 'copy') {
         const sel = h.term.getSelection();
         if (sel) api.writeClipboard(sel);
+        else api.pageEdit(cmd);
       } else {
         h.term.selectAll();
       }
@@ -273,6 +307,11 @@ class TerminalRegistry {
         this.handles.delete(id);
       }
     }
+  }
+
+  private onScreen(): TerminalHandle | undefined {
+    for (const h of this.handles.values()) if (h.isShown()) return h;
+    return undefined;
   }
 
   private focused(): TerminalHandle | undefined {

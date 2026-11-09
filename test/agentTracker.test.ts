@@ -99,3 +99,27 @@ describe('AgentTracker', () => {
     expect(t.tracker.snapshot().tab).toBeUndefined();
   });
 });
+
+describe('AgentTracker review fixes', () => {
+  it('rejects a nested claude -p under an `exec claude` tab', async () => {
+    const t = setup({ tab: 100 }, { 300: 250, 250: 100 }); // claude (exec'd, pid 100) -> zsh 250 -> claude -p 300
+    t.send('tab', 100, { hook_event_name: 'SessionStart' });
+    t.send('tab', 300, { hook_event_name: 'UserPromptSubmit', session_id: 'nested' });
+    await t.settle();
+    expect(t.tracker.snapshot().tab).toMatchObject({ sessionId: 's', state: 'idle' });
+  });
+
+  it('checks a reused pid again when a new session uses it', async () => {
+    // pid 300 was a nested claude -p (rejected); it exits and a top-level claude under the shell gets pid 300.
+    const t = setup({ tab: 100 }, { 200: 100, 300: 200 });
+    t.send('tab', 200, { hook_event_name: 'SessionStart' });
+    t.send('tab', 300, { hook_event_name: 'UserPromptSubmit', session_id: 'nested' });
+    await t.settle();
+    t.send('tab', 200, { hook_event_name: 'SessionEnd' });
+    await t.settle();
+    t.setTable({ 300: 100 });
+    t.send('tab', 300, { hook_event_name: 'UserPromptSubmit', session_id: 'top' });
+    await t.settle();
+    expect(t.tracker.snapshot().tab).toMatchObject({ sessionId: 'top', state: 'working' });
+  });
+});

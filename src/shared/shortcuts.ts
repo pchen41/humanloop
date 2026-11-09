@@ -105,6 +105,21 @@ const RESERVED = [
   'CmdOrCtrl+Ctrl+F', // View > Enter Full Screen
   'CmdOrCtrl+R', // View > Reload (development builds)
   'CmdOrCtrl+Alt+I', // View > Toggle Developer Tools (development builds)
+  // Taken by macOS before any app sees them: app and window switching,
+  // Spotlight and input sources, screenshots, lock screen, Force Quit, emoji, the Dock.
+  'CmdOrCtrl+Tab',
+  'CmdOrCtrl+Shift+Tab',
+  'CmdOrCtrl+Space',
+  'CmdOrCtrl+Alt+Space',
+  'CmdOrCtrl+`',
+  'CmdOrCtrl+Shift+`',
+  'CmdOrCtrl+Shift+3',
+  'CmdOrCtrl+Shift+4',
+  'CmdOrCtrl+Shift+5',
+  'CmdOrCtrl+Ctrl+Q',
+  'CmdOrCtrl+Alt+Escape',
+  'CmdOrCtrl+Ctrl+Space',
+  'CmdOrCtrl+Alt+D',
   // Line and word movement and deletion in text fields (and Claude's prompt).
   'CmdOrCtrl+Left',
   'CmdOrCtrl+Right',

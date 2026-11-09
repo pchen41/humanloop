@@ -1,9 +1,9 @@
 // JSON file persistence. Writes are debounced, serialized and atomic
 // (temp file + rename), so a crash never leaves a half-written file.
 
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, writeFileSync } from 'node:fs';
 import { rename, unlink, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 const DEBOUNCE_MS = 250;
 const RETRY_MS = 5000;
@@ -40,18 +40,6 @@ export function readJson<T>(
 }
 
 /**
- * Keeps a copy of the file as it was at launch (`<file>.previous`), so
- * anything a cleanup on load dropped (say, from a hand edit) can be recovered.
- */
-export function keepPreviousCopy(file: string): void {
-  try {
-    if (existsSync(file)) copyFileSync(file, `${file}.previous`);
-  } catch (err) {
-    console.error(`Could not back up ${file}:`, err);
-  }
-}
-
-/**
  * Reads a JSON object without ever moving the file, for files you edit by
  * hand: a half-finished edit must not make the file disappear. Undefined if
  * the file is missing; an error message if it can't be parsed.
@@ -65,6 +53,25 @@ export function readJsonObject(file: string): { value: Record<string, unknown> |
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * The file a path finally points at, following symlinks (even to a file that
+ * doesn't exist yet), so a write updates it instead of replacing the link.
+ */
+export function symlinkTarget(path: string): string {
+  let p = path;
+  for (let i = 0; i < 16; i++) {
+    let st;
+    try {
+      st = lstatSync(p);
+    } catch {
+      return p;
+    }
+    if (!st.isSymbolicLink()) return p;
+    p = resolve(dirname(p), readlinkSync(p));
+  }
+  return path; // a loop: write the path itself
 }
 
 /** `mode` sets the new file's permissions (e.g. to keep a private file private). */

@@ -40,7 +40,8 @@ const api: HumanloopApi = {
   onEditTask: (cb) => listen(IPC.editTask, cb),
   chooseDirectory: (current) => ipcRenderer.invoke(IPC.chooseDirectory, current),
 
-  newTab: (taskId) => ipcRenderer.invoke(IPC.newTab, taskId),
+  newTab: (taskId, fromTabId) => ipcRenderer.invoke(IPC.newTab, taskId, fromTabId),
+  reportCwd: (tabId, url) => ipcRenderer.send(IPC.reportCwd, tabId, url),
   closeTab: (tabId) => ipcRenderer.invoke(IPC.closeTab, tabId),
 
   ptyAttach: (tabId, cols, rows, restart) => ipcRenderer.invoke(IPC.ptyAttach, tabId, cols, rows, restart === true),
@@ -50,7 +51,7 @@ const api: HumanloopApi = {
   onPtyData: (cb) => listen(IPC.ptyData, cb),
   onPtyExit: (cb) => listen(IPC.ptyExit, cb),
 
-  setTerminalFocused: (focused) => ipcRenderer.send(IPC.terminalFocus, focused),
+  pageEdit: (cmd) => ipcRenderer.send(IPC.pageEdit, cmd),
   onTerminalEdit: (cb) => listen(TERMINAL_EDIT, cb),
   writeClipboard: (text) => ipcRenderer.send(IPC.clipboard, text),
   pathsForFiles: (files) => files.map((f) => webUtils.getPathForFile(f)).filter(Boolean),
