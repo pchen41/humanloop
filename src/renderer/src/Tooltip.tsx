@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 interface Tip {
   text: string;
   left: number;
-  /** Under the element, or (near the bottom of the window) above it. */
-  top?: number;
-  bottom?: number;
+  /** The hovered element's top and bottom edges. */
+  hostTop: number;
+  hostBottom: number;
   maxWidth: number;
+  /** Placed above the element: there wasn't room for it below. */
+  above?: boolean;
 }
 
 /**
@@ -17,6 +19,13 @@ interface Tip {
  */
 export function TruncationTooltip() {
   const [tip, setTip] = useState<Tip>();
+  const box = useRef<HTMLDivElement>(null);
+
+  // Shown under the element unless that runs off the bottom of the window.
+  useLayoutEffect(() => {
+    const r = box.current?.getBoundingClientRect();
+    if (tip && !tip.above && r && r.bottom > window.innerHeight - 4) setTip({ ...tip, above: true });
+  }, [tip]);
 
   useEffect(() => {
     let timer = 0;
@@ -39,12 +48,12 @@ export function TruncationTooltip() {
         const text = measured.getBoundingClientRect();
         // Line the tooltip's text up with the cut-off text (its padding is 8px plus a 1px border).
         const left = Math.max(4, text.left - 9);
-        const box = el.getBoundingClientRect();
-        const below = box.bottom + 80 < window.innerHeight;
+        const host = el.getBoundingClientRect();
         setTip({
           text: el.getAttribute('data-tip') ?? '',
           left,
-          ...(below ? { top: box.bottom + 4 } : { bottom: window.innerHeight - box.top + 4 }),
+          hostTop: host.top,
+          hostBottom: host.bottom,
           maxWidth: Math.min(Number(el.getAttribute('data-tip-width')) || 400, window.innerWidth - left - 12),
         });
       }, 500);
@@ -67,7 +76,16 @@ export function TruncationTooltip() {
 
   if (!tip) return null;
   return (
-    <div className="tooltip" role="tooltip" style={{ left: tip.left, top: tip.top, bottom: tip.bottom, maxWidth: tip.maxWidth }}>
+    <div
+      ref={box}
+      className="tooltip"
+      role="tooltip"
+      style={{
+        left: tip.left,
+        maxWidth: tip.maxWidth,
+        ...(tip.above ? { bottom: window.innerHeight - tip.hostTop + 4 } : { top: tip.hostBottom + 4 }),
+      }}
+    >
       {tip.text}
     </div>
   );

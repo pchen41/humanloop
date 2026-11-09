@@ -23,6 +23,7 @@ import { AgentTracker } from './agentTracker';
 import { currentHookStatus, installWithConfirm, removeWithConfirm, shortPath as claudeSettingsPath } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
 import {
+  acceleratorFor,
   acceleratorFromInput,
   conflictFor,
   sameAccelerator,
@@ -319,6 +320,8 @@ let hookStatus = currentHookStatus();
 /** The menu is built once the app is ready; until then there is nothing to update. */
 let menuReady = false;
 let menuContextKey = '';
+/** Settings fills the window's main column: Back leaves it, and there is no Forward. */
+let settingsShown = false;
 
 function menuContext(): MenuContext {
   return {
@@ -326,8 +329,8 @@ function menuContext(): MenuContext {
     // Only parked and done change the menu, so Your Turn and Agent's Turn look
     // the same here: no rebuild (which can close an open menu) on every Claude turn.
     openQueue: ((q) => (q === 'agentsTurn' ? 'yourTurn' : q))(T.findTask(state, state.openTaskId)?.queue),
-    canGoBack: Q.canGoBack(state),
-    canGoForward: Q.canGoForward(state),
+    canGoBack: settingsShown || Q.canGoBack(state),
+    canGoForward: !settingsShown && Q.canGoForward(state),
   };
 }
 
@@ -460,35 +463,9 @@ function killTab(tabId: string): void {
 }
 
 /** Offers to close the task's tabs, then marks it done. */
-async function markDoneWithConfirm(id: string): Promise<boolean> {
-  const task = T.findTask(state, id);
-  if (!task) return false;
-  let closeTabs = false;
-  if (task.tabs.length) {
-    const n = task.tabs.length;
-    const busy = busyTabs(task.tabs.map((t) => t.id)).length;
-    const opts: Electron.MessageBoxOptions = {
-      type: 'question',
-      message: `Mark “${task.title}” done?`,
-      detail:
-        `Close its ${n === 1 ? 'tab' : `${n} tabs`} too?` +
-        (busy ? ` ${busy === 1 ? 'A program is' : `${busy} programs are`} still running in ${n === 1 ? 'it' : 'them'}.` : ''),
-      buttons: [n === 1 ? 'Close Tab' : 'Close Tabs', n === 1 ? 'Keep Tab' : 'Keep Tabs', 'Cancel'],
-      defaultId: 0,
-      cancelId: 2,
-    };
-    const { response } = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
-    if (response === 2) return false;
-    closeTabs = response === 0;
-  }
-  // The task may have changed or been deleted while the dialog was open.
-  const current = T.findTask(state, id);
-  if (!current) return false;
-  const closing = closeTabs ? current.tabs.map((t) => t.id) : [];
-  // Update state first, so nothing ever sees the task with shells that are already gone.
-  setState(Q.markDone(closing.reduce((s, tabId) => T.closeTab(s, id, tabId), state), id, Date.now()));
-  for (const tabId of closing) killTab(tabId);
-  return true;
+/** Moves a task to Done, like any other queue move: its tabs stay as they are. */
+function markDone(id: string): void {
+  setState(Q.markDone(state, id, Date.now()));
 }
 
 function park(id: string): void {
@@ -614,28 +591,40 @@ function registerIpc(): void {
     const task = T.findTask(state, state.openTaskId);
     if (task) (task.queue === 'parked' ? restore : park)(task.id);
   });
-  ipcMain.handle(IPC.toggleDone, async () => {
+  ipcMain.handle(IPC.toggleDone, () => {
     const task = T.findTask(state, state.openTaskId);
     if (task?.queue === 'done') restore(task.id);
-    else if (task) await markDoneWithConfirm(task.id);
+    else if (task) markDone(task.id);
   });
   ipcMain.on(IPC.openSettings, () => showSettings());
+  ipcMain.on(IPC.settingsShown, (e, open: unknown) => {
+    if (e.sender !== win?.webContents) return;
+    settingsShown = open === true;
+    updateMenuContext();
+  });
   ipcMain.handle(IPC.deleteTask, (_e, id: unknown) => (typeof id === 'string' ? deleteTaskWithConfirm(id) : false));
-  ipcMain.on(IPC.taskMenu, (_e, id: string) => {
-    const task = T.findTask(state, id);
+  ipcMain.on(IPC.taskMenu, (_e, id: unknown, at: unknown) => {
+    const task = typeof id === 'string' ? T.findTask(state, id) : undefined;
     if (!task) return;
     const parked = task.queue === 'parked';
     const done = task.queue === 'done';
+    // The shortcuts act on the open task, so only its menu shows them (the menu bar handles the keys).
+    const keys = (cmd: CommandId) =>
+      task.id === state.openTaskId ? { accelerator: acceleratorFor(settings, cmd), registerAccelerator: false } : {};
+    const pos = at as { x?: unknown; y?: unknown } | undefined;
+    const where = typeof pos?.x === 'number' && typeof pos.y === 'number' ? { x: Math.round(pos.x), y: Math.round(pos.y) } : {};
     Menu.buildFromTemplate([
-      { label: 'Edit Task…', click: () => win?.webContents.send(IPC.editTask, id) },
+      { label: 'Edit Task…', ...keys('editTask'), click: () => win?.webContents.send(IPC.editTask, task.id) },
       { type: 'separator' },
-      parked ? { label: 'Unpark Task', click: () => restore(id) } : { label: 'Park Task', click: () => park(id) },
+      parked
+        ? { label: 'Unpark Task', ...keys('parkTask'), click: () => restore(task.id) }
+        : { label: 'Park Task', ...keys('parkTask'), click: () => park(task.id) },
       done
-        ? { label: 'Reopen Task', click: () => restore(id) }
-        : { label: 'Mark Done…', click: () => void markDoneWithConfirm(id) },
+        ? { label: 'Reopen Task', ...keys('markDone'), click: () => restore(task.id) }
+        : { label: 'Mark Done', ...keys('markDone'), click: () => markDone(task.id) },
       { type: 'separator' },
-      { label: 'Delete Task…', click: () => void deleteTaskWithConfirm(id) },
-    ]).popup({ window: win });
+      { label: 'Delete Task…', click: () => void deleteTaskWithConfirm(task.id) },
+    ]).popup({ window: win, ...where });
   });
   ipcMain.handle(IPC.chooseDirectory, async (_e, current?: string) => {
     const opts: Electron.OpenDialogOptions = {
@@ -704,6 +693,7 @@ function registerIpc(): void {
     ptys.detachAll();
     finishRecording(undefined);
     rendererReady = false;
+    settingsShown = false;
   });
   ipcMain.on(IPC.pageEdit, (_e, cmd: TerminalEditCommand) => {
     if (cmd === 'copy') win?.webContents.copy();
@@ -757,6 +747,7 @@ function createWindow(): BrowserWindow {
     if (win === w) win = undefined;
     finishRecording(undefined);
     rendererReady = false;
+    settingsShown = false;
     ptys.detachAll();
   });
 
@@ -767,6 +758,7 @@ function createWindow(): BrowserWindow {
     ptys.detachAll();
     finishRecording(undefined);
     rendererReady = false;
+    settingsShown = false;
     if (details.reason === 'clean-exit' || w.isDestroyed()) return;
     // Reload, unless the page keeps crashing as it loads.
     const now = Date.now();

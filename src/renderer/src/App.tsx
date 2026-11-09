@@ -6,7 +6,7 @@ import type { AppState, Settings, Task } from '../../shared/model';
 import { acceleratorFor, sameAccelerator } from '../../shared/shortcuts';
 import { findTask, tasksInQueue } from '../../shared/tasks';
 import { formatAccelerator, tip } from './format';
-import { DoneIcon, EditIcon, NewTaskIcon, ParkIcon, SettingsIcon } from './icons';
+import { ChevronDownIcon, NewTaskIcon, SettingsIcon } from './icons';
 import { SettingsView } from './SettingsView';
 import { Sidebar } from './Sidebar';
 import { TruncationTooltip } from './Tooltip';
@@ -231,6 +231,8 @@ export function App() {
   const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  // The menu's Back and Forward follow Settings (Back closes it).
+  useEffect(() => api.settingsShown(settingsOpen), [settingsOpen]);
   // A shortcut being recorded in Settings would take the editor's key presses.
   useEffect(() => {
     if (editor) api.stopRecording();
@@ -348,40 +350,15 @@ export function App() {
       />
       <main className="main" inert={!!editor}>
         <header className="main-header">
-          {/* The title (and the bar's empty space) drags the window, so it gets no mouse events. */}
+          {/* The bar's empty space drags the window; the title and controls opt out. */}
           {settingsOpen ? (
             <h1 className="settings-title">Settings</h1>
           ) : openTask ? (
-            <h1 className="task-name">{openTask.title}</h1>
+            <TaskTitle task={openTask} />
           ) : (
             <span className="spacer" />
           )}
-          {/* The controls don't drag. Pointing at any of them shows the task's own actions. */}
           <div className="header-controls">
-            {openTask && !settingsOpen && (
-              <>
-                <div className="task-actions">
-                  <TaskAction label="Edit task" keys={key('editTask')} onClick={() => setEditor({ kind: 'edit', task: openTask })}>
-                    <EditIcon />
-                  </TaskAction>
-                  <TaskAction
-                    label={openTask.queue === 'parked' ? 'Unpark task' : 'Park task'}
-                    keys={key('parkTask')}
-                    onClick={() => void api.toggleParked()}
-                  >
-                    <ParkIcon />
-                  </TaskAction>
-                  <TaskAction
-                    label={openTask.queue === 'done' ? 'Reopen task' : 'Mark done'}
-                    keys={key('markDone')}
-                    onClick={() => void api.toggleDone()}
-                  >
-                    <DoneIcon />
-                  </TaskAction>
-                </div>
-                <span className="header-sep" aria-hidden />
-              </>
-            )}
             {!settingsOpen && (
               <>
                 <button className="ib" onClick={() => setEditor({ kind: 'create' })} title={tip('New task', key('newTask'))} aria-label="New task">
@@ -443,11 +420,28 @@ export function App() {
   );
 }
 
-function TaskAction({ label, keys, onClick, children }: { label: string; keys: string; onClick(): void; children: React.ReactNode }) {
+/**
+ * The open task's title, with the full text in a tooltip when it is cut off,
+ * and a ⌄ button for the task's menu (Edit, Park, Mark done, Delete).
+ */
+function TaskTitle({ task }: { task: Task }) {
   return (
-    <button className="ib" onClick={onClick} title={tip(label, keys)} aria-label={label}>
-      {children}
-    </button>
+    <h1 className="task-name">
+      <span data-tip={task.title} data-tip-width="560">
+        {task.title}
+      </span>
+      <button
+        className="ib task-menu"
+        aria-label="Task actions"
+        title="Task actions"
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          api.showTaskMenu(task.id, { x: r.left, y: r.bottom + 4 });
+        }}
+      >
+        <ChevronDownIcon />
+      </button>
+    </h1>
   );
 }
 

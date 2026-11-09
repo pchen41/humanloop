@@ -39,27 +39,10 @@ export function SettingsIcon() {
   );
 }
 
-export function EditIcon() {
+export function ChevronDownIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" strokeWidth="1.5" {...stroke} aria-hidden>
-      <path d="M9.6 2.4l2 2L5 11H3v-2z" />
-      <path d="M8.4 3.6l2 2" />
-    </svg>
-  );
-}
-
-export function ParkIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" strokeWidth="1.5" {...stroke} aria-hidden>
-      <path d="M5 2.5v9M9 2.5v9" />
-    </svg>
-  );
-}
-
-export function DoneIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" strokeWidth="1.5" {...stroke} aria-hidden>
-      <path d="M2.5 7.5l3 3 6-7" />
+    <svg width="12" height="12" viewBox="0 0 12 12" strokeWidth="1.5" {...stroke} aria-hidden>
+      <path d="M3 4.75 6 7.75l3-3" />
     </svg>
   );
 }

@@ -57,7 +57,7 @@ export const COMMANDS: CommandDef[] = [
   { id: 'forward', label: 'Forward', accelerator: 'CmdOrCtrl+]' },
   // The menu says Unpark / Reopen when the open task is already parked or done.
   { id: 'parkTask', label: 'Park Task', accelerator: 'CmdOrCtrl+Shift+P' },
-  { id: 'markDone', label: 'Mark Done…', accelerator: 'CmdOrCtrl+Shift+D' },
+  { id: 'markDone', label: 'Mark Done', accelerator: 'CmdOrCtrl+Shift+D' },
 ];
 
 /** How the settings screen groups the commands. Every command appears once. */

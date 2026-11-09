@@ -625,13 +625,26 @@ body.resizing * {
   flex: 1;
   /* In a narrow window the Next button gives way first. */
   min-width: 120px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
   margin: 0 8px 0 0;
   font-size: 15px;
   line-height: 20px;
   font-weight: 600;
+}
+/* The text opts out of the drag region so hovering it can show the full title;
+   the rest of the bar still drags the window. */
+.task-name span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  -webkit-app-region: no-drag;
+}
+.task-name .task-menu {
+  width: 22px;
+  height: 22px;
 }
 .header-controls {
   flex: 0 1 auto;
@@ -642,30 +655,7 @@ body.resizing * {
   gap: 2px;
   -webkit-app-region: no-drag;
 }
-/* Edit, Park, Mark done: shown while the pointer is over the bar's controls, or one has focus.
-   (Not the whole bar: the title and empty space drag the window, so they get no mouse events.) */
-.task-actions,
-.header-sep {
-  flex: none;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.task-actions {
-  display: flex;
-  gap: 2px;
-}
-.header-controls:hover .task-actions,
-.header-controls:hover .header-sep,
-.header-controls:focus-within .task-actions,
-.header-controls:focus-within .header-sep {
-  opacity: 1;
-}
-.header-sep {
-  width: 1px;
-  height: 16px;
-  margin: 0 6px;
-  background: var(--line-card);
-}
+
 .main-header .spacer {
   flex: 1;
 }

@@ -94,7 +94,7 @@ export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext)
         cmd('nextTask'),
         { type: 'separator' },
         cmd('parkTask', { label: openQueue === 'parked' ? 'Unpark Task' : 'Park Task', enabled: hasTask }),
-        cmd('markDone', { label: openQueue === 'done' ? 'Reopen Task' : 'Mark Done…', enabled: hasTask }),
+        cmd('markDone', { label: openQueue === 'done' ? 'Reopen Task' : 'Mark Done', enabled: hasTask }),
         { type: 'separator' },
         cmd('editTask', { enabled: hasTask }),
       ],
