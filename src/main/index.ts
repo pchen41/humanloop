@@ -8,6 +8,9 @@ import { IPC, TERMINAL_EDIT, type InitialData, type TerminalEditCommand } from '
 import { DEFAULT_SETTINGS, EMPTY_STATE, type AppState, type Settings, type TaskDraft } from '../shared/model';
 import { normalizeSettings, normalizeState, stateAfterLaunch } from '../shared/normalize';
 import * as T from '../shared/tasks';
+import { AgentTracker } from './agentTracker';
+import { currentHookStatus, installWithConfirm, removeWithConfirm } from './hookInstaller';
+import { HookServer, hookSocketPath } from './hookServer';
 import { acceleratorFor, buildMenu } from './menu';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
@@ -43,9 +46,19 @@ const ptys = new PtyManager({
     win?.webContents.send(IPC.ptyData, tabId, data);
   },
   exit(tabId, exitCode) {
+    tracker.clear(tabId);
     win?.webContents.send(IPC.ptyExit, tabId, exitCode);
   },
 });
+
+const hookSocket = hookSocketPath(userData);
+const tracker = new AgentTracker({
+  shellPid: (tabId) => (ptys.has(tabId) ? ptys.pid(tabId) : undefined),
+  onChange: () => win?.webContents.send(IPC.agents, tracker.snapshot()),
+  // HUMANLOOP_HOOK_LOG=1 records every hook delivery, for checking how Claude Code behaves.
+  logFile: process.env.HUMANLOOP_HOOK_LOG ? join(userData, 'hook-events.jsonl') : undefined,
+});
+const hookServer = new HookServer(hookSocket, (d) => tracker.handle(d));
 
 function setState(next: AppState): void {
   if (next === state) return;
@@ -86,7 +99,9 @@ function installMenu(): void {
       copy: () => editCommand('copy'),
       selectAll: () => editCommand('selectAll'),
       openSettings: () => void shell.openPath(settingsFile),
-    }),
+      installHooks: () => void installWithConfirm(win).then(installMenu),
+      removeHooks: () => void removeWithConfirm(win).then(installMenu),
+    }, currentHookStatus()),
   );
 }
 
@@ -142,13 +157,19 @@ async function deleteTaskWithConfirm(id: string): Promise<boolean> {
   );
   if (!ok) return false;
   // Tabs may have changed while the dialog was open.
-  for (const tab of T.findTask(state, id)?.tabs ?? []) ptys.kill(tab.id);
+  for (const tab of T.findTask(state, id)?.tabs ?? []) {
+    ptys.kill(tab.id);
+    tracker.clear(tab.id);
+  }
   setState(T.deleteTask(state, id));
   return true;
 }
 
 function registerIpc(): void {
-  ipcMain.handle(IPC.getInitialData, (): InitialData => ({ state, settings, homeDir: homedir() }));
+  ipcMain.handle(
+    IPC.getInitialData,
+    (): InitialData => ({ state, settings, homeDir: homedir(), agents: tracker.snapshot() }),
+  );
 
   ipcMain.handle(IPC.createTask, (_e, draft: TaskDraft) => createTask(draft).taskId);
   ipcMain.handle(IPC.updateTask, (_e, id: string, patch: Partial<TaskDraft>) => {
@@ -183,6 +204,7 @@ function registerIpc(): void {
       return false;
     }
     ptys.kill(tabId);
+    tracker.clear(tabId);
     setState(T.closeTab(state, found.task.id, tabId));
     return true;
   });
@@ -198,10 +220,19 @@ function registerIpc(): void {
       cols,
       rows,
       cwd: usableCwd(found.task.defaultCwd ?? settings.defaultCwd),
-      env: shellEnv({ HUMANLOOP_TAB: tabId, TERM_PROGRAM: 'Humanloop', TERM_PROGRAM_VERSION: app.getVersion() }),
+      env: shellEnv({
+        HUMANLOOP_TAB: tabId,
+        HUMANLOOP_SOCK: hookSocket,
+        TERM_PROGRAM: 'Humanloop',
+        TERM_PROGRAM_VERSION: app.getVersion(),
+      }),
     });
   });
-  ipcMain.on(IPC.ptyWrite, (_e, tabId: string, data: string) => ptys.write(tabId, data));
+  ipcMain.on(IPC.ptyWrite, (_e, tabId: string, data: string) => {
+    // A lone Esc byte is the Esc key (arrow keys and Option combos arrive as longer sequences).
+    if (data === '\x1b') tracker.interrupt(tabId);
+    ptys.write(tabId, data);
+  });
   ipcMain.on(IPC.ptyResize, (_e, tabId: string, cols: number, rows: number) => ptys.resize(tabId, cols, rows));
   ipcMain.on(IPC.ptyAck, (_e, tabId: string, chars: number) => ptys.ack(tabId, chars));
   ipcMain.on(IPC.terminalFocus, (_e, focused: boolean) => {
@@ -299,6 +330,7 @@ app.on('before-quit', (e) => {
 });
 
 app.on('will-quit', () => {
+  hookServer.stop();
   stateStore.flushSync();
   ptys.killAll();
 });
@@ -306,7 +338,13 @@ app.on('will-quit', () => {
 // Keep running with no window, like other Mac apps; ⌘Q quits.
 app.on('window-all-closed', () => {});
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
+  try {
+    await hookServer.start();
+  } catch (err) {
+    // The app still works as a terminal; agent state just won't update.
+    console.error(`Could not listen on ${hookSocket}:`, err);
+  }
   if (!existsSync(settingsFile)) writeDefaultSettings();
   watchSettings();
   installMenu();

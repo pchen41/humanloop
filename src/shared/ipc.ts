@@ -1,12 +1,15 @@
 // The API the preload script exposes to the renderer as window.humanloop.
 
 import type { CommandId } from './commands';
+import type { TabAgent } from './agents';
 import type { AppState, Settings, TaskDraft } from './model';
 
 export interface InitialData {
   state: AppState;
   settings: Settings;
   homeDir: string;
+  /** Claude sessions by tab id. */
+  agents: Record<string, TabAgent>;
 }
 
 export interface HumanloopApi {
@@ -14,6 +17,7 @@ export interface HumanloopApi {
   onState(cb: (state: AppState) => void): () => void;
   onSettings(cb: (settings: Settings) => void): () => void;
   onCommand(cb: (id: CommandId) => void): () => void;
+  onAgents(cb: (agents: Record<string, TabAgent>) => void): () => void;
 
   createTask(draft: TaskDraft): Promise<string>;
   updateTask(id: string, patch: Partial<TaskDraft>): Promise<void>;
@@ -48,6 +52,7 @@ export const IPC = {
   getInitialData: 'app:initial-data',
   state: 'app:state',
   settings: 'app:settings',
+  agents: 'app:agents',
   command: 'app:command',
   createTask: 'task:create',
   updateTask: 'task:update',

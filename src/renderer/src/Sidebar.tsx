@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { commandById } from '../../shared/commands';
-import { QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
+import { taskAgentState, type TabAgent } from '../../shared/agents';
+import { effectivePolicy, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
+import { AgentDot } from './AgentDot';
 import { tasksInQueue } from '../../shared/tasks';
 import { formatAccelerator, formatWait } from './format';
 
 interface Props {
   state: AppState;
   settings: Settings;
+  agents: Record<string, TabAgent>;
   onOpen(id: string): void;
   onEdit(task: Task): void;
   onMenu(task: Task): void;
@@ -23,7 +26,7 @@ function useNow(): number {
   return now;
 }
 
-export function Sidebar({ state, settings, onOpen, onEdit, onMenu, onNew }: Props) {
+export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew }: Props) {
   const now = useNow();
   const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
     yourTurn: false,
@@ -66,6 +69,12 @@ export function Sidebar({ state, settings, onOpen, onEdit, onMenu, onNew }: Prop
                         title={task.description || task.title}
                       >
                         <span className={`priority p${task.priority}`}>P{task.priority}</span>
+                        <AgentDot
+                          state={taskAgentState(
+                            task.tabs.map((t) => agents[t.id]),
+                            effectivePolicy(settings.policy, task.policy),
+                          )}
+                        />
                         <span className="task-title">{task.title}</span>
                         <span className="task-wait">{formatWait(task.enteredAt, now)}</span>
                       </button>

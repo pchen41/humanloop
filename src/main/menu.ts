@@ -2,6 +2,7 @@
 
 import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { commandById, type CommandId } from '../shared/commands';
+import type { HookStatus } from '../shared/hooks';
 import type { Settings } from '../shared/model';
 
 export interface MenuHandlers {
@@ -9,6 +10,8 @@ export interface MenuHandlers {
   copy(): void;
   selectAll(): void;
   openSettings(): void;
+  installHooks(): void;
+  removeHooks(): void;
 }
 
 export function acceleratorFor(settings: Settings, id: CommandId): string | undefined {
@@ -17,7 +20,7 @@ export function acceleratorFor(settings: Settings, id: CommandId): string | unde
   return commandById(id).accelerator;
 }
 
-export function buildMenu(settings: Settings, h: MenuHandlers): Menu {
+export function buildMenu(settings: Settings, h: MenuHandlers, hooks: HookStatus | 'unreadable'): Menu {
   const cmd = (id: CommandId): MenuItemConstructorOptions => ({
     label: commandById(id).label,
     accelerator: acceleratorFor(settings, id),
@@ -32,6 +35,13 @@ export function buildMenu(settings: Settings, h: MenuHandlers): Menu {
         { role: 'about' },
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: h.openSettings },
+        { type: 'separator' },
+        {
+          label: hooks === 'outdated' ? 'Update Claude Code Hooks…' : 'Install Claude Code Hooks…',
+          visible: hooks !== 'installed',
+          click: h.installHooks,
+        },
+        { label: 'Remove Claude Code Hooks…', visible: hooks === 'installed' || hooks === 'outdated', click: h.removeHooks },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },

@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { commandById, type CommandId } from '../../shared/commands';
-import type { Settings, Task } from '../../shared/model';
+import { effectiveTabState, type TabAgent } from '../../shared/agents';
+import { effectivePolicy, type Settings, type Task } from '../../shared/model';
+import { AgentDot } from './AgentDot';
 import { formatAccelerator, shortenHome } from './format';
 import { terminals } from './terminals';
 
@@ -9,6 +11,7 @@ interface Props {
   activeTabId: string | undefined;
   settings: Settings;
   homeDir: string;
+  agents: Record<string, TabAgent>;
   onSelectTab(tabId: string): void;
   onCloseTab(tabId: string): void;
   onNewTab(): void;
@@ -16,7 +19,7 @@ interface Props {
   focusTerminal: boolean;
 }
 
-export function TaskView({ task, activeTabId, settings, homeDir, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal }: Props) {
+export function TaskView({ task, activeTabId, settings, homeDir, agents, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal }: Props) {
   // Terminal titles (set by programs like Claude Code) live outside React.
   useSyncExternalStore(terminals.subscribe, terminals.getVersion);
   const key = (id: CommandId) => formatAccelerator(settings.shortcuts[id] ?? commandById(id).accelerator);
@@ -55,6 +58,9 @@ export function TaskView({ task, activeTabId, settings, homeDir, onSelectTab, on
               }}
               title={title}
             >
+              {agents[tab.id] && (
+                <AgentDot state={effectiveTabState(agents[tab.id]!, effectivePolicy(settings.policy, task.policy))} />
+              )}
               <span className="tab-title">{title}</span>
               {i < 9 && <span className="tab-key">⌘{i + 1}</span>}
               <button

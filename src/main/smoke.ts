@@ -3,7 +3,9 @@
 // that a tab's output reaches the terminal on screen. Exits 0 on success.
 
 import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { app, type BrowserWindow } from 'electron';
+import { HOOK_COMMAND } from '../shared/hooks';
 
 interface SmokeDeps {
   win: BrowserWindow;
@@ -53,6 +55,16 @@ export async function runSmokeTest(d: SmokeDeps): Promise<void> {
       js(`window.__humanloopDebug?.terminalText(${JSON.stringify(tabId)})?.includes('humanloop-smoke-42')`),
     );
     log(`output drawn in the terminal: ${shown}`);
+
+    // Run the installed hook command the way Claude would: as a grandchild of
+    // the tab's shell, so its $PPID's parent is the shell.
+    const script = join(app.getPath('userData'), 'smoke-hook.sh');
+    const event = JSON.stringify({ hook_event_name: 'SessionStart', session_id: 'smoke', source: 'startup' });
+    // The sleep keeps the "claude" stand-in alive while the app looks up its parent, like a real session.
+    writeFileSync(script, `printf '%s' '${event}' | sh -c '${HOOK_COMMAND}'\nsleep 5\n`);
+    d.writeToTab(tabId, `sh '${script}'\r`);
+    await waitFor('the hook event to reach the tab', () => js(`!!document.querySelector('.tab .agent-dot.idle')`));
+    log('hook event received and shown');
 
     const shot = process.env.HUMANLOOP_SMOKE_SCREENSHOT;
     if (shot) {

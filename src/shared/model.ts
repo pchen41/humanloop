@@ -29,6 +29,11 @@ export const DEFAULT_POLICY: Policy = {
   backgroundShellsBusy: false,
 };
 
+/** The task's overrides on top of the global policy. */
+export function effectivePolicy(global: Policy, task: Partial<Policy>): Policy {
+  return { ...global, ...task };
+}
+
 export interface Tab {
   id: string;
   title: string;

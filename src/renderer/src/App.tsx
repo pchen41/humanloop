@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommandId } from '../../shared/commands';
+import type { TabAgent } from '../../shared/agents';
 import type { AppState, Settings, Task } from '../../shared/model';
 import { findTask } from '../../shared/tasks';
 import { Sidebar } from './Sidebar';
@@ -13,6 +14,7 @@ interface Loaded {
   state: AppState;
   settings: Settings;
   homeDir: string;
+  agents: Record<string, TabAgent>;
 }
 
 /** The selected tab of a task, falling back to its first tab. */
@@ -40,6 +42,10 @@ export function App() {
       early.settings = settings;
       setData((d) => d && { ...d, settings });
     });
+    const offAgents = api.onAgents((agents) => {
+      early.agents = agents;
+      setData((d) => d && { ...d, agents });
+    });
     void api.getInitialData().then((d) => {
       if (alive) setData({ ...d, ...early });
       early = {};
@@ -48,6 +54,7 @@ export function App() {
       alive = false;
       offState();
       offSettings();
+      offAgents();
     };
   }, []);
 
@@ -171,6 +178,7 @@ export function App() {
         activeTabId={activeTabId}
         settings={data.settings}
         homeDir={data.homeDir}
+        agents={data.agents}
         onSelectTab={(tabId) => selectTab(openTask.id, tabId)}
         onCloseTab={closeTab}
         onNewTab={newTab}
@@ -187,6 +195,7 @@ export function App() {
       <Sidebar
         state={state}
         settings={data.settings}
+        agents={data.agents}
         onOpen={(id) => void api.openTask(id)}
         onEdit={(task) => setEditor({ kind: 'edit', task })}
         onMenu={onTaskMenu}

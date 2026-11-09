@@ -460,3 +460,40 @@ textarea {
   gap: 8px;
   margin-top: 4px;
 }
+
+/* ---------- agent state ---------- */
+
+.agent-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.agent-dot.none {
+  visibility: hidden;
+}
+.agent-dot.working {
+  background: var(--accent);
+  animation: agent-pulse 1.4s ease-in-out infinite;
+}
+.agent-dot.needsYou {
+  background: var(--p-warm);
+  box-shadow: 0 0 0 2px rgba(240, 179, 94, 0.25);
+}
+.agent-dot.idle {
+  background: #6fcf97;
+}
+@keyframes agent-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-dot.working {
+    animation: none;
+  }
+}

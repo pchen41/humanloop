@@ -43,14 +43,24 @@ const STRIPPED_ENV = [
   'ELECTRON_NO_ATTACH_CONSOLE',
   'ELECTRON_RENDERER_URL',
   'NODE_OPTIONS',
-  'CLAUDECODE',
-  'CLAUDE_CODE_ENTRYPOINT',
+  'AI_AGENT',
+  'ANTHROPIC_BASE_URL',
 ];
+
+/**
+ * If Humanloop was started from inside a Claude Code session, that session's
+ * markers (CLAUDECODE, CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_CHILD_SESSION, …)
+ * would make every `claude` in a tab think it is a child session. Tabs start
+ * login shells, so variables you set in your shell profile come back anyway.
+ */
+function stripped(name: string): boolean {
+  return STRIPPED_ENV.includes(name) || name.startsWith('CLAUDE') || name.startsWith('HUMANLOOP_');
+}
 
 export function shellEnv(extra: Record<string, string>): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
-    if (v === undefined || STRIPPED_ENV.includes(k) || k.startsWith('HUMANLOOP_')) continue;
+    if (v === undefined || stripped(k)) continue;
     env[k] = v;
   }
   return {
