@@ -55,7 +55,7 @@ export function TaskView(props: Props) {
         <div className="task-heading">
           <span className={`priority p${task.priority}`}>P{task.priority}</span>
           <h1>{task.title}</h1>
-          <span className="task-cwd" title="New tabs open here">
+          <span className="task-cwd" title="The task's directory: its first tab opens here. ⌘T opens where the current tab is.">
             {cwd}
           </span>
           <button className="ghost" onClick={onEdit} title={`Edit task (${key('editTask')})`}>
@@ -159,7 +159,8 @@ export function TaskView(props: Props) {
               keys={{ next: key('findNext'), previous: key('findPrevious') }}
             />
           )}
-          <TerminalPane key={activeTabId} tabId={activeTabId} focus={focusTerminal && !props.find} />
+          {/* With Find open, typing stays in its field; switching tab or task moves it to the new terminal. */}
+          <TerminalPane key={activeTabId} tabId={activeTabId} focus={focusTerminal && !findFieldFocused()} />
         </div>
       ) : (
         <div className="empty-main">
@@ -187,4 +188,8 @@ function TerminalPane({ tabId, focus }: { tabId: string; focus: boolean }) {
   }, [tabId, focus]);
 
   return <div className="terminal-host" ref={host} />;
+}
+
+function findFieldFocused(): boolean {
+  return document.activeElement?.closest('.find-bar') != null;
 }

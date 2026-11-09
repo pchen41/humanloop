@@ -23,10 +23,19 @@ interface Loaded {
 }
 
 /** The selected tab of a task, falling back to its first tab. */
-function selectedTab(task: Task | undefined, chosen: Record<string, string>): string | undefined {
+/**
+ * The selected tab of a task. When it's gone (closed, or its shell exited),
+ * the tab that slid into its place, like a browser; else the first.
+ * `lastIndex` remembers where each task's selected tab was.
+ */
+function selectedTab(task: Task | undefined, chosen: Record<string, string>, lastIndex: Record<string, number>): string | undefined {
   if (!task) return undefined;
-  const id = chosen[task.id];
-  return id && task.tabs.some((t) => t.id === id) ? id : task.tabs[0]?.id;
+  const i = task.tabs.findIndex((t) => t.id === chosen[task.id]);
+  if (i >= 0) {
+    lastIndex[task.id] = i;
+    return task.tabs[i]!.id;
+  }
+  return task.tabs[Math.min(lastIndex[task.id] ?? 0, task.tabs.length - 1)]?.id;
 }
 
 export function App() {
@@ -70,7 +79,8 @@ export function App() {
 
   const state = data?.state;
   const openTask = state ? findTask(state, state.openTaskId) : undefined;
-  const activeTabId = selectedTab(openTask, chosenTab);
+  const lastTabIndex = useRef<Record<string, number>>({});
+  const activeTabId = selectedTab(openTask, chosenTab, lastTabIndex.current);
 
   const optionAsMeta = data?.settings.optionAsMeta;
   useEffect(() => {

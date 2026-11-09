@@ -67,6 +67,7 @@ class TerminalHandle {
   private opened = false;
   private attached = false;
   private disposed = false;
+  private replaying = false;
   private exited: number | undefined;
   private resizeObserver: ResizeObserver | undefined;
   private fitFrame = 0;
@@ -126,6 +127,9 @@ class TerminalHandle {
   }
 
   private input(data: string): void {
+    // While old output is redrawn, xterm answers any terminal queries in it
+    // (cursor position, colours); those answers must not be typed into the shell.
+    if (this.replaying) return;
     if (this.exited !== undefined) {
       if (data === '\r') void this.restart();
       return;
@@ -212,7 +216,10 @@ class TerminalHandle {
     try {
       const { replay, exited } = await api.ptyAttach(this.tabId, this.term.cols, this.term.rows, restart);
       if (this.disposed) return; // the tab closed while it was attaching
-      if (replay) this.term.write(replay);
+      if (replay) {
+        this.replaying = true;
+        this.term.write(replay, () => (this.replaying = false));
+      }
       if (exited) this.ended(exited);
     } catch (err) {
       // Let Return try again, the same way as after the shell exits.
@@ -274,8 +281,11 @@ class TerminalRegistry {
       const active = document.activeElement;
       const terminalFocused = !!this.focused();
       const inField = !terminalFocused && (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement);
+      // Text selected on the page itself (e.g. the task description) is newer than a terminal's leftover selection.
+      const sel = window.getSelection();
+      const pageSelection = !terminalFocused && !!sel && !sel.isCollapsed && !sel.anchorNode?.parentElement?.closest('.terminal-surface');
       const h = this.focused() ?? this.onScreen();
-      if (inField || !h || document.querySelector('.modal')) return api.pageEdit(cmd);
+      if (inField || pageSelection || !h || document.querySelector('.modal')) return api.pageEdit(cmd);
       if (cmd === 'copy') {
         const sel = h.term.getSelection();
         if (sel) api.writeClipboard(sel);

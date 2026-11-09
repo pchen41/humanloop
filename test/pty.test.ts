@@ -52,19 +52,71 @@ describe('PtyManager', () => {
     expect(ptys.attach('t', opts, true).exited).toBeUndefined(); // Return restarts it
   }, 10000);
 
-  it('on quit, also stops programs that ignore SIGHUP', async () => {
+  const named = (name: string) => () =>
+    execFileSync('/bin/ps', ['-axo', 'pid=,command='])
+      .toString()
+      .split('\n')
+      .filter((l) => new RegExp(`^\\s*\\d+ ${name}`).test(l));
+  const ignoringHup = (name: string) => `perl -e '$SIG{HUP}="IGNORE"; $0="${name}"; sleep 60'`;
+
+  it('on quit, stops a foreground program that ignores SIGHUP', async () => {
     start();
     ptys.attach('t', opts);
     await wait(800);
-    ptys.write('t', "perl -e '$SIG{HUP}=\"IGNORE\"; $0=\"hl-hup-survivor\"; sleep 60' &\r");
-    const survivors = () =>
-      execFileSync('/bin/ps', ['-axo', 'pid=,command='])
-        .toString()
-        .split('\n')
-        .filter((l) => /^\s*\d+ hl-hup-survivor/.test(l));
-    await until(() => survivors().length === 1);
+    ptys.write('t', ignoringHup('hl-hup-foreground') + '\r');
+    const found = named('hl-hup-foreground');
+    await until(() => found().length === 1);
     await ptys.shutdown(1000);
     await wait(200);
-    expect(survivors()).toEqual([]);
+    expect(found()).toEqual([]);
   }, 15000);
+
+  it('leaves a nohup job running, as closing a Terminal window does', async () => {
+    start();
+    ptys.attach('t', opts);
+    await wait(800);
+    ptys.write('t', `nohup ${ignoringHup('hl-hup-nohup')} >/dev/null 2>&1 &\r`);
+    const found = named('hl-hup-nohup');
+    await until(() => found().length === 1);
+    await ptys.shutdown(1000);
+    await wait(200);
+    try {
+      expect(found()).toHaveLength(1);
+    } finally {
+      for (const l of found()) process.kill(Number(l.trim().split(/\s+/)[0]), 'SIGKILL');
+    }
+  }, 15000);
+
+  it('treats a program that replaced the shell with exec as running', async () => {
+    start();
+    ptys.attach('t', opts);
+    await wait(800);
+    ptys.write('t', 'exec sleep 5\r');
+    await wait(600);
+    expect(ptys.busyProgram('t')).toBe('sleep');
+  }, 10000);
+});
+
+describe('shellEnv', () => {
+  it("removes a parent Claude session's markers but keeps Claude configuration", async () => {
+    const { shellEnv } = await import('../src/main/pty');
+    const saved = { ...process.env };
+    Object.assign(process.env, {
+      CLAUDECODE: '1',
+      CLAUDE_CODE_ENTRYPOINT: 'cli',
+      CLAUDE_CODE_CHILD_SESSION: '1',
+      CLAUDE_CODE_USE_BEDROCK: '1',
+      CLAUDE_CONFIG_DIR: '/x',
+    });
+    try {
+      const env = shellEnv({});
+      expect(env.CLAUDECODE).toBeUndefined();
+      expect(env.CLAUDE_CODE_ENTRYPOINT).toBeUndefined();
+      expect(env.CLAUDE_CODE_CHILD_SESSION).toBeUndefined();
+      expect(env.CLAUDE_CODE_USE_BEDROCK).toBe('1');
+      expect(env.CLAUDE_CONFIG_DIR).toBe('/x');
+    } finally {
+      for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    }
+  });
 });

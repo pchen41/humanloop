@@ -133,3 +133,10 @@ describe('shortcuts from settings.json', () => {
     expect(new Set(all.map((a) => a.toLowerCase())).size).toBe(all.length);
   });
 });
+
+describe('third-round fixes', () => {
+  it('records keypad Enter as Return and reserves Log Out', () => {
+    expect(acceleratorFromInput(press('Enter', 'NumpadEnter'))).toEqual({ accelerator: 'CmdOrCtrl+Return' });
+    expect(acceleratorFromInput(press('Q', 'KeyQ', { shift: true }))).toHaveProperty('error');
+  });
+});

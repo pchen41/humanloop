@@ -82,6 +82,7 @@ const ptys = new PtyManager({
   },
   exit(tabId, exit) {
     tracker.clear(tabId);
+    reportedDirs.delete(tabId); // a restarted shell reports for itself
     win?.webContents.send(IPC.ptyExit, tabId, exit);
   },
 });
@@ -197,7 +198,8 @@ function shellQuote(s: string): string {
 function writeDefaultSettings(): void {
   // Shortcuts are left out: a command without an entry uses its default, so
   // later default changes still apply. Settings > Shortcuts lists them all.
-  writeJsonSync(settingsFile, { ...settings, shortcuts: {} });
+  // Through a symlink that points at a file not there yet (a dotfiles repo not cloned yet), keeping the link.
+  writeJsonSync(symlinkTarget(settingsFile), { ...settings, shortcuts: {} });
 }
 
 /**
@@ -249,6 +251,7 @@ function updateSettings(patch: SettingsPatch): void {
     showError("Couldn't save settings", String(err));
     return;
   }
+  lastSettingsJson = out;
   applySettings(normalizeSettings(out));
 }
 
@@ -330,7 +333,9 @@ let menuContextKey = '';
 function menuContext(): MenuContext {
   return {
     hooks: hookStatus,
-    openQueue: T.findTask(state, state.openTaskId)?.queue,
+    // Only parked and done change the menu, so Your Turn and Agent's Turn look
+    // the same here: no rebuild (which can close an open menu) on every Claude turn.
+    openQueue: ((q) => (q === 'agentsTurn' ? 'yourTurn' : q))(T.findTask(state, state.openTaskId)?.queue),
     canGoBack: Q.canGoBack(state),
     canGoForward: Q.canGoForward(state),
   };
@@ -384,7 +389,10 @@ function runCommand(id: CommandId): void {
 
 function showSettings(): void {
   refreshHookStatus(); // ~/.claude/settings.json may have been edited by hand
-  if (win) {
+  if (win && !rendererReady) {
+    settingsPending = true; // the loading page picks it up with its data
+    win.show();
+  } else if (win) {
     win.webContents.send(IPC.showSettings);
     win.focus();
   } else {
@@ -424,7 +432,12 @@ const reportedDirs = new Map<string, string>();
  */
 async function newTab(taskId: string, fromTabId: string | undefined): Promise<string> {
   const from = fromTabId && T.findTab(state, fromTabId)?.task.id === taskId ? fromTabId : undefined;
-  const dir = from ? (localPath(reportedDirs.get(from)) ?? (await ptys.cwd(from))) : undefined;
+  // At its prompt the shell's own directory is the truth; OSC 7 can come from
+  // any program's output (an editor, a file you cat). While a program runs,
+  // what it reported is the better guess.
+  const reported = from ? localPath(reportedDirs.get(from)) : undefined;
+  const atPrompt = from !== undefined && ptys.busyProgram(from) === undefined;
+  const dir = from ? (atPrompt ? ((await ptys.cwd(from)) ?? reported) : (reported ?? (await ptys.cwd(from)))) : undefined;
   const id = randomUUID();
   if (!T.findTask(state, taskId)) throw new Error(`no task ${taskId}`);
   if (dir && usableCwd(dir) === dir) startDirs.set(id, dir);
@@ -459,7 +472,8 @@ function createTask(draft: TaskDraft): { taskId: string; tabId: string } {
 
 /** Tabs where a program is running, not just the shell at its prompt. */
 function busyTabs(tabIds: string[]): string[] {
-  return tabIds.filter((id) => ptys.busyProgram(id) !== undefined);
+  const busy = ptys.busyPrograms(tabIds);
+  return tabIds.filter((id) => busy.has(id));
 }
 
 async function confirm(message: string, detail: string, action: string): Promise<boolean> {

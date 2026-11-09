@@ -141,7 +141,7 @@ export function TaskEditor({ inert, mode, homeDir, globalDefaultCwd, globalPolic
               Choose…
             </button>
           </div>
-          <small>New tabs for this task open here.</small>
+          <small>The task's first tab opens here. After that, ⌘T opens where the current tab is.</small>
         </div>
 
         <details className="overrides" open={startOpen}>

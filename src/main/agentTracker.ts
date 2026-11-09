@@ -116,7 +116,7 @@ export class AgentTracker {
    * shell is `shell`: the shell must be an ancestor, with no other known
    * claude process in between. Undefined if the process table was unreadable.
    */
-  private async belongs(pid: number, shell: number, session: string): Promise<boolean | undefined> {
+  private async belongs(pid: number, shell: number, session: string, tabId: string): Promise<boolean | undefined> {
     const cached = this.verdicts.get(pid);
     if (cached && cached.shell === shell && cached.session === session) return cached.ok;
     // `exec claude` replaces the shell, so the claude process is the shell itself.
@@ -127,13 +127,13 @@ export class AgentTracker {
     let ok = false;
     let cur = table.get(pid);
     for (let hop = 0; cur !== undefined && cur > 1 && hop < MAX_HOPS; hop++) {
-      // After `exec claude` the shell pid is itself a Claude session, so
-      // anything below it is nested: check that before the shell match.
-      if (this.claudePids.has(cur)) break; // nested inside another Claude session
       if (cur === shell) {
-        ok = true;
+        // After `exec claude` the shell pid is this tab's own Claude, so
+        // anything below it is a nested session.
+        ok = !this.tabPids.get(tabId)?.has(shell);
         break;
       }
+      if (this.claudePids.has(cur)) break; // nested inside another Claude session
       cur = table.get(cur);
     }
     if (this.verdicts.size > 1024) this.verdicts.clear();
@@ -144,7 +144,7 @@ export class AgentTracker {
   private async apply(d: HookDelivery, gen: number): Promise<void> {
     const shell = this.opts.shellPid(d.tabId);
     const session = typeof d.event.session_id === 'string' ? d.event.session_id : '';
-    const ok = shell !== undefined && d.pid !== undefined ? await this.belongs(d.pid, shell, session) : false;
+    const ok = shell !== undefined && d.pid !== undefined ? await this.belongs(d.pid, shell, session, d.tabId) : false;
     // The tab may have closed or restarted while we looked.
     const current = (this.generations.get(d.tabId) ?? 0) === gen && this.opts.shellPid(d.tabId) === shell;
     const accepted = ok === true && current;

@@ -92,6 +92,7 @@ const SHIFTED: Record<string, string> = {
  */
 const RESERVED = [
   'CmdOrCtrl+Q',
+  'CmdOrCtrl+Shift+Q', // Apple menu > Log Out
   'CmdOrCtrl+H',
   'CmdOrCtrl+Alt+H',
   'CmdOrCtrl+M',
@@ -144,7 +145,8 @@ export function acceleratorFromInput(input: KeyInput): RecordResult | undefined 
   // digits always, punctuation unless Shift or Option changed it. Otherwise
   // the key's position is used, read as a US layout.
   const plain = !input.shift && !input.alt;
-  if (input.code.startsWith('Numpad')) key = NUMPAD_KEYS[input.code] ?? (/^Numpad[0-9]$/.test(input.code) ? `num${input.code.slice(6)}` : undefined);
+  if (input.code === 'NumpadEnter') key = 'Return';
+  else if (input.code.startsWith('Numpad')) key = NUMPAD_KEYS[input.code] ?? (/^Numpad[0-9]$/.test(input.code) ? `num${input.code.slice(6)}` : undefined);
   else if (/^[a-z0-9]$/i.test(input.key)) key = input.key.toUpperCase();
   else if (plain && input.key === '+') key = 'Plus'; // "+" separates parts of an accelerator
   else if (plain && /^[!-/:-@[-`{-~]$/.test(input.key)) key = input.key;

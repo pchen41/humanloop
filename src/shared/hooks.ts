@@ -86,7 +86,9 @@ export type HookStatus = 'installed' | 'outdated' | 'missing';
 /** "outdated" means some Humanloop entries exist but not the current set. */
 export function hookStatus(settings: Json): HookStatus {
   const hooks = isObj(settings.hooks) ? settings.hooks : {};
-  let current = 0;
+  // Each event Humanloop needs must have the current entry: counting entries
+  // alone would pass with one event missing and another listed twice.
+  const covered = new Set<string>();
   let any = false;
   for (const [event, groups] of Object.entries(hooks)) {
     if (!Array.isArray(groups)) continue;
@@ -100,11 +102,11 @@ export function hookStatus(settings: Json): HookStatus {
           (h as Json).command === HOOK_COMMAND &&
           group.matcher === undefined
         ) {
-          current++;
+          covered.add(event);
         }
       }
     }
   }
-  if (current === HOOK_EVENTS.length) return 'installed';
+  if (HOOK_EVENTS.every((e) => covered.has(e))) return 'installed';
   return any ? 'outdated' : 'missing';
 }

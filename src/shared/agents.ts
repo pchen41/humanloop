@@ -100,6 +100,11 @@ function finish(prev: TabAgent | undefined, next: TabAgent): TabAgent {
   return out;
 }
 
+/** The background list an event reports, or the one already known if it reports none. */
+function latestBackground(a: TabAgent, ev: HookEvent): BackgroundTask[] {
+  return ev.background_tasks === undefined ? a.backgroundTasks : backgroundTasks(ev.background_tasks);
+}
+
 /** A short stable fingerprint of a value (key order doesn't matter). */
 function fingerprint(v: unknown): string {
   const stable = (x: unknown): unknown =>
@@ -140,7 +145,8 @@ function removeOne(list: string[], key: string): string[] {
  */
 function answeredBy(waiting: string[], started: string[], who: string, ev: HookEvent): string[] {
   const key = toolKey(who, ev);
-  let left = waiting.filter((e) => e !== `${who}|notice`);
+  // A notification can't say which agent asked, so any agent's tool finishing closes it.
+  let left = waiting.filter((e) => !e.endsWith('|notice'));
   if (left.includes(key)) return removeOne(left, key);
   if (started.includes(key)) return left; // a different call that needed no prompt
   const sameTool = `${who}|tool:${typeof ev.tool_name === 'string' ? ev.tool_name : ''}:`;
@@ -173,7 +179,7 @@ function elicitationAnswered(waiting: string[], who: string, ev: HookEvent): str
  * | SessionStart                                 | new session, idle (compact keeps state)             |
  * | UserPromptSubmit                             | working; every open prompt is closed                |
  * | PreToolUse                                   | records the call; main: working                     |
- * | PostToolUse(Failure)                         | answers that tool call's prompt; main: working      |
+ * | PostToolUse(Failure)                         | answers its prompt; main: working (not after Esc)   |
  * |   …with is_interrupt                         | main: idle, as after Esc                            |
  * | PermissionRequest, Notification permission_prompt | that agent waits on you (needs you)            |
  * | Elicitation, Notification elicitation_dialog | that agent waits on you; ElicitationResult answers  |
@@ -220,9 +226,11 @@ export function applyHookEvent(prev: TabAgent | undefined, ev: HookEvent): TabAg
       return finish(prev, { ...a, ...working, started: [...a.started, toolKey(who, ev)].slice(-200) });
     case 'PostToolUse':
     case 'PostToolUseFailure': {
-      if (main && a.interrupted) return prev ?? finish(undefined, a);
       const waitingOn = answeredBy(a.waitingOn, a.started, who, ev);
       const started = removeOne(a.started, toolKey(who, ev));
+      // After Esc a finished tool doesn't mean Claude is working, but it does
+      // answer its prompt (an Esc that only closed a menu, then an approval).
+      if (main && a.interrupted) return finish(prev, { ...a, waitingOn, started });
       // A tool cut short by an interrupt ends the main agent's turn.
       if (main && ev.is_interrupt === true) {
         return finish(prev, { ...a, turn: 'idle', interrupted: true, waitingOn, started });
@@ -238,8 +246,10 @@ export function applyHookEvent(prev: TabAgent | undefined, ev: HookEvent): TabAg
       return finish(prev, { ...a, waitingOn: elicitationAnswered(a.waitingOn, who, ev) });
     case 'Notification':
       if (ev.notification_type === 'permission_prompt') {
-        // Usually PermissionRequest already recorded it; sandbox network prompts send only this.
-        if (a.waitingOn.some(isAgent(who))) return finish(prev, a);
+        // Usually a PermissionRequest (of this agent or, without an agent_id
+        // on the notification, a subagent's) already recorded it; sandbox
+        // network prompts send only this.
+        if (a.waitingOn.some((e) => e.includes('|tool:') || e.includes('|elicitation'))) return finish(prev, a);
         return finish(prev, { ...a, waitingOn: adding(a.waitingOn, `${who}|notice`) });
       }
       if (ev.notification_type === 'elicitation_dialog') {
@@ -258,7 +268,7 @@ export function applyHookEvent(prev: TabAgent | undefined, ev: HookEvent): TabAg
         // The main agent's turn is over, so nothing it asked is still open; subagents may still be waiting.
         waitingOn: a.waitingOn.filter((e) => !isAgent('')(e)),
         started: a.started.filter((e) => !isAgent('')(e)),
-        backgroundTasks: backgroundTasks(ev.background_tasks),
+        backgroundTasks: latestBackground(a, ev),
       });
     case 'StopFailure':
       return main ? finish(prev, { ...a, turn: 'error', interrupted: false }) : finish(prev, a);
@@ -267,7 +277,7 @@ export function applyHookEvent(prev: TabAgent | undefined, ev: HookEvent): TabAg
         ...a,
         waitingOn: a.waitingOn.filter((e) => !isAgent(who)(e)),
         started: a.started.filter((e) => !isAgent(who)(e)),
-        backgroundTasks: backgroundTasks(ev.background_tasks),
+        backgroundTasks: latestBackground(a, ev),
       });
     default:
       return finish(prev, a);

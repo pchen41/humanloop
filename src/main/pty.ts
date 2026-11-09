@@ -66,15 +66,14 @@ const STRIPPED_ENV = [
 
 /**
  * If Humanloop was started from inside a Claude Code session, that session's
- * markers (CLAUDECODE, CLAUDE_CODE_SESSION_ID, CLAUDE_CODE_CHILD_SESSION, …)
- * would make every `claude` in a tab think it is a child session. Tabs start
- * login shells, so variables you set in your shell profile come back anyway.
- * ANTHROPIC_* settings (gateway URL, keys) are configuration and are kept.
+ * markers would make every `claude` in a tab think it is a child session, so
+ * they are removed. Claude's configuration is kept: CLAUDE_CONFIG_DIR,
+ * CLAUDE_CODE_USE_BEDROCK and the like, and ANTHROPIC_* (gateway URL, keys).
  */
+const CLAUDE_SESSION_MARKERS = /^(CLAUDECODE|CLAUDE_CODE_(ENTRYPOINT|SESSION_ID|CHILD_SESSION|SSE_PORT|EXECPATH|PARENT_\w+))$/;
+
 function stripped(name: string): boolean {
-  // CLAUDE_CONFIG_DIR is configuration (which Claude profile to use), like ANTHROPIC_*, so it is kept.
-  if (name === 'CLAUDE_CONFIG_DIR') return false;
-  return STRIPPED_ENV.includes(name) || name.startsWith('CLAUDE') || name.startsWith('HUMANLOOP_');
+  return STRIPPED_ENV.includes(name) || CLAUDE_SESSION_MARKERS.test(name) || name.startsWith('HUMANLOOP_');
 }
 
 export function shellEnv(extra: Record<string, string>): Record<string, string> {
@@ -107,6 +106,8 @@ export function usableCwd(dir: string | undefined): string {
 
 export class PtyManager {
   private entries = new Map<string, Entry>();
+  /** What closed tabs left to force-kill, until their grace period ends (quitting does it at once). */
+  private pendingKills = new Set<KillTarget[]>();
   private flushTimer: NodeJS.Timeout | undefined;
 
   constructor(private sink: PtySink) {}
@@ -185,25 +186,31 @@ export class PtyManager {
 
   /**
    * The program running in the tab, if the shell isn't sitting at its prompt:
-   * whatever owns the terminal when that's not the shell itself (a foreground
-   * job such as \`claude\`, \`vim\` or a \`bash script.sh\`, whose name alone
-   * would look like a shell). Undefined at a prompt, or if the shell has exited.
+   * a foreground job (\`claude\`, \`vim\`, or a \`bash script.sh\` whose name
+   * alone would look like a shell), or a program that replaced the shell
+   * with \`exec\`. Undefined at a prompt, or if the shell has exited.
    */
   busyProgram(tabId: string): string | undefined {
-    const e = this.entries.get(tabId);
-    if (!e || e.exited !== undefined) return undefined;
-    const name = this.foregroundProcess(tabId) || 'A program';
-    try {
+    return this.busyPrograms([tabId]).get(tabId);
+  }
+
+  /** busyProgram for several tabs, with one process-table read for all of them. */
+  busyPrograms(tabIds: string[]): Map<string, string> {
+    const live = tabIds.flatMap((id) => {
+      const e = this.entries.get(id);
+      return e && e.exited === undefined ? [{ id, pid: e.proc.pid, name: this.foregroundProcess(id) || 'A program' }] : [];
+    });
+    const busy = new Map<string, string>();
+    if (!live.length) return busy;
+    const groups = processGroups();
+    for (const { id, pid, name } of live) {
+      const looksLikeShell = /^-?(zsh|bash|sh|login)$/.test(name);
+      const g = groups?.get(pid);
       // tpgid: the process group in the terminal's foreground; pgid: the shell's own.
-      const [tpgid, pgid] = execFileSync('/bin/ps', ['-o', 'tpgid=,pgid=', '-p', String(e.proc.pid)], { timeout: 2000 })
-        .toString()
-        .trim()
-        .split(/\s+/)
-        .map(Number);
-      return tpgid === pgid ? undefined : name;
-    } catch {
-      return /^-?(zsh|bash|sh|login)$/.test(name) ? undefined : name;
+      // After `exec`, the program owns the shell's group, so its name tells.
+      if ((g && g.tpgid !== g.pgid) || !looksLikeShell) busy.set(id, name);
     }
+    return busy;
   }
 
   resize(tabId: string, cols: number, rows: number): void {
@@ -257,28 +264,37 @@ export class PtyManager {
    * Its output is no longer collected.
    */
   kill(tabId: string): void {
-    const pids = this.hangUp(tabId);
-    if (pids.length) setTimeout(() => killSurvivors(pids), KILL_GRACE_MS).unref();
+    const targets = this.hangUp(tabId);
+    if (!targets.length) return;
+    this.pendingKills.add(targets);
+    setTimeout(() => {
+      this.pendingKills.delete(targets);
+      forceKill(targets);
+    }, KILL_GRACE_MS).unref();
   }
 
   /**
-   * Sends SIGHUP to the tab's shell and forgets the tab. Returns the shell and
-   * everything running under it, found first, since children of a dead shell
-   * are re-parented and would otherwise be lost track of.
+   * Sends SIGHUP to the tab's shell, as closing a terminal window does, and
+   * forgets the tab. Returns what to force-kill if it's still there later:
+   * the shell and its foreground job (as a process group). Jobs you put in
+   * the background with nohup or disown are left to run, as in Terminal.
    */
-  private hangUp(tabId: string): number[] {
+  private hangUp(tabId: string): KillTarget[] {
     const e = this.entries.get(tabId);
     this.entries.delete(tabId);
     if (!e) return [];
     for (const l of e.listeners) l.dispose();
     if (e.exited !== undefined) return [];
-    const pids = [e.proc.pid, ...descendants(e.proc.pid)];
+    const pid = e.proc.pid;
+    const g = processGroups([pid])?.get(pid);
+    const targets: KillTarget[] = [{ pid }];
+    if (g && g.tpgid > 0 && g.tpgid !== g.pgid) targets.push({ pgid: g.tpgid });
     try {
       e.proc.kill('SIGHUP');
     } catch {
       // already gone
     }
-    return pids;
+    return targets;
   }
 
   /**
@@ -300,15 +316,16 @@ export class PtyManager {
   }
 
   /**
-   * For quitting: hangs up every shell, waits up to `graceMs` for them and
-   * their programs to exit, then SIGKILLs whatever is left, so nothing that
-   * ignores SIGHUP outlives the app.
+   * For quitting: hangs up every shell, waits up to \`graceMs\` for them (and
+   * tabs closed in the last few seconds) to exit, then force-kills what's
+   * left, so nothing that ignores SIGHUP outlives the app.
    */
   async shutdown(graceMs = 1500): Promise<void> {
-    const pids = [...this.entries.keys()].flatMap((id) => this.hangUp(id));
+    const targets = [...[...this.entries.keys()].flatMap((id) => this.hangUp(id)), ...[...this.pendingKills].flat()];
+    this.pendingKills.clear();
     const deadline = Date.now() + graceMs;
-    while (pids.some(alive) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
-    killSurvivors(pids);
+    while (targets.some(running) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 50));
+    forceKill(targets);
   }
 
   private updatePause(e: Entry): void {
@@ -360,45 +377,42 @@ function replayFrom(replay: string): string {
   return nl >= 0 && nl < 4096 ? tail.slice(nl + 1) : tail;
 }
 
-/** Every process below `pid`, from the process table. */
-function descendants(pid: number): number[] {
+/** A process, or a whole process group (a job), to force-kill. */
+type KillTarget = { pid: number } | { pgid: number };
+
+/** pid -> its process group and the terminal's foreground group, for the given pids (or all). */
+function processGroups(pids?: number[]): Map<number, { pgid: number; tpgid: number }> | undefined {
+  const args = pids ? ['-o', 'pid=,pgid=,tpgid=', '-p', pids.join(',')] : ['-axo', 'pid=,pgid=,tpgid='];
   let out: string;
   try {
-    out = execFileSync('/bin/ps', ['-axo', 'pid=,ppid='], { timeout: 2000, maxBuffer: 8 * 1024 * 1024 }).toString();
+    out = execFileSync('/bin/ps', args, { timeout: 2000, maxBuffer: 8 * 1024 * 1024 }).toString();
   } catch {
-    return [];
+    return undefined;
   }
-  const children = new Map<number, number[]>();
+  const groups = new Map<number, { pgid: number; tpgid: number }>();
   for (const line of out.split('\n')) {
-    const [p, pp] = line.trim().split(/\s+/).map(Number);
-    if (!p || pp === undefined) continue;
-    children.set(pp, [...(children.get(pp) ?? []), p]);
+    const [pid, pgid, tpgid] = line.trim().split(/\s+/).map(Number);
+    if (pid && pgid !== undefined && tpgid !== undefined) groups.set(pid, { pgid, tpgid });
   }
-  const found: number[] = [];
-  const queue = [...(children.get(pid) ?? [])];
-  while (queue.length) {
-    const p = queue.shift()!;
-    found.push(p);
-    queue.push(...(children.get(p) ?? []));
-  }
-  return found;
+  return groups;
 }
 
-function alive(pid: number): boolean {
+function running(t: KillTarget): boolean {
   try {
-    process.kill(pid, 0);
+    process.kill('pid' in t ? t.pid : -t.pgid, 0);
     return true;
   } catch {
     return false;
   }
 }
 
-function killSurvivors(pids: number[]): void {
-  for (const pid of pids) {
+function forceKill(targets: KillTarget[]): void {
+  for (const t of targets) {
+    if (!running(t)) continue;
     try {
-      process.kill(pid, 'SIGKILL');
+      process.kill('pid' in t ? t.pid : -t.pgid, 'SIGKILL');
     } catch {
-      // already exited
+      // exited meanwhile
     }
   }
 }

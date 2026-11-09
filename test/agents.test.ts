@@ -271,3 +271,44 @@ describe('review fixes: prompts per tool call', () => {
     expect(a?.cwd).toBe('/proj');
   });
 });
+
+describe('third-round fixes', () => {
+  const perm = (tool: string, input: unknown, extra: HookEvent = {}) => ev('PermissionRequest', { tool_name: tool, tool_input: input, ...extra });
+  const post = (tool: string, input: unknown, extra: HookEvent = {}) => ev('PostToolUse', { tool_name: tool, tool_input: input, ...extra });
+
+  it('closes a prompt you approve after an Esc that only closed a menu', () => {
+    const escaped = applyInterrupt(run([ev('SessionStart'), ev('UserPromptSubmit')]));
+    const asked = run([perm('Bash', { command: 'ls' })], escaped);
+    expect(asked?.state).toBe('needsYou');
+    const approved = run([post('Bash', { command: 'ls' })], asked);
+    expect(approved?.waitingOn).toEqual([]);
+    expect(approved?.state).toBe('idle'); // the Esc still counts until the next prompt or Stop
+  });
+
+  it("doesn't leave a notification-only prompt open after a subagent's approved tool", () => {
+    const asked = run([
+      ev('SessionStart'),
+      ev('UserPromptSubmit'),
+      perm('Bash', { command: 'ls' }, { agent_id: 'sub' }),
+      ev('Notification', { notification_type: 'permission_prompt' }), // no agent_id
+    ]);
+    expect(asked?.waitingOn).toHaveLength(1);
+    expect(run([post('Bash', { command: 'ls' }, { agent_id: 'sub' })], asked)?.state).toBe('working');
+  });
+
+  it('keeps the known background work when SubagentStop reports none', () => {
+    const bg = [{ id: 'b1', type: 'subagent', status: 'running' }];
+    const a = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('Stop', { background_tasks: bg })]);
+    expect(run([ev('SubagentStop', { agent_id: 'x' })], a)?.backgroundTasks).toHaveLength(1);
+    expect(run([ev('SubagentStop', { agent_id: 'x', background_tasks: [] })], a)?.backgroundTasks).toEqual([]);
+  });
+});
+
+describe('hook status', () => {
+  it('needs every event covered, not just the right number of entries', () => {
+    const full = installHooks({}) as { hooks: Record<string, unknown[]> };
+    const broken = { hooks: { ...full.hooks, UserPromptSubmit: [...full.hooks.UserPromptSubmit!, ...full.hooks.UserPromptSubmit!] } };
+    delete (broken.hooks as Record<string, unknown>).Stop;
+    expect(hookStatus(broken)).toBe('outdated');
+  });
+});

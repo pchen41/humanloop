@@ -123,3 +123,17 @@ describe('AgentTracker review fixes', () => {
     expect(t.tracker.snapshot().tab).toMatchObject({ sessionId: 'top', state: 'working' });
   });
 });
+
+describe('AgentTracker third-round fixes', () => {
+  it("accepts a tab whose shell reuses a crashed claude's pid", async () => {
+    // Tab a's claude (pid 500) is killed without SessionEnd, so it stays known.
+    // After pid wrap-around, tab b's shell is pid 500, and its claude 700 runs under it.
+    const t = setup({ a: 100, b: 500 }, { 500: 100 });
+    t.send('a', 500, { hook_event_name: 'SessionStart' });
+    await t.settle();
+    t.setTable({ 700: 500 });
+    t.send('b', 700, { hook_event_name: 'UserPromptSubmit', session_id: 'b-session' });
+    await t.settle();
+    expect(t.tracker.snapshot().b?.state).toBe('working');
+  });
+});
