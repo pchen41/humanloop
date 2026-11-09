@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanloop — nothing waiting on you</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.qn,.age,.term{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#8a8a95;padding:0}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.quiet{color:#55555e}
+.btn.quiet .k{color:#55555e;background:#1f1f24}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600}
+.qh{border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
+.qh.col::before{transform:rotate(-90deg)}
+.qn{font-size:11px;line-height:16px;font-weight:600;color:#6f6f7a}
+.row{display:flex;align-items:center;gap:8px;height:36px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 6px;border:0;border-radius:6px;background:transparent;text-align:left}
+.row.sel{background:#26262b}
+.rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box}
+.rail.agent{background:repeating-linear-gradient(180deg,#5b9cf6 0 4px,transparent 4px 7px)}
+.rail.parked{border:1px solid #4a4a54}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:4px;flex:none}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
+.d.w{background:#5b9cf6}
+.d.ok{border:1.5px solid #6fd2b0}
+.d.sh{border:1px solid #5a5a66}
+.age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
+.g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
+.g.w{background:#5b9cf6}
+.tab{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:18px}
+.tab.on{color:#ededf1;border-bottom-color:#ededf1}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#cfcfd6;white-space:pre}
+.c-dim{color:#7d7d89}.c-org{color:#e48a5b}.c-grn{color:#6ccf9a}.c-blu{color:#7eb0ff}.c-wht{color:#f2f2f6}
+</style>
+
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back to previous task (⌘[)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn">0</span></button>
+      <div style="margin: 4px 16px 8px 18px; font-size: 12px; line-height: 16px; color: #55555e">Nothing waiting on you</div>
+
+      <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">4</span></button>
+      <button class="row"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">14m</span></button>
+      <button class="row sel" aria-current="true"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">10m</span></button>
+      <button class="row"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">49m</span></button>
+      <button class="row"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">26m</span></button>
+
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+
+      <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">4</span></button>
+    </nav>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 16px; position: relative">
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+      <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
+      <button class="btn quiet">Next <span class="k">⌘↩</span></button>
+
+      <div role="status" style="position: absolute; right: 12px; top: 46px; padding: 10px 14px; background: #1a1a1e; border: 1px solid #2a2a30; border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.45); display: flex; flex-direction: column; gap: 2px; z-index: 2; max-width: 280px">
+        <div style="font-weight: 600; font-size: 13px">Nothing else needs you</div>
+        <div style="font-size: 12px; color: #8a8a95; line-height: 17px">All 4 tasks are with Claude.</div>
+      </div>
+    </div>
+
+    <div style="flex: none; height: 44px; padding: 0 20px; display: flex; align-items: center; gap: 14px">
+      <h1 style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Resizable sidebar: persist width across launches</h1>
+      <span style="flex: 1"></span>
+      <button class="btn">Edit</button><button class="btn">Park</button><button class="btn">Done</button>
+    </div>
+
+    <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #222227">
+      <button class="tab on" role="tab" aria-selected="true"><span class="g w"></span><span>claude</span></button>
+      <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; position: relative; background: #0c0c0e">
+<pre class="term" style="padding: 16px 20px; margin: 0"><span class="c-dim">&gt;</span> <span class="c-wht">The sidebar can be dragged wider but snaps back to 300px after a relaunch.
+  Persist the width in settings and clamp it between 240 and 480.</span>
+
+<span class="c-org">●</span> I'll find where the sidebar width lives and where settings are persisted.
+
+<span class="c-grn">●</span> <span class="c-wht">Search</span>(pattern: "sidebarWidth", path: "src")
+  <span class="c-dim">⎿  Found 3 files</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Read</span>(src/renderer/src/App.tsx)
+  <span class="c-dim">⎿  Read 310 lines</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Read</span>(src/shared/normalize.ts)
+  <span class="c-dim">⎿  Read 96 lines</span>
+
+<span class="c-org">●</span> The width is React state in App.tsx and never written back. Settings already
+  round-trip through <span class="c-blu">normalizeSettings</span>, so the cleanest fix is a new
+  <span class="c-blu">sidebarWidth</span> field with a clamp in normalize and a debounced save on drag end.
+
+<span class="c-grn">●</span> <span class="c-wht">Update</span>(src/shared/model.ts)
+  <span class="c-dim">⎿  Updated src/shared/model.ts with 1 addition</span>
+<span class="c-dim">       28</span>    keepAwakeWhileWorking: boolean;
+<span class="c-dim">       29</span> <span class="c-grn">+  sidebarWidth: number;</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Update</span>(src/shared/normalize.ts)
+  <span class="c-dim">⎿  Updated src/shared/normalize.ts with 4 additions</span>
+<span class="c-dim">       61</span> <span class="c-grn">+  sidebarWidth: clamp(</span>
+<span class="c-dim">       62</span> <span class="c-grn">+    typeof raw.sidebarWidth === "number" ? raw.sidebarWidth : 300,</span>
+<span class="c-dim">       63</span> <span class="c-grn">+    240, 480</span>
+<span class="c-dim">       64</span> <span class="c-grn">+  ),</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Update</span>(src/renderer/src/App.tsx)
+  <span class="c-dim">⎿  Updated src/renderer/src/App.tsx with 11 additions and 2 removals</span>
+
+<span class="c-org">✻</span> <span class="c-wht">Writing a test…</span> <span class="c-dim">(esc to interrupt · 10m 02s · ↓ 7.4k tokens)</span></pre>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

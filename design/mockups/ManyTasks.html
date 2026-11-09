@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanloop — many tasks and the jump palette</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.qn,.age,.term{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#8a8a95;padding:0}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
+.btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600;border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
+.qh.col::before{transform:rotate(-90deg)}
+.qn{font-size:11px;line-height:16px;font-weight:600;color:#6f6f7a}
+.qn.you{color:#6fd2b0}
+.row{display:flex;align-items:center;gap:8px;height:30px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 10px;border:0;border-radius:6px;background:transparent;text-align:left}
+.row.sel{background:#26262b}
+.pri{flex:none;width:22px;height:16px;border-radius:4px;background:#34343c;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#ededf1}
+.pri.p0{background:#f16c6c;color:#1b0b0b}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:4px;flex:none}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
+.d.w{background:#5b9cf6}
+.d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.22)}
+.d.ok{border:1.5px solid #6fd2b0}
+.d.sh{border:1px solid #5a5a66}
+.age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
+.age.you{color:#6fd2b0}
+.g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
+.g.n{background:#6fd2b0;box-shadow:0 0 0 3px rgba(111,210,176,.22)}
+.g.sh{border:1.5px solid #5a5a66}
+.tab{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:18px}
+.tab.on{color:#ededf1;border-bottom-color:#ededf1}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#cfcfd6;white-space:pre}
+.c-dim{color:#7d7d89}.c-org{color:#e48a5b}.c-grn{color:#6ccf9a}.c-red{color:#f16c6c}.c-blu{color:#7eb0ff}.c-yel{color:#f2c46b}.c-wht{color:#f2f2f6}
+.res{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:6px;width:100%;border:0;background:transparent;text-align:left}
+.res.on{background:#26262b}
+.res .q{font-size:11px;flex:none;width:84px;text-align:left;color:#6f6f7a}
+.res .q.you{color:#6fd2b0}
+.hl{color:#ededf1;font-weight:600;text-decoration:underline;text-decoration-color:#6fd2b0;text-underline-offset:3px}
+</style>
+
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back to previous task (⌘[)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">9</span></button>
+      <button class="row"><span class="pri p0">P0</span><span class="ttl">Prod: CPU pegged at 100% when 12+ terminals are open at once</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">3m</span></button>
+      <button class="row sel" aria-current="true"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">11m</span></button>
+      <button class="row"><span class="ttl">Shortcut recorder: conflict dialog loses focus after Move</span><span class="dots"><span class="d ok"></span></span><span class="age you">25m</span></button>
+      <button class="row"><span class="ttl">Write release notes for 0.6.0 and refresh the landing-page screenshots</span><span class="dots"><span class="d sh"></span></span><span class="age you">1d</span></button>
+      <button class="row"><span class="ttl">Spike: tmux-style broadcast typing to several tabs in one task</span><span class="dots"><span class="d ok"></span></span><span class="age you">3h 10m</span></button>
+      <button class="row"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">2h 04m</span></button>
+      <button class="row"><span class="ttl">Export task history as JSON for the weekly review</span><span class="dots"><span class="d ok"></span><span class="d sh"></span></span><span class="age you">1h 12m</span></button>
+      <button class="row"><span class="ttl">Find bar: ⌘G wraps around but does not scroll the match into view</span><span class="dots"><span class="d sh"></span></span><span class="age you">52m</span></button>
+      <button class="row"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">38m</span></button>
+
+      <button class="qh col" aria-expanded="false"><span>Agent's turn</span><span class="qn">14</span></button>
+
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">7</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Resume every tab after a crash in one go</span><span class="age">9d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Investigate node-pty hang on macOS 26.1 beta</span><span class="age">11d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Menu bar extra with the Your turn count</span><span class="age">2w</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Import tasks from a Linear view</span><span class="age">3w</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Per-task colour labels</span><span class="age">1mo</span></button>
+
+      <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">12</span></button>
+    </nav>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 16px">
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+      <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
+      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis">Prod: CPU pegged at 100% when 12+ terminals…</span><span class="k">⌘↩</span></button>
+    </div>
+
+    <div style="flex: none; height: 44px; padding: 0 20px; display: flex; align-items: center; gap: 14px">
+      <h1 style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</h1>
+      <span style="flex: 1"></span>
+      <button class="btn">Edit</button><button class="btn">Park</button><button class="btn">Done</button>
+    </div>
+
+    <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #222227">
+      <button class="tab on" role="tab" aria-selected="true"><span class="g n"></span><span>claude</span></button>
+      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>vitest --watch</span></button>
+      <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; position: relative; background: #0c0c0e">
+<pre class="term" style="padding: 16px 20px; margin: 0"><span class="c-dim">&gt;</span> <span class="c-wht">test/queues.test.ts fails about one run in five: "orders Your Turn by priority
+  then wait" gets two tasks swapped. Find out why and fix it properly.</span>
+
+<span class="c-org">●</span> Flaky ordering usually means a tie. Let me see how the comparator breaks ties.
+
+<span class="c-grn">●</span> <span class="c-wht">Read</span>(src/shared/tasks.ts)
+  <span class="c-dim">⎿  Read 142 lines</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Read</span>(test/queues.test.ts)
+  <span class="c-dim">⎿  Read 88 lines</span>
+
+<span class="c-org">●</span> Found it. <span class="c-blu">compareWaiting</span> sorts by <span class="c-blu">waitingSince</span>, and the test creates both
+  tasks inside the same millisecond, so the order falls back to insertion
+  order of the Map, which the test does not control. Two fixes: a stable
+  tiebreak on task id in the comparator, and fixed timestamps in the test.
+
+<span class="c-grn">●</span> <span class="c-wht">Update</span>(src/shared/tasks.ts)
+  <span class="c-dim">⎿  Updated src/shared/tasks.ts with 3 additions and 1 removal</span>
+<span class="c-dim">       57</span>    if (a.priority !== b.priority) return a.priority - b.priority;
+<span class="c-dim">       58</span> <span class="c-red">-  return a.waitingSince - b.waitingSince;</span>
+<span class="c-dim">       58</span> <span class="c-grn">+  if (a.waitingSince !== b.waitingSince) return a.waitingSince - b.waitingSince;</span>
+<span class="c-dim">       59</span> <span class="c-grn">+  // Deterministic tiebreak so equal timestamps never reorder.</span>
+<span class="c-dim">       60</span> <span class="c-grn">+  return a.id &lt; b.id ? -1 : a.id &gt; b.id ? 1 : 0;</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Update</span>(test/queues.test.ts)
+  <span class="c-dim">⎿  Updated test/queues.test.ts with 4 additions and 2 removals</span>
+
+<span class="c-yel">╭──────────────────────────────────────────────────────────────────╮
+│</span> <span class="c-wht">Bash command</span>                                                     <span class="c-yel">│
+│                                                                  │
+│</span>   npm test -- test/queues.test.ts                                <span class="c-yel">│
+│</span>   <span class="c-dim">Run the queue ordering tests 20 times to confirm the fix</span>       <span class="c-yel">│
+│                                                                  │
+│</span> Do you want to proceed?                                          <span class="c-yel">│
+│</span> <span class="c-blu">❯ 1. Yes</span>                                                         <span class="c-yel">│
+│</span>   2. Yes, and don't ask again for <span class="c-wht">npm test</span> commands in this project <span class="c-yel">│
+│</span>   3. No, and tell Claude what to do differently <span class="c-dim">(esc)</span>            <span class="c-yel">│
+╰──────────────────────────────────────────────────────────────────╯</span></pre>
+    </div>
+  </main>
+
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(8,8,10,.55)"></div>
+
+  <div role="dialog" aria-label="Jump to task" style="position: absolute; left: 50%; top: 112px; width: 640px; margin-left: -320px; background: #1a1a1e; border: 1px solid #2f2f36; border-radius: 10px; box-shadow: 0 24px 64px rgba(0,0,0,.6); overflow: hidden">
+    <div style="display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px; border-bottom: 1px solid #26262b">
+      <label for="jump" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Jump to task</label>
+      <input id="jump" value="resum" style="flex: 1; background: transparent; border: 0; color: #ededf1; font: inherit; font-size: 14px; outline: 0; padding: 0">
+      <span style="font-size: 11px; color: #6f6f7a">3 of 44</span>
+    </div>
+    <div style="padding: 6px">
+      <button class="res on"><span class="ttl">Session restore: <span class="hl">resum</span>e prompt shows wrong cwd</span><span class="q you">Your turn</span><span class="age you">38m</span></button>
+      <button class="res"><span class="ttl" style="color: #a3a3ad"><span class="hl">Resum</span>e every tab after a crash in one go</span><span class="q">Parked</span><span class="age">9d</span></button>
+      <button class="res"><span class="ttl" style="color: #a3a3ad"><span class="hl">Resum</span>e offer: show which directory the session was in</span><span class="q">Done</span><span class="age">3d</span></button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

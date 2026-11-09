@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanloop — keyboard shortcuts, recording with a conflict</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.qn,.age,.kc{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#8a8a95;padding:0}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
+.btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.btn.solid{border-color:#2f2f36;background:#1f1f24;color:#ededf1}
+.btn.sm{height:24px;padding:0 8px;font-size:12px;color:#a3a3ad}
+.btn.link{color:#6fd2b0;font-weight:600;padding:0 6px}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600;border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
+.qh.col::before{transform:rotate(-90deg)}
+.qn{font-size:11px;line-height:16px;font-weight:600;color:#6f6f7a}
+.qn.you{color:#6fd2b0}
+.row{display:flex;align-items:center;gap:8px;height:36px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 10px;border:0;border-radius:6px;background:transparent;text-align:left}
+.pri{flex:none;width:22px;height:16px;border-radius:4px;background:#34343c;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#ededf1}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:4px;flex:none}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
+.d.w{background:#5b9cf6}
+.d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.22)}
+.d.ok{border:1.5px solid #6fd2b0}
+.d.sh{border:1px solid #5a5a66}
+.age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
+.age.you{color:#6fd2b0}
+.snav{display:flex;align-items:center;height:30px;padding:0 10px;border-radius:6px;border:0;background:transparent;color:#8a8a95;font-size:12.5px;width:100%;text-align:left}
+.snav.on{background:#26262b;color:#ededf1;font-weight:500}
+.help{font-size:11.5px;line-height:16px;color:#8a8a95}
+.grp{display:flex;flex-direction:column}
+.grp h3{margin:0 0 6px;font-size:12px;color:#8a8a95;font-weight:600;padding:0 10px}
+.srw{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;position:relative}
+.srw .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.srw.hover{background:#1a1a1e}
+.keys{display:inline-flex;gap:3px;align-items:center;border:0;background:transparent;padding:0;height:24px}
+.kc{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:4px;background:#222227;border:1px solid #2f2f36;border-bottom-width:2px;font-size:11px;color:#ededf1;box-sizing:border-box}
+.chg{width:5px;height:5px;border-radius:50%;background:#5b9cf6;flex:none}
+.act{display:inline-flex;gap:2px}
+.rec{display:flex;align-items:center;gap:10px;height:34px;padding:0 10px;border-radius:6px;box-shadow:inset 0 0 0 1px #6fd2b0}
+.recbox{display:inline-flex;align-items:center;gap:6px;height:24px;color:#6fd2b0;font-size:12px}
+.caret{width:1px;height:14px;background:#6fd2b0;display:inline-block}
+.conf{display:flex;align-items:center;gap:4px;height:30px;padding:0 10px;font-size:12px;color:#a3a3ad}
+.conf span{flex:1}
+</style>
+
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back (⌘[)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">3</span></button>
+      <button class="row"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">3m</span></button>
+      <button class="row"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">15m</span></button>
+      <button class="row"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 08m</span></button>
+      <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">4</span></button>
+      <button class="row"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">9m</span></button>
+      <button class="row"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">5m</span></button>
+      <button class="row"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">44m</span></button>
+      <button class="row"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">21m</span></button>
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+      <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">1</span></button>
+    </nav>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 20px">
+      <h1 style="margin: 0; font-size: 13px; font-weight: 600">Settings</h1>
+      <span style="flex: 1"></span>
+      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span>Fix flaky queue ordering test</span><span class="k">⌘↩</span></button>
+      <button class="btn">Close <span class="k">esc</span></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <nav aria-label="Settings sections" style="width: 190px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px">
+        <button class="snav">Turn rules</button>
+        <button class="snav">Tabs</button>
+        <button class="snav">Notifications &amp; power</button>
+        <button class="snav">Claude Code</button>
+        <button class="snav on">Keyboard shortcuts</button>
+      </nav>
+
+      <div style="flex: 1; min-width: 0; overflow: hidden; padding: 18px 40px 0 30px">
+        <div style="max-width: 920px; display: flex; flex-direction: column; gap: 18px">
+          <div style="display: flex; align-items: flex-start; gap: 16px">
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 4px">
+              <h2 style="margin: 0; font-size: 14px; font-weight: 600">Keyboard shortcuts</h2>
+              <p class="help" style="margin: 0">Click a shortcut, then press the new keys. Esc cancels.</p>
+            </div>
+            <button class="btn solid">Reset all</button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 40px">
+            <div class="grp">
+              <h3>Tasks</h3>
+              <div class="srw"><span class="nm">Next task</span><button class="keys" aria-label="Next task: ⌘↩, click to change"><span class="kc">⌘</span><span class="kc">↩</span></button></div>
+              <div class="srw"><span class="nm">New task</span><button class="keys" aria-label="New task: ⌘N"><span class="kc">⌘</span><span class="kc">N</span></button></div>
+              <div class="srw"><span class="nm">Edit task</span><button class="keys" aria-label="Edit task: ⌘E"><span class="kc">⌘</span><span class="kc">E</span></button></div>
+              <div class="srw"><span class="nm">Park task</span><button class="keys" aria-label="Park task: ⌘⇧P"><span class="kc">⌘</span><span class="kc">⇧</span><span class="kc">P</span></button></div>
+              <div class="srw"><span class="nm">Mark done</span><button class="keys" aria-label="Mark done: ⌘D"><span class="kc">⌘</span><span class="kc">D</span></button></div>
+              <div class="srw"><span class="nm">Jump to task</span><button class="keys" aria-label="Jump to task: ⌘K"><span class="kc">⌘</span><span class="kc">K</span></button></div>
+              <div class="srw"><span class="nm">Back</span><button class="keys" aria-label="Back: ⌘["><span class="kc">⌘</span><span class="kc">[</span></button></div>
+              <div class="srw"><span class="nm">Forward</span><button class="keys" aria-label="Forward: ⌘]"><span class="kc">⌘</span><span class="kc">]</span></button></div>
+              <div class="srw"><span class="nm">Raise priority</span><button class="keys" aria-label="Raise priority: ⌘⌥↑"><span class="kc">⌘</span><span class="kc">⌥</span><span class="kc">↑</span></button></div>
+              <div class="srw"><span class="nm">Lower priority</span><button class="keys" aria-label="Lower priority: ⌘⌥↓"><span class="kc">⌘</span><span class="kc">⌥</span><span class="kc">↓</span></button></div>
+              <div class="srw hover"><span class="nm">Toggle sidebar</span><span class="act"><button class="btn sm">Reset</button><button class="btn sm">Remove</button></span><span class="chg" title="Changed from default"></span><button class="keys" aria-label="Toggle sidebar: ⌘⇧S, changed from default ⌘\"><span class="kc">⌘</span><span class="kc">⇧</span><span class="kc">S</span></button></div>
+              <div class="srw"><span class="nm">Settings</span><button class="keys" aria-label="Settings: ⌘,"><span class="kc">⌘</span><span class="kc">,</span></button></div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 18px">
+              <div class="grp">
+                <h3>Tabs</h3>
+                <div class="srw"><span class="nm">New tab</span><button class="keys" aria-label="New tab: ⌘T"><span class="kc">⌘</span><span class="kc">T</span></button></div>
+                <div class="srw"><span class="nm">Close tab</span><button class="keys" aria-label="Close tab: ⌘W"><span class="kc">⌘</span><span class="kc">W</span></button></div>
+                <div class="srw"><span class="nm">Next tab</span><button class="keys" aria-label="Next tab: ⌃Tab"><span class="kc">⌃</span><span class="kc">Tab</span></button></div>
+                <div class="srw"><span class="nm">Previous tab</span><button class="keys" aria-label="Previous tab: ⌃⇧Tab"><span class="kc">⌃</span><span class="kc">⇧</span><span class="kc">Tab</span></button></div>
+                <div class="srw"><span class="nm">Go to tab 1–9</span><button class="keys" aria-label="Go to tab: ⌘1 to ⌘9"><span class="kc">⌘</span><span class="kc">1</span><span class="help">…</span><span class="kc">9</span></button></div>
+                <div class="srw"><span class="nm">Rename tab</span><button class="keys" aria-label="Rename tab: ⌘R"><span class="kc">⌘</span><span class="kc">R</span></button></div>
+                <div class="srw"><span class="nm">Reopen closed tab</span><button class="keys" aria-label="Reopen closed tab: ⌘⇧T"><span class="kc">⌘</span><span class="kc">⇧</span><span class="kc">T</span></button></div>
+                <div class="srw"><span class="nm">Resume all Claude sessions</span><button class="keys" aria-label="Resume all: ⌘⇧R"><span class="kc">⌘</span><span class="kc">⇧</span><span class="kc">R</span></button></div>
+              </div>
+
+              <div class="grp">
+                <h3>Terminal</h3>
+                <div class="srw"><span class="nm">Find</span><button class="keys" aria-label="Find: ⌘F"><span class="kc">⌘</span><span class="kc">F</span></button></div>
+                <div class="srw"><span class="nm">Find next</span><button class="keys" aria-label="Find next: ⌘G"><span class="kc">⌘</span><span class="kc">G</span></button></div>
+                <div class="srw"><span class="nm">Find previous</span><button class="keys" aria-label="Find previous: ⌘⇧G"><span class="kc">⌘</span><span class="kc">⇧</span><span class="kc">G</span></button></div>
+
+                <div class="rec" role="group" aria-label="Recording a shortcut for Clear terminal">
+                  <span class="nm">Clear terminal</span>
+                  <span class="recbox" aria-live="polite"><span class="kc" style="color: #ededf1">⌘</span><span class="kc" style="color: #ededf1">K</span><span class="caret" aria-hidden="true"></span></span>
+                </div>
+                <div class="conf" role="alert">
+                  <span>Used by Jump to task.</span>
+                  <button class="btn sm link">Reassign</button>
+                  <button class="btn sm">Cancel</button>
+                </div>
+
+                <div class="srw"><span class="nm">Scroll to bottom</span><button class="keys" aria-label="Scroll to bottom: ⌘↓"><span class="kc">⌘</span><span class="kc">↓</span></button></div>
+                <div class="srw"><span class="nm">Bigger text</span><button class="keys" aria-label="Bigger text: ⌘="><span class="kc">⌘</span><span class="kc">=</span></button></div>
+                <div class="srw"><span class="nm">Smaller text</span><button class="keys" aria-label="Smaller text: ⌘-"><span class="kc">⌘</span><span class="kc">-</span></button></div>
+                <div class="srw"><span class="nm">Reset text size</span><button class="keys" aria-label="Reset text size: ⌘0"><span class="kc">⌘</span><span class="kc">0</span></button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanloop — no tasks yet</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.qn{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#8a8a95;padding:0}
+.ib:disabled{color:#44444c}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
+.btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.btn.quiet{color:#55555e}
+.btn.quiet .k{color:#55555e;background:#1f1f24}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600;border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
+.qn{font-size:11px;font-weight:600;color:#55555e}
+</style>
+
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back (⌘[)" disabled><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])" disabled><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn">0</span></button>
+      <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">0</span></button>
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">0</span></button>
+      <button class="qh" aria-expanded="true"><span>Done</span><span class="qn">0</span></button>
+    </nav>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 16px">
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+      <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
+      <button class="btn quiet" disabled>Next <span class="k">⌘↩</span></button>
+    </div>
+
+    <div style="flex: 1; display: flex; align-items: center; justify-content: center">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 16px">
+        <h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600; color: #a3a3ad">No tasks yet</h1>
+        <button class="btn primary" style="height: 32px; padding: 0 14px">New task <span class="k">⌘N</span></button>
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

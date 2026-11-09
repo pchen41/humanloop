@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanloop — resume a Claude session after restart</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.qn,.age,.term{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#8a8a95;padding:0}
+.ib:disabled{color:#44444c}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
+.btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.btn.solid{border-color:#2f2f36;background:#1f1f24;color:#ededf1}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600}
+.qh{border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
+.qh.col::before{transform:rotate(-90deg)}
+.qn{font-size:11px;line-height:16px;font-weight:600;color:#6f6f7a}
+.qn.you{color:#6fd2b0}
+.row{display:flex;align-items:center;gap:8px;height:36px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 6px;border:0;border-radius:6px;background:transparent;text-align:left}
+.row.sel{background:#26262b}
+.rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box}
+.rail.you{background:#6fd2b0}
+.rail.parked{border:1px solid #4a4a54}
+.pri{flex:none;width:22px;height:16px;border-radius:4px;background:#34343c;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#ededf1}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:4px;flex:none}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
+.d.sh{border:1px solid #5a5a66}
+.d.rs{border:1.5px dashed #6fd2b0}
+.age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
+.age.you{color:#6fd2b0}
+.g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
+.g.sh{border:1.5px solid #5a5a66}
+.g.rs{border:1.5px dashed #6fd2b0}
+.tab{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 2px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:18px}
+.tab.on{color:#ededf1;border-bottom-color:#ededf1}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#cfcfd6;white-space:pre}
+.c-dim{color:#7d7d89}.c-grn{color:#6ccf9a}.c-blu{color:#7eb0ff}.c-wht{color:#f2f2f6}
+.meta{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12px;line-height:16px;margin:0}
+.meta dt{color:#6f6f7a;margin:0}
+.meta dd{margin:0;color:#ededf1}
+</style>
+
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back (⌘[)" disabled><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])" disabled><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">7</span></button>
+      <button class="row"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d rs"></span><span class="d sh"></span></span><span class="age you">1m</span></button>
+      <button class="row sel" aria-current="true"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d rs"></span><span class="d sh"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age you">1m</span></button>
+      <button class="row"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d rs"></span></span><span class="age you">1m</span></button>
+      <button class="row"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d sh"></span></span><span class="age you">1m</span></button>
+      <button class="row"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d sh"></span></span><span class="age you">1m</span></button>
+      <button class="row"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d sh"></span><span class="d sh"></span></span><span class="age you">1m</span></button>
+      <button class="row"><span class="ttl">Dock badge count ignores parked tasks</span><span class="age you">1m</span></button>
+
+      <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">0</span></button>
+      <div style="margin: 4px 16px 8px 18px; font-size: 12px; line-height: 16px; color: #55555e">Nothing running yet</div>
+
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+    </nav>
+
+    <div style="flex: none; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 18px; font-size: 11.5px; color: #6f6f7a">
+      <span class="d rs" style="width: 7px; height: 7px"></span>
+      <span>3 sessions can be resumed</span>
+      <span style="flex: 1"></span>
+      <span class="k">⌘⇧R</span>
+    </div>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 12px 0 16px">
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+      <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
+      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</span><span class="k">⌘↩</span></button>
+    </div>
+
+    <div style="flex: none; height: 44px; padding: 0 20px; display: flex; align-items: center; gap: 14px">
+      <h1 style="margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Add a shortcut recorder to Settings</h1>
+      <span style="flex: 1"></span>
+      <button class="btn">Edit</button><button class="btn">Park</button><button class="btn">Done</button>
+    </div>
+
+    <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #222227">
+      <button class="tab on" role="tab" aria-selected="true"><span class="g rs"></span><span>claude</span></button>
+      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>claude · review</span></button>
+      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>vite dev</span></button>
+      <button class="tab" role="tab" aria-selected="false"><span class="g sh"></span><span>vitest --watch</span></button>
+      <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; position: relative; background: #0c0c0e; display: flex; flex-direction: column">
+      <div role="dialog" aria-label="Resume Claude session" style="flex: none; margin: 16px 20px 8px; padding: 10px 14px; display: flex; gap: 14px; align-items: center; background: #141417; border: 1px solid #26262b; border-radius: 8px">
+        <span class="g rs"></span>
+        <span style="flex: 1; min-width: 0; font-size: 12.5px; color: #a3a3ad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Claude was running here until 10:41 · <span class="mono">~/Documents/humanloop</span></span>
+        <button class="btn primary" style="height: 26px">Resume <span class="k">⌘↩</span></button>
+        <button class="btn" style="height: 26px">Dismiss</button>
+      </div>
+<pre class="term" style="padding: 4px 20px 16px; margin: 0; flex: 1"><span class="c-dim">Last login: Sat Nov  8 10:43:07 on ttys014</span>
+<span class="c-grn">peter@mbp</span> <span class="c-blu">humanloop</span> <span class="c-dim">(ui-fixes)</span> <span class="c-wht">%</span> <span style="display: inline-block; width: 7px; height: 15px; background: #cfcfd6; vertical-align: -3px"></span></pre>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

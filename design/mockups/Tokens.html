@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Humanloop — design tokens and state language</title>
+</head>
+<body>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.sheet{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.age,.tok{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.sheet h2{margin:0 0 4px;font-size:15px;font-weight:600}
+.sheet h3{margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a8a95;font-weight:600}
+.lead{margin:0;color:#8a8a95;font-size:12.5px;line-height:17px}
+.card{background:#17171a;border:1px solid #2a2a30;border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.sw{display:flex;align-items:center;gap:10px}
+.sw i{width:40px;height:28px;border-radius:6px;flex:none;border:1px solid rgba(255,255,255,.06)}
+.sw b{font-size:12.5px;font-weight:500;display:block}
+.sw .tok{font-size:11px;color:#8a8a95}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.pri{display:inline-flex;align-items:center;justify-content:center;width:22px;height:16px;border-radius:4px;background:#26262b;font-size:10px;font-weight:600;color:#8a8a95}
+.pri.hot{background:#34343c;color:#ededf1}
+.pri.p0{background:#f16c6c;color:#1b0b0b}
+.rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box;display:inline-block}
+.rail.you{background:#6fd2b0}
+.rail.agent{background:repeating-linear-gradient(180deg,#5b9cf6 0 4px,transparent 4px 7px)}
+.rail.parked{border:1px solid #5a5a66}
+.rail.done{background:#34343b}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box;display:inline-block}
+.d.w{background:#5b9cf6;box-shadow:0 0 0 2px rgba(91,156,246,.22)}
+.d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.25)}
+.d.ok{border:1.5px solid #6fd2b0}
+.d.sh{border:1px solid #6a6a76}
+.d.rs{border:1.5px dashed #6fd2b0}
+.g{width:10px;height:10px;border-radius:50%;box-sizing:border-box;display:inline-block}
+.g.w{background:#5b9cf6;box-shadow:0 0 0 3px rgba(91,156,246,.22)}
+.g.n{background:#6fd2b0;box-shadow:0 0 0 3px rgba(111,210,176,.25)}
+.g.ok{border:2px solid #6fd2b0}
+.g.sh{border:1.5px solid #6a6a76}
+.g.rs{border:1.5px dashed #6fd2b0}
+.age{font-size:11px;color:#8a8a95}
+.age.you{color:#6fd2b0}
+.age.agent{color:#7fb0f8}
+.tbl{display:grid;grid-template-columns:150px 70px 70px 1fr;gap:0;font-size:12.5px}
+.tbl > div{display:flex;align-items:center;gap:8px;height:36px;border-top:1px solid #26262b;padding-right:8px}
+.tbl > .h{height:24px;border-top:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a8a95;font-weight:600}
+.tbl .c{justify-content:center}
+.sp{display:flex;align-items:flex-end;gap:14px}
+.sp div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:#8a8a95}
+.sp i{display:block;background:#5b9cf6;opacity:.8;border-radius:2px}
+.rad{display:flex;gap:14px;align-items:flex-end}
+.rad div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:#8a8a95}
+.rad i{display:block;width:44px;height:36px;border:1.5px solid #5b9cf6;background:rgba(91,156,246,.08)}
+.call{position:absolute;font-size:11px;line-height:14px;color:#a3a3ad;white-space:nowrap}
+.call::before{content:"";position:absolute;left:50%;top:-10px;width:1px;height:8px;background:#5a5a66}
+.row{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px 0 6px;border-radius:6px;background:#26262b;position:relative}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+
+<div class="sheet" style="width: 1440px; height: 1240px; box-sizing: border-box; padding: 40px 48px; background: #111113; display: flex; flex-direction: column; gap: 28px">
+
+  <div style="display: flex; align-items: flex-end; gap: 24px">
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+      <h1 style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 600">Humanloop visual language</h1>
+      <p class="lead" style="font-size: 13.5px; line-height: 19px; max-width: 760px">One question organises the whole interface: whose turn is it? Mint always means <strong style="color: #6fd2b0; font-weight: 500">you</strong>, blue always means <strong style="color: #7fb0f8; font-weight: 500">Claude</strong>, and everything else stays grey. Dark, quiet and dense: the terminal is the only thing that should ever be loud.</p>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px">
+
+    <div class="card">
+      <div><h2>Colour</h2><p class="lead">Four greys for depth, three for text, and only four hues, each with one meaning.</p></div>
+      <h3>Surfaces</h3>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px">
+        <div class="sw"><i style="background: #111113"></i><div><b>bg/0 window</b><span class="tok">#111113</span></div></div>
+        <div class="sw"><i style="background: #17171a"></i><div><b>bg/1 chrome</b><span class="tok">#17171A</span></div></div>
+        <div class="sw"><i style="background: #1d1d21"></i><div><b>bg/2 raised</b><span class="tok">#1D1D21</span></div></div>
+        <div class="sw"><i style="background: #26262b"></i><div><b>bg/3 selected</b><span class="tok">#26262B</span></div></div>
+        <div class="sw"><i style="background: #0c0c0e"></i><div><b>bg/terminal</b><span class="tok">#0C0C0E</span></div></div>
+        <div class="sw"><i style="background: #2a2a30"></i><div><b>line</b><span class="tok">#2A2A30 · raised #36363D</span></div></div>
+      </div>
+      <h3>Text</h3>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px">
+        <div class="sw"><i style="background: #ededf1"></i><div><b>fg/1 primary</b><span class="tok">#EDEDF1</span></div></div>
+        <div class="sw"><i style="background: #a3a3ad"></i><div><b>fg/2 secondary</b><span class="tok">#A3A3AD</span></div></div>
+        <div class="sw"><i style="background: #8a8a95"></i><div><b>fg/3 muted</b><span class="tok">#8A8A95 · 5.1:1 on bg/1</span></div></div>
+        <div class="sw"><i style="background: #6f6f7a"></i><div><b>fg/4 hint</b><span class="tok">#6F6F7A · large or decorative only</span></div></div>
+      </div>
+      <h3>Meaning</h3>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px">
+        <div class="sw"><i style="background: #6fd2b0"></i><div><b>you</b><span class="tok">#6FD2B0 · tint 16%</span></div></div>
+        <div class="sw"><i style="background: #5b9cf6"></i><div><b>agent</b><span class="tok">#5B9CF6 · text #7FB0F8</span></div></div>
+        <div class="sw"><i style="background: #6fd2b0"></i><div><b>done</b><span class="tok">same mint, outlined</span></div></div>
+        <div class="sw"><i style="background: #f16c6c"></i><div><b>urgent / danger</b><span class="tok">#F16C6C · P0, destructive</span></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><h2>Type</h2><p class="lead">Inter for the interface, JetBrains Mono for anything the machine says: paths, ages, shortcuts, the terminal.</p></div>
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: baseline; gap: 12px"><span style="font-size: 15px; line-height: 20px; font-weight: 600; flex: 1">Task title in the header</span><span class="tok" style="font-size: 11px; color: #8a8a95">15/20 · 600</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px"><span style="font-size: 13px; line-height: 18px; flex: 1">Body, sidebar titles, controls</span><span class="tok" style="font-size: 11px; color: #8a8a95">13/18 · 400–500</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px"><span style="font-size: 12px; line-height: 16px; color: #a3a3ad; flex: 1">Secondary: explanations, paths line</span><span class="tok" style="font-size: 11px; color: #8a8a95">12/16</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px"><span style="font-size: 11px; line-height: 16px; color: #8a8a95; font-weight: 600; flex: 1">Queue labels</span><span class="tok" style="font-size: 11px; color: #8a8a95">12/16 · 600</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px"><span class="mono" style="font-size: 12.5px; line-height: 18px; flex: 1; color: #cfcfd6">● Read(src/shared/model.ts)</span><span class="tok" style="font-size: 11px; color: #8a8a95">Mono 12.5/18 · xterm</span></div>
+        <div style="display: flex; align-items: baseline; gap: 12px"><span style="flex: 1"><span class="k">⌘↩</span> <span class="age you" style="margin-left: 8px">1h 05m</span> <span class="pri" style="margin-left: 8px">P2</span></span><span class="tok" style="font-size: 11px; color: #8a8a95">Mono 10.5–11</span></div>
+      </div>
+      <h3>Spacing · 4px grid</h3>
+      <div class="sp">
+        <div><i style="width: 4px; height: 4px"></i>4</div>
+        <div><i style="width: 8px; height: 8px"></i>8</div>
+        <div><i style="width: 12px; height: 12px"></i>12</div>
+        <div><i style="width: 16px; height: 16px"></i>16</div>
+        <div><i style="width: 24px; height: 24px"></i>24</div>
+        <div><i style="width: 32px; height: 32px"></i>32</div>
+        <div style="margin-left: auto; align-items: flex-end; text-align: right"><span>heights</span><span style="color: #a3a3ad">header 44 · row 36 · compact 32 · control 28</span></div>
+      </div>
+      <h3>Radius</h3>
+      <div class="rad">
+        <div><i style="border-radius: 4px"></i>4 chips</div>
+        <div><i style="border-radius: 6px"></i>6 controls, rows</div>
+        <div><i style="border-radius: 8px"></i>8 cards, toasts</div>
+        <div><i style="border-radius: 12px"></i>12 window, sheets</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><h2>State language</h2><p class="lead">The same shape at two sizes: a glyph on each tab and a dot per tab in the sidebar. Filled means attention, outlined means settled. The queue a task sits in says whose turn it is, so rows carry no colour of their own.</p></div>
+      <div class="tbl">
+        <div class="h">Per tab</div><div class="h c">Glyph</div><div class="h c">Dot</div><div class="h">Task goes to</div>
+        <div>Claude working</div><div class="c"><span class="g w"></span></div><div class="c"><span class="d w"></span></div><div> Agent's turn</div>
+        <div>Claude needs you</div><div class="c"><span class="g n"></span></div><div class="c"><span class="d n"></span></div><div> Your turn, always</div>
+        <div>Claude done</div><div class="c"><span class="g ok"></span></div><div class="c"><span class="d ok"></span></div><div> Your turn, per the "several tabs" rule</div>
+        <div>No Claude (shell)</div><div class="c"><span class="g sh"></span></div><div class="c"><span class="d sh"></span></div><div> Your turn if nothing else runs</div>
+        <div>Can resume</div><div class="c"><span class="g rs"></span></div><div class="c"><span class="d rs"></span></div><div> Your turn, after a restart</div>
+      </div>
+      <h3>Priority · P0–P3, default P2</h3>
+      <div style="display: flex; gap: 14px; align-items: center; font-size: 12px; color: #a3a3ad; flex-wrap: wrap">
+        <span class="pri p0">P0</span><span class="pri hot">P1</span><span class="pri">P2</span><span class="pri">P3</span>
+      </div>
+      <p class="lead">Lower is more urgent. Only P0 and P1 show a chip in the sidebar; queue order carries the rest.</p>
+    </div>
+  </div>
+
+  <div class="card" style="flex-direction: row; gap: 40px; align-items: flex-start">
+    <div style="width: 300px; flex: none; display: flex; flex-direction: column; gap: 6px">
+      <h2>Anatomy of a sidebar row</h2>
+      <p class="lead">Four things, in reading order. The title is the only part that needs reading; the rest is a chip, dots and a number.</p>
+    </div>
+    <div style="flex: 1; position: relative; height: 96px; padding-top: 8px">
+      <div class="row" style="width: 520px">
+        
+        <span class="pri hot">P1</span>
+        <span class="ttl">Fix flaky queue ordering test</span>
+        <span style="display: inline-flex; gap: 4px"><span class="d n"></span><span class="d sh"></span></span>
+        <span class="age you">40s</span>
+      </div>
+      <span class="call" style="left: 0; top: 56px">priority<br><span style="color: #6f6f7a">P0 and P1 only</span></span>
+      <span class="call" style="left: 130px; top: 56px">title<br><span style="color: #6f6f7a">ellipsis, never wraps</span></span>
+      <span class="call" style="left: 396px; top: 56px">one dot per tab<br><span style="color: #6f6f7a">same colours as above</span></span>
+      <span class="call" style="left: 494px; top: 56px">waiting<br><span style="color: #6f6f7a">mint when it's on you</span></span>
+    </div>
+    <div style="width: 380px; flex: none; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; color: #a3a3ad">
+      <h3>Rules the design keeps</h3>
+      <div style="display: flex; gap: 8px"><span style="color: #6fd2b0">—</span><span>Mint appears only where something is waiting on you: ages, tab glyphs and the Next button.</span></div>
+      <div style="display: flex; gap: 8px"><span style="color: #7fb0f8">—</span><span>Blue is never urgent. A blue task is safe to ignore, so it never flashes or counts in the Dock badge.</span></div>
+      <div style="display: flex; gap: 8px"><span style="color: #8a8a95">—</span><span>Shortcuts are taught quietly: a chip on the Next button, the rest in tooltips, menus and the shortcuts screen. Nothing competes with the terminal.</span></div>
+      <div style="display: flex; gap: 8px"><span style="color: #8a8a95">—</span><span>Opening a task never moves it. Only Claude starting or stopping, or Park and Done, change a queue.</span></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
