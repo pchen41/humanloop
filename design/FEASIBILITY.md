@@ -61,9 +61,9 @@ decisions and stay in even though they are not trivial.
   the window. Render it in the main column instead (sidebar stays), with a 190px section
   nav that scrolls to each section. Mostly layout and CSS; the section components already
   exist. Half a day.
-- **Open new tabs in the current tab's directory.** Landed in e898322: the shell reports
-  its directory, with an `lsof` fallback, and new tabs start there. It is always on and has
-  no setting. The mockup shows it as a toggle with the default directory beneath it; adding
+- **Open new tabs in the current tab's directory.** Already built: a new tab starts in the
+  current tab's shell directory, read from the system with `lsof` (ca5d3db dropped the OSC 7
+  path). It is always on and has no setting. The mockup shows it as a toggle with the default directory beneath it; adding
   the toggle (`Settings` field, `patchSettingsJson`, `normalize.ts`, tests) is small, or
   the Tabs section can simply state the behaviour and keep only the default directory.
 - **Light theme.** `styles.css` already uses CSS variables and `color-scheme: dark`, so the
