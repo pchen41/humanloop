@@ -3,11 +3,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The installer reads ~/.claude/settings.json; point HOME at a throwaway folder.
+// The installer reads Claude's settings.json; point HOME at a throwaway folder,
+// and drop CLAUDE_CONFIG_DIR, which it would use instead (and which may be real).
 let home: string;
 async function installer() {
   vi.resetModules();
   process.env.HOME = home;
+  delete process.env.CLAUDE_CONFIG_DIR;
   return import('../src/main/hookInstaller');
 }
 const settings = () => join(home, '.claude', 'settings.json');

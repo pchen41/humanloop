@@ -48,6 +48,7 @@ const api: HumanloopApi = {
 
   ptyAttach: (tabId, cols, rows, restart) => ipcRenderer.invoke(IPC.ptyAttach, tabId, cols, rows, restart === true),
   ptyWrite: (tabId, data) => ipcRenderer.send(IPC.ptyWrite, tabId, data),
+  ptyWriteBinary: (tabId, data) => ipcRenderer.send(IPC.ptyWriteBinary, tabId, data),
   ptyResize: (tabId, cols, rows) => ipcRenderer.send(IPC.ptyResize, tabId, cols, rows),
   ptyAck: (tabId, chars) => ipcRenderer.send(IPC.ptyAck, tabId, chars),
   onPtyData: (cb) => listen(IPC.ptyData, cb),

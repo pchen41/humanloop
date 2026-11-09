@@ -115,6 +115,8 @@ export interface HumanloopApi {
    */
   ptyAttach(tabId: string, cols: number, rows: number, restart?: boolean): Promise<{ replay: string; exited?: PtyExitInfo }>;
   ptyWrite(tabId: string, data: string): void;
+  /** Bytes as a string of char codes 0–255 (xterm's onBinary), sent as-is, not as UTF-8. */
+  ptyWriteBinary(tabId: string, data: string): void;
   ptyResize(tabId: string, cols: number, rows: number): void;
   ptyAck(tabId: string, chars: number): void;
   onPtyData(cb: (tabId: string, data: string) => void): () => void;
@@ -166,6 +168,7 @@ export const IPC = {
   closeTab: 'tab:close',
   ptyAttach: 'pty:attach',
   ptyWrite: 'pty:write',
+  ptyWriteBinary: 'pty:write-binary',
   ptyResize: 'pty:resize',
   ptyAck: 'pty:ack',
   ptyData: 'pty:data',

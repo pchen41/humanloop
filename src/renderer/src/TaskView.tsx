@@ -82,7 +82,12 @@ export function TaskView(props: Props) {
               aria-selected={tab.id === activeTabId}
               className={`tab ${tab.id === activeTabId ? 'active' : ''}`}
               onMouseDown={(e) => {
-                if (e.button === 0) onSelectTab(tab.id);
+                if (e.button !== 0) return;
+                // A click on the strip would otherwise take focus from the terminal (or Find)
+                // and leave it on the page, where typing goes nowhere.
+                e.preventDefault();
+                onSelectTab(tab.id);
+                if (!findFieldFocused()) requestAnimationFrame(() => terminals.peek(tab.id)?.focus());
               }}
               onAuxClick={(e) => {
                 if (e.button === 1) onCloseTab(tab.id);
@@ -162,7 +167,7 @@ export function TaskView(props: Props) {
               keys={{ next: key('findNext'), previous: key('findPrevious') }}
             />
           )}
-          {/* With Find open, typing stays in its field; switching tab or task moves it to the new terminal. */}
+          {/* With Find focused, typing stays in its field (and it searches the tab you switch to). */}
           <TerminalPane key={activeTabId} tabId={activeTabId} focus={focusTerminal && !findFieldFocused()} />
         </div>
       ) : (

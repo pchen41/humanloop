@@ -179,6 +179,13 @@ export class PtyManager {
     e.proc.write(data);
   }
 
+  /** Raw bytes for the tab's program: xterm's legacy mouse reports, which aren't UTF-8. */
+  writeBytes(tabId: string, data: Buffer): void {
+    const e = this.entries.get(tabId);
+    if (!e || e.exited !== undefined) return;
+    e.proc.write(data);
+  }
+
   /** Whether anything has been typed into the tab's shell since it started. */
   typedInto(tabId: string): boolean {
     return this.entries.get(tabId)?.typed ?? false;
@@ -276,7 +283,7 @@ export class PtyManager {
   /**
    * Sends SIGHUP to the tab's shell, as closing a terminal window does, and
    * forgets the tab. Returns what to force-kill if it's still there later:
-   * the shell and its foreground job (as a process group). Jobs you put in
+   * the shell, its own process group and its foreground job's. Jobs you put in
    * the background with nohup or disown are left to run, as in Terminal.
    */
   private hangUp(tabId: string): KillTarget[] {
@@ -288,6 +295,9 @@ export class PtyManager {
     const pid = e.proc.pid;
     const g = processGroups([pid])?.get(pid);
     const targets: KillTarget[] = [{ pid }];
+    // The shell's own group too: after \`exec\`, a program's children share it. (Jobs the
+    // shell started have groups of their own, so nohup'd ones still survive.)
+    if (g && g.pgid > 0) targets.push({ pgid: g.pgid });
     if (g && g.tpgid > 0 && g.tpgid !== g.pgid) targets.push({ pgid: g.tpgid });
     try {
       e.proc.kill('SIGHUP');

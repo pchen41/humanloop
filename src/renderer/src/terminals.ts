@@ -140,6 +140,10 @@ class TerminalHandle {
     this.term.loadAddon(new WebLinksAddon((_e, url) => openLink(url)));
     this.term.attachCustomKeyEventHandler((e) => this.handleKey(e));
     this.term.onData((data) => this.input(data));
+    // Mouse reports in xterm's default (X10) encoding come here: bytes, not text.
+    this.term.onBinary((data) => {
+      if (!this.replaying && this.exited === undefined && this.attached) api.ptyWriteBinary(this.tabId, data);
+    });
     this.term.onTitleChange((title) => {
       this.title = title;
       this.onTitle();

@@ -678,6 +678,9 @@ function registerIpc(): void {
     if (INTERRUPT_KEYS.has(data)) tracker.interrupt(tabId);
     ptys.write(tabId, data);
   });
+  ipcMain.on(IPC.ptyWriteBinary, (_e, tabId: unknown, data: unknown) => {
+    if (typeof tabId === 'string' && typeof data === 'string') ptys.writeBytes(tabId, Buffer.from(data, 'latin1'));
+  });
   ipcMain.on(IPC.ptyResize, (_e, tabId: unknown, cols: unknown, rows: unknown) => {
     if (typeof tabId === 'string' && typeof cols === 'number' && typeof rows === 'number') ptys.resize(tabId, cols, rows);
   });
@@ -826,7 +829,17 @@ app.on('before-quit', (e) => {
           'Quit',
         ));
       if (!ok) return;
-      await stateStore.flush();
+      // Quitting now would lose what couldn't be saved (a full disk, say): say so first.
+      if (
+        !(await stateStore.flush()) &&
+        !(await confirm(
+          "Your tasks couldn't be saved",
+          `Humanloop couldn't write ${stateFile}. If you quit now, changes since the last save are lost.`,
+          'Quit Anyway',
+        ))
+      ) {
+        return;
+      }
       hookServer.stop(); // sessions ending now shouldn't clear their resume records
       // Give shells and their programs a moment to exit, then make sure they have.
       await ptys.shutdown();

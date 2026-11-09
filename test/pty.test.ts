@@ -71,6 +71,23 @@ describe('PtyManager', () => {
     expect(found()).toEqual([]);
   }, 15000);
 
+  it('on quit, stops what a program that replaced the shell (exec) started', async () => {
+    start();
+    ptys.attach('t', opts);
+    await wait(800);
+    // bash ignores the hang-up, as does its background child; both are in the shell's process group.
+    ptys.write('t', `exec /bin/bash -c 'trap "" HUP; ${ignoringHup('hl-hup-exec').replace(/'/g, `'\\''`)} & wait'\r`);
+    const found = named('hl-hup-exec');
+    await until(() => found().length === 1);
+    await ptys.shutdown(1000);
+    await wait(200);
+    try {
+      expect(found()).toEqual([]);
+    } finally {
+      for (const l of found()) process.kill(Number(l.trim().split(/\s+/)[0]), 'SIGKILL');
+    }
+  }, 15000);
+
   it('leaves a nohup job running, as closing a Terminal window does', async () => {
     start();
     ptys.attach('t', opts);

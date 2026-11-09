@@ -121,11 +121,15 @@ export class JsonStore<T> {
     return this.chain;
   }
 
-  /** Waits for any write in progress, then writes whatever is still pending. Call before quitting. */
-  async flush(): Promise<void> {
+  /**
+   * Waits for any write in progress, then writes whatever is still pending.
+   * Call before quitting. False if the newest value couldn't be written.
+   */
+  async flush(): Promise<boolean> {
     await this.write();
     clearTimeout(this.timer);
     this.timer = undefined;
+    return this.latest === undefined;
   }
 
   /**
