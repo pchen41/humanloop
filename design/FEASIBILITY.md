@@ -61,12 +61,11 @@ decisions and stay in even though they are not trivial.
   the window. Render it in the main column instead (sidebar stays), with a 190px section
   nav that scrolls to each section. Mostly layout and CSS; the section components already
   exist. Half a day.
-- **Open new tabs in the current tab's directory** (global setting, default on). Nothing
-  tracks a shell's cwd today: `ptyAttach` uses `task.defaultCwd ?? settings.defaultCwd`.
-  Smallest implementation: on New tab, read the active tab's shell cwd from its pid
-  (`lsof -a -p <pid> -d cwd -Fn`, or `proc_pidinfo` via a tiny native call) in the main
-  process, fall back to the task/default directory if that fails. Add `openInCurrentDir`
-  to `Settings`, `patchSettingsJson`, `normalize.ts` and the settings tests. Half a day.
+- **Open new tabs in the current tab's directory.** Landed in e898322: the shell reports
+  its directory, with an `lsof` fallback, and new tabs start there. It is always on and has
+  no setting. The mockup shows it as a toggle with the default directory beneath it; adding
+  the toggle (`Settings` field, `patchSettingsJson`, `normalize.ts`, tests) is small, or
+  the Tabs section can simply state the behaviour and keep only the default directory.
 - **Light theme.** `styles.css` already uses CSS variables and `color-scheme: dark`, so the
   chrome is a second variable set under `prefers-color-scheme: light`. The terminal needs a
   second `THEME` and a `matchMedia` listener to swap it on open terminals. Values are in
