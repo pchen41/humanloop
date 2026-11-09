@@ -181,3 +181,56 @@ describe('hook installer', () => {
     expect(hookStatus({})).toBe('missing');
   });
 });
+
+describe('review fixes: prompts per tool call', () => {
+  const perm = (tool: string, input: unknown, extra: HookEvent = {}) => ev('PermissionRequest', { tool_name: tool, tool_input: input, ...extra });
+  const post = (tool: string, input: unknown, extra: HookEvent = {}) => ev('PostToolUse', { tool_name: tool, tool_input: input, ...extra });
+
+  it('keeps needs you while a second parallel prompt is still open', () => {
+    const two = run([ev('SessionStart'), ev('UserPromptSubmit'), perm('WebFetch', { url: 'a' }), perm('WebFetch', { url: 'b' })]);
+    const one = run([post('WebFetch', { url: 'a' })], two);
+    expect(one?.state).toBe('needsYou');
+    expect(run([post('WebFetch', { url: 'b' })], one)?.state).toBe('working');
+  });
+
+  it("doesn't let another tool finishing answer a prompt", () => {
+    const asked = run([ev('SessionStart'), ev('UserPromptSubmit'), perm('Bash', { command: 'rm x' })]);
+    expect(run([post('Read', { file: 'y' })], asked)?.state).toBe('needsYou');
+    expect(run([ev('PreToolUse', { tool_name: 'Read' })], asked)?.state).toBe('needsYou');
+  });
+
+  it('answers a prompt whose input was changed on approval', () => {
+    const asked = run([ev('SessionStart'), ev('UserPromptSubmit'), perm('Bash', { command: 'npm test' })]);
+    expect(run([post('Bash', { command: 'npm test -- --watch=false' })], asked)?.state).toBe('working');
+  });
+
+  it("attributes a subagent's question to the subagent", () => {
+    const asked = run([ev('SessionStart'), ev('UserPromptSubmit'), ev('Elicitation', { agent_id: 'sub' })]);
+    // The main agent stopping doesn't close the subagent's question...
+    expect(run([ev('Stop')], asked)?.state).toBe('needsYou');
+    // ...but the subagent's own result or stop does.
+    expect(run([ev('ElicitationResult', { agent_id: 'sub' })], asked)?.state).toBe('working');
+    expect(run([ev('Stop'), ev('SubagentStop', { agent_id: 'sub' })], asked)?.state).toBe('idle');
+  });
+
+  it("clears a subagent's prompt left open by an interrupt on your next prompt", () => {
+    const asked = applyInterrupt(run([ev('SessionStart'), ev('UserPromptSubmit'), perm('Bash', {}, { agent_id: 'sub' })]));
+    const next = run([ev('UserPromptSubmit'), ev('Stop')], asked);
+    expect(next?.state).toBe('idle');
+    expect(next?.waitingOn).toEqual([]);
+  });
+
+  it('treats a new tool or prompt after Esc as Claude working again', () => {
+    const stopped = applyInterrupt(run([ev('SessionStart'), ev('UserPromptSubmit')]));
+    expect(stopped?.state).toBe('idle');
+    // Esc only closed a menu: Claude carries on with the next tool, and its completion counts.
+    const going = run([ev('PreToolUse', { tool_name: 'Read' })], stopped);
+    expect(going).toMatchObject({ state: 'working', interrupted: false });
+    expect(run([post('Read', {})], stopped)?.state).toBe('idle'); // a lone completion is still stale
+  });
+
+  it("keeps the session's starting directory for resume", () => {
+    const a = run([ev('SessionStart', { cwd: '/proj' }), ev('UserPromptSubmit', { cwd: '/proj/sub' }), ev('Stop', { cwd: '/proj/sub' })]);
+    expect(a?.cwd).toBe('/proj');
+  });
+});

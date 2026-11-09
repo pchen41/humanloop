@@ -70,6 +70,8 @@ export const COMMAND_GROUPS: { title: string; ids: CommandId[] }[] = [
   { title: 'Terminal', ids: ['find', 'findNext', 'findPrevious', 'clearTerminal'] },
 ];
 
+export const COMMAND_IDS: ReadonlySet<string> = new Set(COMMANDS.map((c) => c.id));
+
 export function commandById(id: CommandId): CommandDef {
   const def = COMMANDS.find((c) => c.id === id);
   if (!def) throw new Error(`unknown command ${id}`);

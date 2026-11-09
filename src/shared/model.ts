@@ -1,9 +1,7 @@
 // Data model shared by the main process, preload bridge and renderer.
 // Everything in AppState is saved to disk; runtime-only state lives elsewhere.
 
-import { COMMANDS } from './commands';
-
-const COMMAND_IDS = new Set<string>(COMMANDS.map((c) => c.id));
+import { COMMAND_IDS } from './commands';
 
 export type Queue = 'yourTurn' | 'agentsTurn' | 'parked' | 'done';
 
@@ -17,9 +15,11 @@ export const QUEUE_LABELS: Record<Queue, string> = {
 };
 
 /** P0 comes first. */
-export type Priority = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+export type Priority = 0 | 1 | 2 | 3;
 
-export const DEFAULT_PRIORITY: Priority = 5;
+export const PRIORITIES: readonly Priority[] = [0, 1, 2, 3];
+
+export const DEFAULT_PRIORITY: Priority = 2;
 
 export interface Policy {
   multiAgent: 'any' | 'all';
@@ -97,11 +97,22 @@ export interface Settings {
   notifications: boolean;
   /** Keep the Mac from idle-sleeping while Claude is working in any task. */
   keepAwake: boolean;
+  /**
+   * Option sends Meta (Esc+key) in terminals, for zsh word movement. Turn it
+   * off on layouts that type characters like @ { } [ ] | with Option.
+   */
+  optionAsMeta: boolean;
 }
 
 export const EMPTY_STATE: AppState = { tasks: [], history: [], historyIndex: -1 };
 
-export const DEFAULT_SETTINGS: Settings = { policy: DEFAULT_POLICY, shortcuts: {}, notifications: true, keepAwake: false };
+export const DEFAULT_SETTINGS: Settings = {
+  policy: DEFAULT_POLICY,
+  shortcuts: {},
+  notifications: true,
+  keepAwake: false,
+  optionAsMeta: true,
+};
 
 /** A change made in the settings screen. A null defaultCwd clears it. */
 export interface SettingsPatch {
@@ -109,6 +120,7 @@ export interface SettingsPatch {
   defaultCwd?: string | null;
   notifications?: boolean;
   keepAwake?: boolean;
+  optionAsMeta?: boolean;
   /** Command id -> accelerator; "" removes the shortcut, null puts the default back. */
   shortcuts?: Record<string, string | null>;
 }
@@ -130,7 +142,7 @@ export function patchSettingsJson(raw: Record<string, unknown>, patch: SettingsP
     if (cwd) out.defaultCwd = cwd;
     else delete out.defaultCwd;
   }
-  for (const key of ['notifications', 'keepAwake'] as const) {
+  for (const key of ['notifications', 'keepAwake', 'optionAsMeta'] as const) {
     if (typeof patch[key] === 'boolean') out[key] = patch[key];
   }
   if (typeof patch.shortcuts === 'object' && patch.shortcuts !== null && !Array.isArray(patch.shortcuts)) {

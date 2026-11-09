@@ -1,7 +1,7 @@
 // Pure state updates for tasks, tabs and history. No Electron imports, so
 // these run in unit tests and in either process.
 
-import { cleanPolicy, DEFAULT_PRIORITY, type AppState, type Queue, type Tab, type Task, type TaskDraft } from './model';
+import { cleanPolicy, DEFAULT_PRIORITY, PRIORITIES, type AppState, type Priority, type Queue, type Tab, type Task, type TaskDraft } from './model';
 
 export const HISTORY_LIMIT = 500;
 
@@ -34,7 +34,7 @@ function cleanDraft(draft: Partial<TaskDraft>): Partial<TaskDraft> {
   const out: Partial<TaskDraft> = {};
   if (typeof draft.title === 'string') out.title = draft.title.trim() || 'Untitled task';
   if (typeof draft.description === 'string') out.description = draft.description.trim();
-  if (Number.isInteger(draft.priority) && draft.priority! >= 0 && draft.priority! <= 9) out.priority = draft.priority;
+  if (PRIORITIES.includes(draft.priority as Priority)) out.priority = draft.priority;
   if ('defaultCwd' in draft) {
     out.defaultCwd = typeof draft.defaultCwd === 'string' ? draft.defaultCwd.trim() || undefined : undefined;
   }

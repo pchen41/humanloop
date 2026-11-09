@@ -2,15 +2,49 @@
 // the user picks the menu item. Backs the file up first and leaves everything
 // that isn't Humanloop's untouched.
 
+import { execFile } from 'node:child_process';
 import { copyFileSync, existsSync, lstatSync, readFileSync, readlinkSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { dialog, type BrowserWindow } from 'electron';
-import { HOOK_EVENTS, hookStatus, installHooks, removeHooks, type HookStatus } from '../shared/hooks';
+import { HOOK_EVENTS, hookStatus, installHooks, removeHooks } from '../shared/hooks';
+import type { HookState } from '../shared/ipc';
 import { writeJsonSync } from './store';
 
-const SETTINGS = join(homedir(), '.claude', 'settings.json');
-const SHORT = '~/.claude/settings.json';
+/**
+ * Claude Code's config folder: $CLAUDE_CONFIG_DIR if your shell sets it,
+ * else ~/.claude. Read from a login shell, because that's the environment
+ * Claude runs in inside Humanloop's tabs (the app itself may have been opened
+ * from Finder, without your shell's variables).
+ */
+let configDir = process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
+
+export function resolveClaudeConfigDir(): Promise<void> {
+  const MARK = '__humanloop_config_dir__';
+  return new Promise((done) => {
+    execFile(
+      '/bin/zsh',
+      ['-lic', `printf '\\n${MARK}%s\\n' "$CLAUDE_CONFIG_DIR"`],
+      { timeout: 5000, env: { HOME: homedir(), PATH: '/usr/bin:/bin:/usr/sbin:/sbin', TERM: 'dumb' } },
+      (_err, stdout) => {
+        const line = String(stdout ?? '').split('\n').find((l) => l.startsWith(MARK));
+        const dir = line?.slice(MARK.length).trim();
+        if (line !== undefined) configDir = dir ? resolve(homedir(), dir.replace(/^~(?=\/|$)/, homedir())) : join(homedir(), '.claude');
+        done();
+      },
+    );
+  });
+}
+
+function settingsFile(): string {
+  return join(configDir, 'settings.json');
+}
+
+/** The settings file as shown to you, with ~ for your home folder. */
+function shortPath(): string {
+  const p = settingsFile();
+  return p.startsWith(homedir() + '/') ? `~${p.slice(homedir().length)}` : p;
+}
 
 type Json = Record<string, unknown>;
 
@@ -20,7 +54,7 @@ type Json = Record<string, unknown>;
  * so writing never replaces the link with a plain file.
  */
 function targetPath(): string {
-  let path = SETTINGS;
+  let path = settingsFile();
   for (let i = 0; i < 16; i++) {
     let st;
     try {
@@ -31,7 +65,7 @@ function targetPath(): string {
     if (!st.isSymbolicLink()) return path;
     path = resolve(dirname(path), readlinkSync(path));
   }
-  throw new Error(`${SHORT} is a symlink loop.`);
+  throw new Error(`${shortPath()} is a symlink loop.`);
 }
 
 type ReadResult = { ok: true; path: string; settings: Json; text: string | undefined } | { ok: false; error: string };
@@ -48,17 +82,21 @@ function read(): ReadResult {
     const text = readFileSync(path, 'utf8');
     const parsed: unknown = JSON.parse(text);
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      return { ok: false, error: `${SHORT} does not contain a JSON object.` };
+      return { ok: false, error: `${shortPath()} does not contain a JSON object.` };
     }
     return { ok: true, path, settings: parsed as Json, text };
   } catch (err) {
-    return { ok: false, error: `${SHORT} could not be read: ${err instanceof Error ? err.message : String(err)}` };
+    return { ok: false, error: `${shortPath()} could not be read: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
 
-export function currentHookStatus(): HookStatus | 'unreadable' {
+export function currentHookStatus(): HookState {
   const r = read();
-  return r.ok ? hookStatus(r.settings) : 'unreadable';
+  if (!r.ok) return 'unreadable';
+  const status = hookStatus(r.settings);
+  // Installed, but Claude is told not to run any hooks at all.
+  if (status !== 'missing' && r.settings.disableAllHooks === true) return 'disabled';
+  return status;
 }
 
 function stamp(): string {
@@ -98,7 +136,7 @@ export async function installWithConfirm(win: BrowserWindow | undefined): Promis
     type: 'info',
     message: 'Install Claude Code hooks?',
     detail:
-      `Humanloop will add one hook for each of ${HOOK_EVENTS.length} events to ${SHORT}, after any hooks you already have` +
+      `Humanloop will add one hook for each of ${HOOK_EVENTS.length} events to ${shortPath()}, after any hooks you already have` +
       `${r.text !== undefined ? ', and save a backup of the file next to it' : ''}.\n\n` +
       'The hooks only report to Humanloop from its own tabs. Anywhere else they exit at once and do nothing.\n\n' +
       'Claude sessions that are already running may need a restart to pick them up.',
@@ -112,7 +150,7 @@ export async function installWithConfirm(win: BrowserWindow | undefined): Promis
     await message(win, {
       type: 'info',
       message: 'Hooks installed',
-      detail: backup ? `Backup saved to ${backup.replace(homedir(), '~')}` : `Created ${SHORT}.`,
+      detail: backup ? `Backup saved to ${backup.replace(homedir(), '~')}` : `Created ${shortPath()}.`,
     });
   } catch (err) {
     await message(win, { type: 'error', message: 'Could not install hooks', detail: String(err) });
@@ -128,7 +166,7 @@ export async function removeWithConfirm(win: BrowserWindow | undefined): Promise
   const { response } = await message(win, {
     type: 'question',
     message: 'Remove Claude Code hooks?',
-    detail: `Humanloop's entries will be removed from ${SHORT}. Your own hooks and settings stay as they are. Without the hooks, Humanloop can't tell when Claude is working or waiting.`,
+    detail: `Humanloop's entries will be removed from ${shortPath()}. Your own hooks and settings stay as they are. Without the hooks, Humanloop can't tell when Claude is working or waiting.`,
     buttons: ['Remove', 'Cancel'],
     defaultId: 0,
     cancelId: 1,

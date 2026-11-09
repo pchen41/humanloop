@@ -6,7 +6,7 @@ import { effectivePolicy, type Settings, type Task } from '../../shared/model';
 import type { ResumeOffer } from '../../shared/ipc';
 import { AgentDot, backgroundSummary } from './AgentDot';
 import { FindBar } from './FindBar';
-import { formatAccelerator, shortenHome } from './format';
+import { formatAccelerator, shellQuote, shortenHome } from './format';
 import { terminals } from './terminals';
 
 const api = window.humanloop;
@@ -32,6 +32,17 @@ interface Props {
 export function TaskView(props: Props) {
   const { task, activeTabId, settings, homeDir, agents, onSelectTab, onCloseTab, onNewTab, onEdit, focusTerminal } = props;
   const offer = activeTabId ? props.resume[activeTabId] : undefined;
+  /** Tabs 1–8 have their own shortcut; the "last tab" one (⌘9) belongs to the last tab, wherever it is. */
+  const tabKey = (i: number): string => {
+    const last = task.tabs.length - 1;
+    if (i === last && last >= 8) return key('tab9');
+    return i < 8 ? key(`tab${i + 1}` as CommandId) : '';
+  };
+
+  // Keep the selected tab in view when the tab bar scrolls.
+  useEffect(() => {
+    document.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [activeTabId]);
   const [resumeError, setResumeError] = useState<{ tabId: string; text: string }>();
   // Terminal titles (set by programs like Claude Code) live outside React.
   useSyncExternalStore(terminals.subscribe, terminals.getVersion);
@@ -78,7 +89,7 @@ export function TaskView(props: Props) {
                 />
               )}
               <span className="tab-title">{title}</span>
-              {i < 9 && <span className="tab-key">⌘{i + 1}</span>}
+              {tabKey(i) && <span className="tab-key">{tabKey(i)}</span>}
               <button
                 className="tab-close"
                 aria-label="Close tab"
@@ -122,7 +133,18 @@ export function TaskView(props: Props) {
       )}
 
       {activeTabId ? (
-        <div className="terminal-area">
+        <div
+          className="terminal-area"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            // Dropping files types their paths, quoted, like Terminal does.
+            e.preventDefault();
+            const paths = api.pathsForFiles([...e.dataTransfer.files]);
+            if (!paths.length) return;
+            api.ptyWrite(activeTabId, paths.map(shellQuote).join(' ') + ' ');
+            terminals.peek(activeTabId)?.focus();
+          }}
+        >
           {props.find && (
             <FindBar
               tabId={activeTabId}
@@ -130,6 +152,7 @@ export function TaskView(props: Props) {
               focusSignal={props.find.focusSignal}
               onQuery={props.onFindQuery}
               onClose={props.onCloseFind}
+              keys={{ next: key('findNext'), previous: key('findPrevious') }}
             />
           )}
           <TerminalPane key={activeTabId} tabId={activeTabId} focus={focusTerminal && !props.find} />

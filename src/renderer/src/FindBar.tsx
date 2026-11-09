@@ -8,10 +8,12 @@ interface Props {
   onClose(): void;
   /** Bumped each time ⌘F is pressed, to refocus and select the field. */
   focusSignal: number;
+  /** The Find Next / Find Previous shortcuts, for the buttons' tooltips. */
+  keys: { next: string; previous: string };
 }
 
 /** Find in the active terminal's scrollback (⌘F). Return finds the next match, Shift+Return the previous. */
-export function FindBar({ tabId, query, onQuery, onClose, focusSignal }: Props) {
+export function FindBar({ tabId, query, onQuery, onClose, focusSignal, keys }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const [result, setResult] = useState<{ index: number; count: number }>();
 
@@ -64,10 +66,10 @@ export function FindBar({ tabId, query, onQuery, onClose, focusSignal }: Props) 
         }}
       />
       <span className="find-status">{status}</span>
-      <button type="button" className="ghost" title="Previous (⇧⌘G)" onClick={() => search(query, 'previous')}>
+      <button type="button" className="ghost" title={keys.previous ? `Previous (${keys.previous})` : 'Previous'} onClick={() => search(query, 'previous')}>
         ‹
       </button>
-      <button type="button" className="ghost" title="Next (⌘G)" onClick={() => search(query, 'next')}>
+      <button type="button" className="ghost" title={keys.next ? `Next (${keys.next})` : 'Next'} onClick={() => search(query, 'next')}>
         ›
       </button>
       <button type="button" className="ghost" title="Close (Esc)" onClick={onClose}>

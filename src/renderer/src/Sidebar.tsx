@@ -8,6 +8,8 @@ import { tasksInQueue } from '../../shared/tasks';
 import { formatAccelerator, formatWait } from './format';
 
 interface Props {
+  /** True while a dialog is open over the window. */
+  inert?: boolean;
   state: AppState;
   settings: Settings;
   agents: Record<string, TabAgent>;
@@ -83,7 +85,7 @@ function Resizer() {
   return <div className="sidebar-resizer" onPointerDown={onPointerDown} onDoubleClick={reset} title="Drag to resize" />;
 }
 
-export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew }: Props) {
+export function Sidebar({ inert, state, settings, agents, onOpen, onEdit, onMenu, onNew }: Props) {
   const now = useNow();
   const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
     yourTurn: false,
@@ -92,10 +94,14 @@ export function Sidebar({ state, settings, agents, onOpen, onEdit, onMenu, onNew
     done: true,
   });
   const stateOf = agentStateOf(agents, settings.policy);
+  // Keep the open task in view, e.g. after Next task or Back opens one further down.
+  useEffect(() => {
+    document.querySelector('.task-row.open')?.scrollIntoView({ block: 'nearest' });
+  }, [state.openTaskId]);
   const newTaskKey = formatAccelerator(acceleratorFor(settings, 'newTask'));
 
   return (
-    <nav className="sidebar" data-testid="sidebar">
+    <nav className="sidebar" data-testid="sidebar" inert={inert}>
       <Resizer />
       <div className="sidebar-top" />
       <div className="queues">

@@ -36,7 +36,7 @@ describe('patchSettingsJson', () => {
 
 describe('per-task overrides', () => {
   it('saves only valid override fields from a draft', () => {
-    let s = T.createTask(EMPTY_STATE, { title: 'a', description: '', priority: 5, policy: { backgroundShellsBusy: true } }, 'a', 1);
+    let s = T.createTask(EMPTY_STATE, { title: 'a', description: '', priority: 2, policy: { backgroundShellsBusy: true } }, 'a', 1);
     expect(T.findTask(s, 'a')?.policy).toEqual({ backgroundShellsBusy: true });
     expect(hasOverrides(T.findTask(s, 'a')!)).toBe(true);
     s = T.updateTask(s, 'a', { policy: { multiAgent: 'most' as never } });
@@ -56,7 +56,7 @@ describe('per-task overrides', () => {
       interrupted: false,
       backgroundTasks: [{ id: 'b', type: 'shell', status: 'running' }],
     };
-    let s = T.createTask(EMPTY_STATE, { title: 'dev', description: '', priority: 5 }, 'dev', 1);
+    let s = T.createTask(EMPTY_STATE, { title: 'dev', description: '', priority: 2 }, 'dev', 1);
     s = T.addTab(s, 'dev', { id: 't', title: 'zsh' });
     const agents = { t: shell };
     // By default background shells are ignored, so the task is your turn.

@@ -202,15 +202,17 @@ button.primary kbd {
   color: var(--p-cool);
   background: rgba(138, 138, 148, 0.14);
 }
-.priority.p0,
-.priority.p1 {
+.priority.p0 {
   color: var(--p-hot);
   background: rgba(242, 119, 122, 0.14);
 }
-.priority.p2,
-.priority.p3 {
+.priority.p1 {
   color: var(--p-warm);
   background: rgba(240, 179, 94, 0.14);
+}
+.priority.p3 {
+  color: var(--text-faint);
+  background: rgba(138, 138, 148, 0.08);
 }
 
 .new-task {
@@ -233,6 +235,18 @@ button.primary kbd {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+/* Like a title bar: only the strip along the top of the window drags it.
+   Buttons in the strip opt out with no-drag. */
+.main::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar);
+  -webkit-app-region: drag;
+  pointer-events: none;
 }
 .notice {
   position: absolute;
@@ -264,7 +278,6 @@ button.primary kbd {
   justify-content: center;
   gap: 12px;
   color: var(--text-muted);
-  -webkit-app-region: drag;
 }
 .empty-main button {
   -webkit-app-region: no-drag;
@@ -289,7 +302,6 @@ button.primary kbd {
   flex: none;
   padding: 10px 16px 8px;
   min-height: var(--titlebar);
-  -webkit-app-region: drag;
 }
 .task-header button {
   -webkit-app-region: no-drag;
@@ -414,6 +426,9 @@ button.primary kbd {
 /* ---------- modal ---------- */
 
 .modal-backdrop {
+  /* Electron treats drag regions as draggable even under an overlay, which
+     would swallow clicks on the dialog; this turns dragging off while it's open. */
+  -webkit-app-region: no-drag;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
@@ -426,6 +441,9 @@ button.primary kbd {
 .modal {
   width: 520px;
   max-width: calc(100vw - 32px);
+  /* Short windows scroll the dialog instead of pushing Save off screen. */
+  max-height: calc(100vh - 12vh - 32px);
+  overflow-y: auto;
   background: var(--bg-sidebar);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -530,8 +548,6 @@ textarea {
 
 .modal.settings {
   width: 560px;
-  max-height: calc(100vh - 12vh - 32px);
-  overflow-y: auto;
   gap: 18px;
 }
 .modal section {

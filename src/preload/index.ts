@@ -1,6 +1,6 @@
 // Exposes a typed, minimal API to the renderer. The renderer never sees ipcRenderer itself.
 
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import { IPC, TERMINAL_EDIT, type HumanloopApi } from '../shared/ipc';
 
 function listen<A extends unknown[]>(channel: string, cb: (...args: A) => void): () => void {
@@ -30,7 +30,6 @@ const api: HumanloopApi = {
 
   createTask: (draft) => ipcRenderer.invoke(IPC.createTask, draft),
   updateTask: (id, patch) => ipcRenderer.invoke(IPC.updateTask, id, patch),
-  deleteTask: (id) => ipcRenderer.invoke(IPC.deleteTask, id),
   openTask: (id) => ipcRenderer.invoke(IPC.openTask, id),
   nextTask: () => ipcRenderer.invoke(IPC.nextTask),
   goBack: () => ipcRenderer.invoke(IPC.goBack),
@@ -43,9 +42,8 @@ const api: HumanloopApi = {
 
   newTab: (taskId) => ipcRenderer.invoke(IPC.newTab, taskId),
   closeTab: (tabId) => ipcRenderer.invoke(IPC.closeTab, tabId),
-  setTabTitle: (tabId, title) => ipcRenderer.send(IPC.setTabTitle, tabId, title),
 
-  ptyAttach: (tabId, cols, rows) => ipcRenderer.invoke(IPC.ptyAttach, tabId, cols, rows),
+  ptyAttach: (tabId, cols, rows, restart) => ipcRenderer.invoke(IPC.ptyAttach, tabId, cols, rows, restart === true),
   ptyWrite: (tabId, data) => ipcRenderer.send(IPC.ptyWrite, tabId, data),
   ptyResize: (tabId, cols, rows) => ipcRenderer.send(IPC.ptyResize, tabId, cols, rows),
   ptyAck: (tabId, chars) => ipcRenderer.send(IPC.ptyAck, tabId, chars),
@@ -55,6 +53,10 @@ const api: HumanloopApi = {
   setTerminalFocused: (focused) => ipcRenderer.send(IPC.terminalFocus, focused),
   onTerminalEdit: (cb) => listen(TERMINAL_EDIT, cb),
   writeClipboard: (text) => ipcRenderer.send(IPC.clipboard, text),
+  pathsForFiles: (files) => files.map((f) => webUtils.getPathForFile(f)).filter(Boolean),
 };
 
 contextBridge.exposeInMainWorld('humanloop', api);
+
+// Tell main when this page goes away (a reload), so it stops sending terminal output here.
+window.addEventListener('pagehide', () => ipcRenderer.send(IPC.unload));

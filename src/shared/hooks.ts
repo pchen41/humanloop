@@ -26,7 +26,8 @@ export type HookEventName = (typeof HOOK_EVENTS)[number];
  * exits 0 and prints nothing, so it can never block or steer Claude.
  */
 export const HOOK_COMMAND =
-  '[ -z "$HUMANLOOP_SOCK" ] || curl -s -o /dev/null --max-time 1 --unix-socket "$HUMANLOOP_SOCK" ' +
+  // -q (first) skips ~/.curlrc, whose options (like -w) could print into Claude's context.
+  '[ -z "$HUMANLOOP_SOCK" ] || curl -q -s -o /dev/null --max-time 1 --unix-socket "$HUMANLOOP_SOCK" ' +
   '-H "X-Tab: $HUMANLOOP_TAB" -H "X-Pid: $PPID" --data-binary @- http://humanloop/hook; exit 0';
 
 /** Seconds Claude waits for the hook before giving up. */

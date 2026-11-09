@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type RefObject } from 'react';
-import { DEFAULT_PRIORITY, POLICY_KEYS, type Policy, type Priority, type Task, type TaskDraft } from '../../shared/model';
+import { DEFAULT_PRIORITY, POLICY_KEYS, PRIORITIES, type Policy, type Task, type TaskDraft } from '../../shared/model';
 import { shortenHome } from './format';
 import { PolicyControls, withPolicyChange } from './PolicyControls';
 
@@ -8,6 +8,8 @@ const api = window.humanloop;
 export type EditorMode = { kind: 'create' } | { kind: 'edit'; task: Task };
 
 interface Props {
+  /** True while Settings is open on top of the editor. */
+  inert?: boolean;
   mode: EditorMode;
   homeDir: string;
   globalDefaultCwd: string | undefined;
@@ -17,9 +19,8 @@ interface Props {
   submitRef?: RefObject<(() => void) | undefined>;
 }
 
-const PRIORITIES: Priority[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-export function TaskEditor({ mode, homeDir, globalDefaultCwd, globalPolicy, onClose, submitRef }: Props) {
+export function TaskEditor({ inert, mode, homeDir, globalDefaultCwd, globalPolicy, onClose, submitRef }: Props) {
   const existing = mode.kind === 'edit' ? mode.task : undefined;
   const [draft, setDraft] = useState<TaskDraft>({
     title: existing?.title ?? '',
@@ -29,6 +30,8 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, globalPolicy, onCl
     policy: existing?.policy ?? {},
   });
   const overrides = POLICY_KEYS.filter((k) => draft.policy?.[k] !== undefined).length;
+  // Open at first if the task has overrides; after that it opens and closes only when you click it.
+  const [startOpen] = useState(overrides > 0);
   const titleRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   // ⌘Return can arrive both as a key press and as a menu command; save only once.
@@ -82,7 +85,7 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, globalPolicy, onCl
   const fallbackCwd = shortenHome(globalDefaultCwd, homeDir) ?? '~';
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" inert={inert} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <form className="modal" onSubmit={submit} onKeyDown={onKeyDown}>
         <h2>{existing ? 'Edit Task' : 'New Task'}</h2>
 
@@ -112,7 +115,7 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, globalPolicy, onCl
               </button>
             ))}
           </div>
-          <small>P0 comes first.</small>
+          <small>P0 is the most urgent and comes first.</small>
         </div>
 
         <label className="field">
@@ -141,7 +144,7 @@ export function TaskEditor({ mode, homeDir, globalDefaultCwd, globalPolicy, onCl
           <small>New tabs for this task open here.</small>
         </div>
 
-        <details className="overrides" open={overrides > 0}>
+        <details className="overrides" open={startOpen}>
           <summary>
             When is it your turn?{' '}
             {overrides ? `${overrides} ${overrides === 1 ? 'setting' : 'settings'} changed for this task` : 'Using your settings'}

@@ -1,6 +1,6 @@
 // Turns whatever is on disk into valid state, dropping anything malformed.
 
-import { COMMANDS } from './commands';
+import { COMMAND_IDS } from './commands';
 import {
   cleanPolicy,
   DEFAULT_POLICY,
@@ -14,6 +14,7 @@ import {
   type Tab,
   type Task,
 } from './model';
+import { cleanShortcuts } from './shortcuts';
 import { HISTORY_LIMIT } from './tasks';
 
 type Obj = Record<string, unknown>;
@@ -21,9 +22,15 @@ const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
+/**
+ * Priorities used to run P0 to P9 (default P5). Older values above P3 map onto
+ * the new scale: P4–P6 to P2 (so the old default lands on the new one), P7–P9 to P3.
+ */
 function priority(v: unknown): Priority {
   const n = num(v);
-  return n !== undefined && Number.isInteger(n) && n >= 0 && n <= 9 ? (n as Priority) : DEFAULT_PRIORITY;
+  if (n === undefined || !Number.isInteger(n) || n < 0 || n > 9) return DEFAULT_PRIORITY;
+  if (n <= 3) return n as Priority;
+  return n <= 6 ? 2 : 3;
 }
 
 function tab(v: unknown): Tab | undefined {
@@ -32,6 +39,18 @@ function tab(v: unknown): Tab | undefined {
   const s = v.claudeSession;
   if (isObj(s) && str(s.id) && str(s.cwd)) out.claudeSession = { id: s.id as string, cwd: s.cwd as string };
   return out;
+}
+
+function uniqueTab(tab: Tab, used: Set<string>): Tab {
+  if (!used.has(tab.id)) {
+    used.add(tab.id);
+    return tab;
+  }
+  let n = 2;
+  while (used.has(`${tab.id}-${n}`)) n++;
+  const id = `${tab.id}-${n}`;
+  used.add(id);
+  return { id, title: tab.title }; // the Claude session belongs to the first copy
 }
 
 function task(v: unknown, now: number): Task | undefined {
@@ -56,13 +75,16 @@ function task(v: unknown, now: number): Task | undefined {
 export function normalizeState(raw: unknown, now = Date.now()): AppState {
   if (!isObj(raw)) throw new Error('state is not an object');
   const seen = new Set<string>();
+  const tabIds = new Set<string>();
   const tasks = (Array.isArray(raw.tasks) ? raw.tasks : [])
     .map((t) => task(t, now))
     .filter((t): t is Task => {
       if (!t || seen.has(t.id)) return false;
       seen.add(t.id);
       return true;
-    });
+    })
+    // Two tabs with one id would share a shell (closing one kills the other), so later copies get their own.
+    .map((t) => ({ ...t, tabs: t.tabs.map((tab) => uniqueTab(tab, tabIds)) }));
   // Drop entries for missing tasks while keeping the index on the same entry it pointed at.
   const rawHistory = Array.isArray(raw.history) ? raw.history : [];
   const rawIndex = num(raw.historyIndex) ?? rawHistory.length - 1;
@@ -109,21 +131,21 @@ export function stateAfterLaunch(state: AppState, now = Date.now()): AppState {
   };
 }
 
-const KNOWN_COMMANDS = new Set<string>(COMMANDS.map((c) => c.id));
-
 export function normalizeSettings(raw: unknown): Settings {
   if (!isObj(raw)) throw new Error('settings is not an object');
-  const shortcuts: Record<string, string> = {};
+  const given: Record<string, string> = {};
   if (isObj(raw.shortcuts)) {
     for (const [k, v] of Object.entries(raw.shortcuts)) {
-      if (KNOWN_COMMANDS.has(k) && typeof v === 'string') shortcuts[k] = v;
+      if (COMMAND_IDS.has(k) && typeof v === 'string') given[k] = v;
     }
   }
+  const shortcuts = cleanShortcuts(given);
   const out: Settings = {
     policy: { ...DEFAULT_POLICY, ...cleanPolicy(raw.policy) },
     shortcuts,
     notifications: typeof raw.notifications === 'boolean' ? raw.notifications : DEFAULT_SETTINGS.notifications,
     keepAwake: typeof raw.keepAwake === 'boolean' ? raw.keepAwake : DEFAULT_SETTINGS.keepAwake,
+    optionAsMeta: typeof raw.optionAsMeta === 'boolean' ? raw.optionAsMeta : DEFAULT_SETTINGS.optionAsMeta,
   };
   const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;

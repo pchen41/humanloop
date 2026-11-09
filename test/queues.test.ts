@@ -26,7 +26,7 @@ const open = (s: AppState, id: string, at = 0) => T.openTask(s, id, at);
 
 describe('reconcile (automatic moves)', () => {
   it('moves working tasks to Agent’s Turn and back when they stop', () => {
-    let s = withTasks(['a', 5, 1], ['b', 5, 2]);
+    let s = withTasks(['a', 2, 1], ['b', 2, 2]);
     s = Q.reconcile(s, agents({ a: 'working' }), 10);
     expect(ids(s, 'agentsTurn')).toEqual(['a']);
     expect(T.findTask(s, 'a')?.enteredAt).toBe(10);
@@ -38,26 +38,26 @@ describe('reconcile (automatic moves)', () => {
   });
 
   it('moves the open task too, and keeps it open', () => {
-    const s = Q.reconcile(open(withTasks(['a', 5, 1]), 'a'), agents({ a: 'working' }), 10);
+    const s = Q.reconcile(open(withTasks(['a', 2, 1]), 'a'), agents({ a: 'working' }), 10);
     expect(s.openTaskId).toBe('a');
     expect(T.findTask(s, 'a')?.queue).toBe('agentsTurn');
   });
 
   it('never moves Parked or Done tasks', () => {
-    const s = withTasks(['p', 5, 1, 'parked'], ['d', 5, 2, 'done'], ['w', 5, 3, 'agentsTurn']);
+    const s = withTasks(['p', 2, 1, 'parked'], ['d', 2, 2, 'done'], ['w', 2, 3, 'agentsTurn']);
     const next = Q.reconcile(s, agents({ p: 'working', d: 'working', w: 'working' }), 10);
     expect(next).toBe(s);
   });
 
   it('returns the same state when nothing moves', () => {
-    const s = withTasks(['a', 5, 1], ['b', 5, 2, 'agentsTurn']);
+    const s = withTasks(['a', 2, 1], ['b', 2, 2, 'agentsTurn']);
     expect(Q.reconcile(s, agents({ a: 'idle', b: 'working' }), 10)).toBe(s);
   });
 });
 
 describe('nextTask', () => {
   it('files an idle open task to the back of Your Turn and opens the head', () => {
-    const s = open(withTasks(['a', 5, 1], ['b', 5, 2], ['c', 5, 3]), 'a');
+    const s = open(withTasks(['a', 2, 1], ['b', 2, 2], ['c', 2, 3]), 'a');
     const r = Q.nextTask(s, agents({}), 10);
     expect(r.nothingElse).toBe(false);
     expect(r.state.openTaskId).toBe('b');
@@ -65,7 +65,7 @@ describe('nextTask', () => {
   });
 
   it('cycles through Your Turn without skipping anything', () => {
-    let s = open(withTasks(['a', 5, 1], ['b', 5, 2], ['c', 5, 3]), 'a');
+    let s = open(withTasks(['a', 2, 1], ['b', 2, 2], ['c', 2, 3]), 'a');
     const seen: string[] = [];
     for (let i = 0; i < 6; i++) {
       s = Q.nextTask(s, agents({}), 10 + i).state;
@@ -74,13 +74,13 @@ describe('nextTask', () => {
     expect(seen).toEqual(['b', 'c', 'a', 'b', 'c', 'a']);
   });
 
-  it('respects priority: a P1 that just came back beats an older P5', () => {
-    const s = open(withTasks(['a', 5, 1], ['old', 5, 2], ['urgent', 1, 50]), 'a');
+  it('respects priority: a P1 that just came back beats an older P2', () => {
+    const s = open(withTasks(['a', 2, 1], ['old', 2, 2], ['urgent', 1, 50]), 'a');
     expect(Q.nextTask(s, agents({}), 100).state.openTaskId).toBe('urgent');
   });
 
   it('files a needs-you task to Your Turn and a working one to Agent’s Turn', () => {
-    const s = open(withTasks(['a', 5, 1], ['b', 5, 2]), 'a');
+    const s = open(withTasks(['a', 2, 1], ['b', 2, 2]), 'a');
     expect(ids(Q.nextTask(s, agents({ a: 'needsYou' }), 10).state, 'yourTurn')).toEqual(['b', 'a']);
     const r = Q.nextTask(s, agents({ a: 'working' }), 10);
     expect(ids(r.state, 'agentsTurn')).toEqual(['a']);
@@ -88,40 +88,40 @@ describe('nextTask', () => {
   });
 
   it('leaves a Parked or Done open task where it is', () => {
-    const s = open(withTasks(['p', 5, 1, 'parked'], ['b', 5, 2]), 'p');
+    const s = open(withTasks(['p', 2, 1, 'parked'], ['b', 2, 2]), 'p');
     const r = Q.nextTask(s, agents({ p: 'idle' }), 10);
     expect(r.state.openTaskId).toBe('b');
     expect(T.findTask(r.state, 'p')).toMatchObject({ queue: 'parked', enteredAt: 1 });
   });
 
   it('stays put when nothing else needs you', () => {
-    const s = open(withTasks(['a', 5, 1], ['w', 5, 2, 'agentsTurn']), 'a');
+    const s = open(withTasks(['a', 2, 1], ['w', 2, 2, 'agentsTurn']), 'a');
     const r = Q.nextTask(s, agents({ w: 'working' }), 10);
     expect(r).toEqual({ state: s, nothingElse: true });
     expect(Q.nextTask(EMPTY_STATE, agents({}), 10).nothingElse).toBe(true);
   });
 
   it('opens the head of Your Turn when nothing is open', () => {
-    const r = Q.nextTask(withTasks(['a', 5, 1], ['b', 5, 2]), agents({}), 10);
+    const r = Q.nextTask(withTasks(['a', 2, 1], ['b', 2, 2]), agents({}), 10);
     expect(r.state.openTaskId).toBe('a');
     expect(T.findTask(r.state, 'a')?.enteredAt).toBe(1); // nothing was filed
   });
 
   it('records the opened task in history', () => {
-    const s = open(withTasks(['a', 5, 1], ['b', 5, 2]), 'a');
+    const s = open(withTasks(['a', 2, 1], ['b', 2, 2]), 'a');
     expect(Q.nextTask(s, agents({}), 10).state.history.map((h) => h.taskId)).toEqual(['a', 'b']);
   });
 });
 
 describe('park, done and restore', () => {
   it('parks and marks done from any queue, resetting enteredAt', () => {
-    const s = withTasks(['a', 5, 1], ['w', 5, 2, 'agentsTurn']);
+    const s = withTasks(['a', 2, 1], ['w', 2, 2, 'agentsTurn']);
     expect(T.findTask(Q.parkTask(s, 'w', 10), 'w')).toMatchObject({ queue: 'parked', enteredAt: 10 });
     expect(T.findTask(Q.markDone(s, 'a', 10), 'a')).toMatchObject({ queue: 'done', enteredAt: 10 });
   });
 
   it('files an unparked or reopened task by its agent state', () => {
-    const s = withTasks(['a', 5, 1], ['p', 5, 2, 'parked'], ['d', 5, 3, 'done']);
+    const s = withTasks(['a', 2, 1], ['p', 2, 2, 'parked'], ['d', 2, 3, 'done']);
     expect(T.findTask(Q.restoreTask(s, 'p', agents({ p: 'working' }), 10), 'p')?.queue).toBe('agentsTurn');
     const r = Q.restoreTask(s, 'd', agents({ d: 'idle' }), 10);
     expect(ids(r, 'yourTurn')).toEqual(['a', 'd']);
@@ -129,14 +129,14 @@ describe('park, done and restore', () => {
   });
 
   it('keeps a parked task open', () => {
-    const s = open(withTasks(['a', 5, 1], ['b', 5, 2]), 'a');
+    const s = open(withTasks(['a', 2, 1], ['b', 2, 2]), 'a');
     expect(Q.parkTask(s, 'a', 10).openTaskId).toBe('a');
   });
 });
 
 describe('back and forward', () => {
   const visited = () => {
-    let s = withTasks(['a', 5, 1], ['b', 5, 2], ['c', 5, 3]);
+    let s = withTasks(['a', 2, 1], ['b', 2, 2], ['c', 2, 3]);
     for (const id of ['a', 'b', 'c']) s = open(s, id);
     return s;
   };
@@ -180,7 +180,7 @@ describe('back and forward', () => {
 
 describe('review fixes', () => {
   it('keeps Back and Forward right after deleting the first history entry while it was open', () => {
-    let s = withTasks(['a', 5, 1], ['b', 5, 2], ['c', 5, 3]);
+    let s = withTasks(['a', 2, 1], ['b', 2, 2], ['c', 2, 3]);
     for (const id of ['a', 'b', 'c']) s = open(s, id);
     s = T.deleteTask(Q.goBack(Q.goBack(s)), 'a'); // a was open
     expect(s.openTaskId).toBeUndefined();
@@ -191,14 +191,14 @@ describe('review fixes', () => {
 
   it('keeps the order of tasks that move at the same moment', () => {
     // b entered Agent's Turn before a; both stop at once.
-    const s = withTasks(['a', 5, 20, 'agentsTurn'], ['b', 5, 10, 'agentsTurn']);
+    const s = withTasks(['a', 2, 20, 'agentsTurn'], ['b', 2, 10, 'agentsTurn']);
     expect(ids(Q.reconcile(s, agents({}), 100), 'yourTurn')).toEqual(['b', 'a']);
   });
 });
 
 describe('arrivals', () => {
   it('lists only tasks that came back from Agent’s Turn', () => {
-    const prev = withTasks(['w', 5, 1, 'agentsTurn'], ['p', 5, 2, 'agentsTurn'], ['y', 5, 3]);
+    const prev = withTasks(['w', 2, 1, 'agentsTurn'], ['p', 2, 2, 'agentsTurn'], ['y', 2, 3]);
     let next = Q.reconcile(prev, agents({ p: 'working' }), 10); // w stopped, p still working
     next = Q.parkTask(next, 'y', 10);
     expect(Q.arrivals(prev, next).map((t) => t.id)).toEqual(['w']);

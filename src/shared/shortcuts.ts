@@ -105,6 +105,13 @@ const RESERVED = [
   'CmdOrCtrl+Ctrl+F', // View > Enter Full Screen
   'CmdOrCtrl+R', // View > Reload (development builds)
   'CmdOrCtrl+Alt+I', // View > Toggle Developer Tools (development builds)
+  // Line and word movement and deletion in text fields (and Claude's prompt).
+  'CmdOrCtrl+Left',
+  'CmdOrCtrl+Right',
+  'CmdOrCtrl+Up',
+  'CmdOrCtrl+Down',
+  'CmdOrCtrl+Backspace',
+  'CmdOrCtrl+Delete',
 ];
 
 export type RecordResult = { accelerator: string } | { error: string };
@@ -182,4 +189,60 @@ export function conflictFor(settings: Settings, id: CommandId, accelerator: stri
     const other = acceleratorFor(settings, c.id);
     return other !== undefined && sameAccelerator(other, accelerator);
   })?.id;
+}
+
+/** Key names Electron accepts after the modifiers, besides letters, digits, F-keys and single punctuation. */
+const NAMED_KEYS = new Set(
+  [
+    'Plus', 'Space', 'Tab', 'Backspace', 'Delete', 'Insert', 'Return', 'Enter', 'Up', 'Down', 'Left', 'Right',
+    'Home', 'End', 'PageUp', 'PageDown', 'Escape', 'Esc',
+    'num0', 'num1', 'num2', 'num3', 'num4', 'num5', 'num6', 'num7', 'num8', 'num9',
+    'numdec', 'numadd', 'numsub', 'nummult', 'numdiv',
+  ].map((k) => k.toLowerCase()),
+);
+const MODIFIER_NAMES = new Set(Object.keys(MODIFIER_ALIASES));
+
+/**
+ * Why a shortcut from settings.json can't be used, or undefined if it can.
+ * The same rules as recording one: a real key, with ⌘, not one macOS or the
+ * Edit menu needs.
+ */
+export function shortcutProblem(accelerator: string): string | undefined {
+  const parts = accelerator.split('+');
+  const key = accelerator.endsWith('++') ? 'Plus' : (parts.at(-1) ?? '');
+  const mods = (accelerator.endsWith('++') ? parts.slice(0, -2) : parts.slice(0, -1)).map((p) => p.trim().toLowerCase());
+  if (!mods.every((m) => MODIFIER_NAMES.has(m))) return 'unknown modifier';
+  const validKey =
+    /^[a-z0-9]$/i.test(key) || /^F([1-9]|1[0-9]|2[0-4])$/i.test(key) || /^[!-/:-@[-`{-~]$/.test(key) || NAMED_KEYS.has(key.toLowerCase());
+  if (!validKey) return 'unknown key';
+  if (!mods.some((m) => MODIFIER_ALIASES[m] === 'cmd')) return 'needs ⌘';
+  if (RESERVED.some((r) => sameAccelerator(r, accelerator))) return 'used by macOS or the Edit menu';
+  return undefined;
+}
+
+/**
+ * Shortcuts from settings.json made safe to install in the menu: unusable
+ * ones fall back to the default, and no two commands end up with the same
+ * shortcut. One you set beats a default (the default's command is left
+ * without one); between two you set, the command listed first keeps it.
+ */
+export function cleanShortcuts(raw: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  const taken = new Set<string>();
+  const claim = (accelerator: string) => {
+    const key = canonical(accelerator);
+    if (taken.has(key)) return false;
+    taken.add(key);
+    return true;
+  };
+  for (const { id } of COMMANDS) {
+    const value = raw[id];
+    if (value === undefined) continue;
+    if (value === '') out[id] = '';
+    else if (shortcutProblem(value) === undefined) out[id] = claim(value) ? value : '';
+  }
+  for (const { id, accelerator } of COMMANDS) {
+    if (out[id] === undefined && !claim(accelerator)) out[id] = '';
+  }
+  return out;
 }

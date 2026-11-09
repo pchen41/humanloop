@@ -7,7 +7,8 @@ import type { RecordResult } from './shortcuts';
 import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
 
 /** Whether Humanloop's hooks are in ~/.claude/settings.json. */
-export type HookState = HookStatus | 'unreadable';
+/** 'disabled': installed, but Claude's settings turn off all hooks (disableAllHooks). */
+export type HookState = HookStatus | 'unreadable' | 'disabled';
 
 export interface InitialData {
   state: AppState;
@@ -18,8 +19,16 @@ export interface InitialData {
   hooks: HookState;
   /** Settings was chosen from the menu before this window existed. */
   showSettings: boolean;
+  /** A menu command chosen before this window existed, to run once it has loaded. */
+  command: CommandId | undefined;
   /** Claude sessions from before the restart that can be resumed, by tab id. */
   resume: Record<string, ResumeOffer>;
+}
+
+/** How a tab's shell ended. `clean`: it exited with code 0 (you typed `exit`), not killed by a signal. */
+export interface PtyExitInfo {
+  code: number;
+  clean: boolean;
 }
 
 export interface ResumeOffer {
@@ -67,8 +76,6 @@ export interface HumanloopApi {
 
   createTask(draft: TaskDraft): Promise<string>;
   updateTask(id: string, patch: Partial<TaskDraft>): Promise<void>;
-  /** Asks for confirmation, then closes the task's shells and deletes it. */
-  deleteTask(id: string): Promise<boolean>;
   openTask(id: string): Promise<void>;
   /** Files the open task and opens the next one in Your Turn. */
   nextTask(): Promise<{ nothingElse: boolean }>;
@@ -90,19 +97,25 @@ export interface HumanloopApi {
   newTab(taskId: string): Promise<string>;
   /** Asks for confirmation if a program is still running, then closes the tab. */
   closeTab(tabId: string): Promise<boolean>;
-  setTabTitle(tabId: string, title: string): void;
 
-  ptyAttach(tabId: string, cols: number, rows: number): Promise<{ replay: string }>;
+  /**
+   * Shows the tab's shell, starting one if it has none. If its shell ended
+   * while nothing was showing it, returns that exit with the shell's last
+   * output; `restart` starts a new shell instead.
+   */
+  ptyAttach(tabId: string, cols: number, rows: number, restart?: boolean): Promise<{ replay: string; exited?: PtyExitInfo }>;
   ptyWrite(tabId: string, data: string): void;
   ptyResize(tabId: string, cols: number, rows: number): void;
   ptyAck(tabId: string, chars: number): void;
   onPtyData(cb: (tabId: string, data: string) => void): () => void;
-  onPtyExit(cb: (tabId: string, exitCode: number) => void): () => void;
+  onPtyExit(cb: (tabId: string, exit: PtyExitInfo) => void): () => void;
 
   /** Lets the Edit menu send ⌘C and ⌘A to the terminal instead of the page. */
   setTerminalFocused(focused: boolean): void;
   onTerminalEdit(cb: (cmd: TerminalEditCommand) => void): () => void;
   writeClipboard(text: string): void;
+  /** File paths for files dropped on the window. */
+  pathsForFiles(files: File[]): string[];
 }
 
 export const IPC = {
@@ -125,7 +138,6 @@ export const IPC = {
   command: 'app:command',
   createTask: 'task:create',
   updateTask: 'task:update',
-  deleteTask: 'task:delete',
   openTask: 'task:open',
   nextTask: 'task:next',
   goBack: 'history:back',
@@ -137,7 +149,6 @@ export const IPC = {
   chooseDirectory: 'dialog:directory',
   newTab: 'tab:new',
   closeTab: 'tab:close',
-  setTabTitle: 'tab:title',
   ptyAttach: 'pty:attach',
   ptyWrite: 'pty:write',
   ptyResize: 'pty:resize',
@@ -145,6 +156,7 @@ export const IPC = {
   ptyData: 'pty:data',
   ptyExit: 'pty:exit',
   terminalFocus: 'term:focus',
+  unload: 'page:unload',
   clipboard: 'clipboard:write',
 } as const;
 

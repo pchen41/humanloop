@@ -46,10 +46,10 @@ export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext)
         { type: 'separator' },
         {
           label: hooks === 'outdated' ? 'Update Claude Code Hooks…' : 'Install Claude Code Hooks…',
-          visible: hooks !== 'installed',
+          visible: hooks !== 'installed' && hooks !== 'disabled',
           click: h.installHooks,
         },
-        { label: 'Remove Claude Code Hooks…', visible: hooks === 'installed' || hooks === 'outdated', click: h.removeHooks },
+        { label: 'Remove Claude Code Hooks…', visible: hooks === 'installed' || hooks === 'outdated' || hooks === 'disabled', click: h.removeHooks },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },

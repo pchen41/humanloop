@@ -1,5 +1,6 @@
-// One xterm.js terminal per tab, kept alive while hidden so output keeps
-// arriving and scrollback survives tab and task switches.
+// One xterm.js terminal per tab, created when the tab is first shown and then
+// kept alive while hidden, so output keeps arriving and scrollback survives
+// tab and task switches. (A tab's shell starts when its terminal first attaches.)
 //
 // Uses xterm's default DOM renderer. @xterm/addon-webgl 0.19 with xterm 6.0
 // drew glyphs at half size on Retina screens, so it is left out for now.
@@ -8,6 +9,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon, type ISearchOptions } from '@xterm/addon-search';
 import { Terminal, type ITheme } from '@xterm/xterm';
+import type { PtyExitInfo } from '../../shared/ipc';
 
 const api = window.humanloop;
 
@@ -74,7 +76,7 @@ class TerminalHandle {
       lineHeight: 1.15,
       scrollback: 10_000,
       theme: THEME,
-      macOptionIsMeta: true,
+      macOptionIsMeta: optionAsMeta,
       macOptionClickForcesSelection: true,
       allowProposedApi: true,
       cursorBlink: true,
@@ -164,9 +166,14 @@ class TerminalHandle {
     this.term.write(data, () => api.ptyAck(this.tabId, data.length));
   }
 
-  exit(code: number): void {
-    this.exited = code;
-    this.term.write(`\r\n\x1b[2m[Process exited with code ${code}. Press Return to start a new shell.]\x1b[0m\r\n`);
+  /** The shell ended. A clean exit (typing `exit`) closes the tab, like most terminals. */
+  ended(exit: PtyExitInfo): void {
+    if (exit.clean) {
+      void api.closeTab(this.tabId);
+      return;
+    }
+    this.exited = exit.code;
+    this.term.write(`\r\n\x1b[2m[Process exited with code ${exit.code}. Press Return to start a new shell.]\x1b[0m\r\n`);
   }
 
   dispose(): void {
@@ -174,11 +181,12 @@ class TerminalHandle {
     this.term.dispose();
   }
 
-  private async attach(): Promise<void> {
+  private async attach(restart = false): Promise<void> {
     this.attached = true;
     try {
-      const { replay } = await api.ptyAttach(this.tabId, this.term.cols, this.term.rows);
+      const { replay, exited } = await api.ptyAttach(this.tabId, this.term.cols, this.term.rows, restart);
       if (replay) this.term.write(replay);
+      if (exited) this.ended(exited);
     } catch (err) {
       // Let Return try again, the same way as after the shell exits.
       this.attached = false;
@@ -191,7 +199,7 @@ class TerminalHandle {
   private async restart(): Promise<void> {
     this.exited = undefined;
     this.term.reset();
-    await this.attach();
+    await this.attach(true);
   }
 
   private scheduleFit(): void {
@@ -219,17 +227,18 @@ class TerminalHandle {
 
 class TerminalRegistry {
   private handles = new Map<string, TerminalHandle>();
+
+  forEach(fn: (h: TerminalHandle) => void): void {
+    this.handles.forEach(fn);
+  }
   private listeners = new Set<Listener>();
   private version = 0;
 
   constructor() {
     api.onPtyData((tabId, data) => this.handles.get(tabId)?.write(data));
-    api.onPtyExit((tabId, code) => {
-      const h = this.handles.get(tabId);
-      if (!h) return;
-      // A clean exit (typing `exit`) closes the tab, like most terminals.
-      if (code === 0) void api.closeTab(tabId);
-      else h.exit(code);
+    api.onPtyExit((tabId, exit) => {
+      // A tab with no terminal yet learns about the exit when it attaches.
+      this.handles.get(tabId)?.ended(exit);
     });
     api.onTerminalEdit((cmd) => {
       const h = this.focused();
@@ -283,6 +292,14 @@ class TerminalRegistry {
     this.version++;
     for (const fn of this.listeners) fn();
   }
+}
+
+/** From Settings: whether Option sends Meta. Applies to existing and new terminals. */
+let optionAsMeta = true;
+
+export function setOptionAsMeta(on: boolean): void {
+  optionAsMeta = on;
+  terminals.forEach((h) => (h.term.options.macOptionIsMeta = on));
 }
 
 export const terminals = new TerminalRegistry();

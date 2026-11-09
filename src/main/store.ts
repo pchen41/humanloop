@@ -1,7 +1,7 @@
 // JSON file persistence. Writes are debounced, serialized and atomic
 // (temp file + rename), so a crash never leaves a half-written file.
 
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -13,12 +13,20 @@ function tmpPath(file: string): string {
   return `${file}.tmp-${process.pid}-${++tmpCounter}`;
 }
 
-export function readJson<T>(file: string, fallback: T, normalize: (raw: unknown) => T): T {
+/**
+ * Reads a JSON file through `normalize`. A file that can't be read is moved
+ * aside, never overwritten, and `onUnreadable` says where it went.
+ */
+export function readJson<T>(
+  file: string,
+  fallback: T,
+  normalize: (raw: unknown) => T,
+  onUnreadable?: (aside: string, error: string) => void,
+): T {
   if (!existsSync(file)) return fallback;
   try {
     return normalize(JSON.parse(readFileSync(file, 'utf8')));
   } catch (err) {
-    // Keep the unreadable file for the user instead of overwriting it.
     const aside = `${file}.unreadable-${Date.now()}`;
     try {
       renameSync(file, aside);
@@ -26,7 +34,20 @@ export function readJson<T>(file: string, fallback: T, normalize: (raw: unknown)
       // ignore
     }
     console.error(`Could not read ${file}; moved it to ${aside}:`, err);
+    onUnreadable?.(aside, err instanceof Error ? err.message : String(err));
     return fallback;
+  }
+}
+
+/**
+ * Keeps a copy of the file as it was at launch (`<file>.previous`), so
+ * anything a cleanup on load dropped (say, from a hand edit) can be recovered.
+ */
+export function keepPreviousCopy(file: string): void {
+  try {
+    if (existsSync(file)) copyFileSync(file, `${file}.previous`);
+  } catch (err) {
+    console.error(`Could not back up ${file}:`, err);
   }
 }
 

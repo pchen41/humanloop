@@ -36,6 +36,8 @@ export interface AgentTrackerOptions {
   onSession?(tabId: string, session: { id: string; cwd: string } | undefined): void;
   /** When set, every delivery is appended here as a JSON line (for checking hook behaviour). */
   logFile?: string;
+  /** pid -> parent pid for every process. Defaults to running ps; tests pass their own. */
+  processTable?: () => Promise<Map<number, number> | undefined>;
 }
 
 export class AgentTracker {
@@ -44,6 +46,8 @@ export class AgentTracker {
   private verdicts = new Map<number, { shell: number; ok: boolean }>();
   /** claude processes whose events were accepted. A process below one of them is a nested `claude -p`. */
   private claudePids = new Set<number>();
+  /** The claude pids accepted for each tab, forgotten when the tab's shell goes (pids get reused). */
+  private tabPids = new Map<string, Set<number>>();
   /** Bumped by clear(), so work started before a tab closed or restarted is dropped. */
   private generations = new Map<string, number>();
   /** Per-tab queue, so events apply in the order they arrived despite the async process lookup. */
@@ -55,12 +59,11 @@ export class AgentTracker {
     return Object.fromEntries(this.agents);
   }
 
-  get(tabId: string): TabAgent | undefined {
-    return this.agents.get(tabId);
-  }
-
   handle(d: HookDelivery): void {
-    this.enqueue(d.tabId, () => this.apply(d));
+    // The tab's generation when the event arrived: if the tab closes or its
+    // shell restarts while the event waits its turn, it is dropped.
+    const gen = this.generations.get(d.tabId) ?? 0;
+    this.enqueue(d.tabId, () => this.apply(d, gen));
   }
 
   /** Esc was pressed in the tab. Queued behind any hook events already received for it. */
@@ -77,7 +80,20 @@ export class AgentTracker {
   /** The tab's shell exited, restarted or was closed: whatever ran in it is gone. */
   clear(tabId: string): void {
     this.generations.set(tabId, (this.generations.get(tabId) ?? 0) + 1);
+    for (const pid of this.tabPids.get(tabId) ?? []) this.forgetPid(pid);
+    this.tabPids.delete(tabId);
     if (this.agents.delete(tabId)) this.opts.onChange();
+  }
+
+  private forgetPid(pid: number): void {
+    this.claudePids.delete(pid);
+    this.verdicts.delete(pid);
+  }
+
+  /** The process table, trying twice: a missed lookup would drop the event (a missed Stop leaves a tab working). */
+  private async table(): Promise<Map<number, number> | undefined> {
+    const read = this.opts.processTable ?? processTable;
+    return (await read()) ?? (await read());
   }
 
   private enqueue(tabId: string, fn: () => Promise<void>): void {
@@ -97,7 +113,9 @@ export class AgentTracker {
   private async belongs(pid: number, shell: number): Promise<boolean | undefined> {
     const cached = this.verdicts.get(pid);
     if (cached && cached.shell === shell) return cached.ok;
-    const table = await processTable();
+    // `exec claude` replaces the shell, so the claude process is the shell itself.
+    if (pid === shell) return true;
+    const table = await this.table();
     if (!table) return undefined;
     if (!table.has(pid)) return undefined; // already exited; don't cache
     let ok = false;
@@ -115,8 +133,7 @@ export class AgentTracker {
     return ok;
   }
 
-  private async apply(d: HookDelivery): Promise<void> {
-    const gen = this.generations.get(d.tabId) ?? 0;
+  private async apply(d: HookDelivery, gen: number): Promise<void> {
     const shell = this.opts.shellPid(d.tabId);
     const ok = shell !== undefined && d.pid !== undefined ? await this.belongs(d.pid, shell) : false;
     // The tab may have closed or restarted while we looked.
@@ -125,10 +142,14 @@ export class AgentTracker {
     if (this.opts.logFile) void this.log(d, shell, accepted);
     if (!accepted) return;
 
-    this.claudePids.add(d.pid!);
+    const pids = this.tabPids.get(d.tabId) ?? new Set<number>();
+    this.tabPids.set(d.tabId, pids);
     if (d.event.hook_event_name === 'SessionEnd') {
-      this.claudePids.delete(d.pid!);
-      this.verdicts.delete(d.pid!);
+      pids.delete(d.pid!);
+      this.forgetPid(d.pid!);
+    } else {
+      pids.add(d.pid!);
+      this.claudePids.add(d.pid!);
     }
     const before = this.agents.get(d.tabId);
     const after = applyHookEvent(before, d.event);

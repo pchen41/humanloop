@@ -46,3 +46,8 @@ export function shortenHome(dir: string | undefined, home: string): string | und
   if (!dir) return undefined;
   return dir === home || dir.startsWith(home + '/') ? '~' + dir.slice(home.length) : dir;
 }
+
+/** Single-quotes a path for zsh, so spaces and symbols in it are taken literally. */
+export function shellQuote(s: string): string {
+  return /^[\w@%+=:,./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`;
+}

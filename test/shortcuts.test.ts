@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { COMMAND_GROUPS, COMMANDS } from '../src/shared/commands';
 import { DEFAULT_SETTINGS, patchSettingsJson } from '../src/shared/model';
 import { normalizeSettings } from '../src/shared/normalize';
-import { acceleratorFor, acceleratorFromInput, conflictFor, sameAccelerator, type KeyInput } from '../src/shared/shortcuts';
+import {
+  acceleratorFor,
+  acceleratorFromInput,
+  conflictFor,
+  sameAccelerator,
+  shortcutProblem,
+  type KeyInput,
+} from '../src/shared/shortcuts';
 
 const press = (key: string, code: string, mods: Partial<KeyInput> = {}): KeyInput => ({
   key,
@@ -100,5 +107,29 @@ describe('review fixes', () => {
 
   it('reserves the full-screen shortcut', () => {
     expect(acceleratorFromInput(press('f', 'KeyF', { control: true }))).toHaveProperty('error');
+  });
+});
+
+describe('shortcuts from settings.json', () => {
+  it('rejects shortcuts the recorder would refuse', () => {
+    expect(shortcutProblem('CmdOrCtrl+J')).toBeUndefined();
+    expect(shortcutProblem('Command+Shift+]')).toBeUndefined();
+    expect(shortcutProblem('CmdOrCtrl+numadd')).toBeUndefined();
+    expect(shortcutProblem('Ctrl+C')).toBe('needs ⌘'); // would take SIGINT away from every shell
+    expect(shortcutProblem('CmdOrCtrl+Q')).toBeTruthy();
+    expect(shortcutProblem('CmdOrCtrl+Left')).toBeTruthy();
+    expect(shortcutProblem('Cmd+Bogus')).toBe('unknown key');
+    expect(shortcutProblem('Hyper+J')).toBe('unknown modifier');
+  });
+
+  it('falls back to the default for unusable ones and never installs a duplicate', () => {
+    const s = normalizeSettings({ shortcuts: { clearTerminal: 'Ctrl+C', nextTask: 'CmdOrCtrl+N', find: 'CmdOrCtrl+J', newTab: 'CmdOrCtrl+J' } });
+    expect(acceleratorFor(s, 'clearTerminal')).toBe('CmdOrCtrl+K'); // invalid -> default
+    expect(acceleratorFor(s, 'nextTask')).toBe('CmdOrCtrl+N'); // yours beats a default...
+    expect(acceleratorFor(s, 'newTask')).toBeUndefined(); // ...whose command is left without one
+    expect(acceleratorFor(s, 'newTab')).toBe('CmdOrCtrl+J'); // listed before Find, so it keeps ⌘J
+    expect(acceleratorFor(s, 'find')).toBeUndefined();
+    const all = COMMANDS.map((c) => acceleratorFor(s, c.id)).filter((a): a is string => !!a);
+    expect(new Set(all.map((a) => a.toLowerCase())).size).toBe(all.length);
   });
 });

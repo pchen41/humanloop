@@ -3,10 +3,11 @@ import { existsSync, watch } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
-import { COMMANDS, commandById, type CommandId } from '../shared/commands';
+import { COMMAND_IDS, commandById, type CommandId } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type ResumeOffer, type TerminalEditCommand } from '../shared/ipc';
 import {
   DEFAULT_SETTINGS,
+  effectivePolicy,
   patchSettingsJson,
   EMPTY_STATE,
   type AppState,
@@ -17,11 +18,11 @@ import {
 import { normalizeSettings, normalizeState, stateAfterLaunch } from '../shared/normalize';
 import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
+import { effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
-import { currentHookStatus, installWithConfirm, removeWithConfirm } from './hookInstaller';
+import { currentHookStatus, installWithConfirm, removeWithConfirm, resolveClaudeConfigDir } from './hookInstaller';
 import { HookServer, hookSocketPath } from './hookServer';
 import {
-  acceleratorFor,
   acceleratorFromInput,
   conflictFor,
   sameAccelerator,
@@ -31,7 +32,7 @@ import { buildMenu, type MenuContext } from './menu';
 import { dismissNotification, keepAwake, notify, setDockBadge } from './dock';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
-import { JsonStore, readJson, readJsonObject, writeJsonSync } from './store';
+import { JsonStore, keepPreviousCopy, readJson, readJsonObject, writeJsonSync } from './store';
 
 // Dev builds keep their own data so they never touch the installed app's tasks.
 if (process.env.HUMANLOOP_USER_DATA) {
@@ -50,7 +51,12 @@ const stateFile = join(userData, 'state.json');
 const settingsFile = join(userData, 'settings.json');
 const stateStore = new JsonStore<AppState>(stateFile);
 
-let state: AppState = stateAfterLaunch(readJson(stateFile, EMPTY_STATE, normalizeState));
+keepPreviousCopy(stateFile);
+/** Set if state.json couldn't be read at launch; shown once the window is up. */
+let stateReadError: { aside: string; error: string } | undefined;
+let state: AppState = stateAfterLaunch(
+  readJson(stateFile, EMPTY_STATE, normalizeState, (aside, error) => (stateReadError = { aside, error })),
+);
 let settings: Settings = readSettingsFile() ?? DEFAULT_SETTINGS;
 let win: BrowserWindow | undefined;
 let terminalFocused = false;
@@ -62,9 +68,9 @@ const ptys = new PtyManager({
     outputObserver?.(tabId, data);
     win?.webContents.send(IPC.ptyData, tabId, data);
   },
-  exit(tabId, exitCode) {
+  exit(tabId, exit) {
     tracker.clear(tabId);
-    win?.webContents.send(IPC.ptyExit, tabId, exitCode);
+    win?.webContents.send(IPC.ptyExit, tabId, exit);
   },
 });
 
@@ -151,11 +157,22 @@ function showTask(id: string): void {
   if (T.findTask(state, id)) setState(T.openTask(state, id, Date.now()));
 }
 
-/** The Your Turn count on the Dock, and keep-awake while Claude is working in any task (parked ones too). */
+/**
+ * The Your Turn count on the Dock, and keep-awake while Claude is working in
+ * any tab of any task (parked ones too). This looks at tabs, not task state:
+ * under "Any tab done" a task can be your turn while another of its tabs works.
+ */
 function updateDockAndPower(): void {
   setDockBadge(T.tasksInQueue(state, 'yourTurn').length);
-  const of = stateOf();
-  keepAwake(settings.keepAwake && state.tasks.some((t) => of(t) === 'working'));
+  const agents = tracker.snapshot();
+  const working = state.tasks.some((task) => {
+    const policy = effectivePolicy(settings.policy, task.policy);
+    return task.tabs.some((tab) => {
+      const agent = agents[tab.id];
+      return agent !== undefined && effectiveTabState(agent, policy) === 'working';
+    });
+  });
+  keepAwake(settings.keepAwake && working);
 }
 
 /** Single-quotes a value for zsh. */
@@ -166,9 +183,22 @@ function shellQuote(s: string): string {
 // ---------- settings ----------
 
 function writeDefaultSettings(): void {
-  // Spell out every shortcut so the file is easy to edit.
-  const shortcuts = Object.fromEntries(COMMANDS.map((c) => [c.id, acceleratorFor(settings, c.id) ?? '']));
-  writeJsonSync(settingsFile, { ...settings, shortcuts });
+  // Shortcuts are left out: a command without an entry uses its default, so
+  // later default changes still apply. Settings > Shortcuts lists them all.
+  writeJsonSync(settingsFile, { ...settings, shortcuts: {} });
+}
+
+/**
+ * An error message that doesn't block. (dialog.showErrorBox would stop the
+ * main process, and with it terminal output and hook events, until dismissed.)
+ */
+function showError(message: string, detail: string): void {
+  const opts: Electron.MessageBoxOptions = { type: 'error', message, detail };
+  void (win ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts));
+}
+
+function settingsFileError(error: string): void {
+  showError("Couldn't save settings", `Humanloop's settings.json has an error, so it was left as is. Fix it and try again.\n\n${error}`);
 }
 
 /**
@@ -193,14 +223,15 @@ function readSettingsFile(): Settings | undefined {
 function updateSettings(patch: SettingsPatch): void {
   const r = readJsonObject(settingsFile);
   if ('error' in r) {
-    dialog.showErrorBox("Couldn't save settings", `Humanloop's settings.json has an error, so it was left as is. Fix it and try again.\n\n${r.error}`);
+    settingsFileError(r.error);
     return;
   }
-  const out = patchSettingsJson(r.value ?? {}, patch);
+  // If the file was deleted, start from the settings in effect, not the defaults.
+  const out = patchSettingsJson(r.value ?? { ...settings }, patch);
   try {
     writeJsonSync(settingsFile, out);
   } catch (err) {
-    dialog.showErrorBox("Couldn't save settings", String(err));
+    showError("Couldn't save settings", String(err));
     return;
   }
   applySettings(normalizeSettings(out));
@@ -222,10 +253,10 @@ function applySettings(next: Settings): void {
 function setShortcut(id: CommandId, value: string | null, takeFrom?: CommandId): { conflict?: CommandId } {
   const r = readJsonObject(settingsFile);
   if ('error' in r) {
-    dialog.showErrorBox("Couldn't save settings", `Humanloop's settings.json has an error, so it was left as is. Fix it and try again.\n\n${r.error}`);
+    settingsFileError(r.error);
     return {};
   }
-  const current = r.value ? normalizeSettings(r.value) : DEFAULT_SETTINGS;
+  const current = r.value ? normalizeSettings(r.value) : settings;
   const fallback = commandById(id).accelerator;
   const accelerator = value === null ? fallback : value;
   // A shortcut equal to the default is saved as "use the default", so later default changes still apply.
@@ -287,7 +318,7 @@ function installMenu(): void {
     buildMenu(
       settings,
       {
-        command: (id) => win?.webContents.send(IPC.command, id),
+        command: runCommand,
         copy: () => editCommand('copy'),
         selectAll: () => editCommand('selectAll'),
         openSettings: showSettings,
@@ -301,6 +332,18 @@ function installMenu(): void {
 
 /** Settings was chosen while no window was open; the new window shows it once loaded. */
 let settingsPending = false;
+/** A menu command chosen while no window was open; the new window runs it once loaded. */
+let commandPending: CommandId | undefined;
+
+/** Sends a menu command to the window, opening one first if there is none (the app keeps running without one). */
+function runCommand(id: CommandId): void {
+  if (win) {
+    win.webContents.send(IPC.command, id);
+    return;
+  }
+  commandPending = id;
+  win = createWindow();
+}
 
 function showSettings(): void {
   refreshHookStatus(); // ~/.claude/settings.json may have been edited by hand
@@ -435,8 +478,11 @@ function registerIpc(): void {
     IPC.getInitialData,
     (): InitialData => {
       const show = settingsPending;
+      const command = commandPending;
       settingsPending = false;
+      commandPending = undefined;
       return {
+        command,
         state,
         settings,
         homeDir: homedir(),
@@ -455,7 +501,7 @@ function registerIpc(): void {
   });
   ipcMain.on(IPC.stopRecording, () => finishRecording(undefined));
   ipcMain.handle(IPC.setShortcut, (_e, id: CommandId, value: string | null, takeFrom?: CommandId) => {
-    const known = (c: unknown) => COMMANDS.some((cmd) => cmd.id === c);
+    const known = (c: unknown) => COMMAND_IDS.has(c as string);
     if (!known(id) || (value !== null && (typeof value !== 'string' || value.length > 100))) return {};
     return setShortcut(id, value, known(takeFrom) ? takeFrom : undefined);
   });
@@ -475,9 +521,12 @@ function registerIpc(): void {
     if (!isShell(program)) return `${program} is running in this tab. Quit it first, then resume.`;
     resumeOffers.delete(tabId);
     sendResumeOffers();
-    // Ctrl-U clears anything already typed at the prompt.
+    // Ctrl-C first gives a fresh prompt whatever the shell was doing: it drops
+    // a half-typed line, a continuation prompt (after a trailing \), a `read`
+    // waiting for input, and vi command mode. The foreground program is the
+    // shell itself, so nothing else receives it.
     const cd = offer.cwd ? `cd -- ${shellQuote(offer.cwd)} && ` : '';
-    ptys.write(tabId, `\x15${cd}claude --resume ${offer.sessionId}\r`);
+    ptys.write(tabId, `\x03${cd}claude --resume ${offer.sessionId}\r`);
     return undefined;
   });
   ipcMain.on(IPC.dismissResume, (_e, tabId: string) => {
@@ -500,7 +549,6 @@ function registerIpc(): void {
   ipcMain.handle(IPC.updateTask, (_e, id: string, patch: Partial<TaskDraft>) => {
     if (T.findTask(state, id) && typeof patch === 'object' && patch !== null) setState(T.updateTask(state, id, patch));
   });
-  ipcMain.handle(IPC.deleteTask, (_e, id: string) => deleteTaskWithConfirm(id));
   ipcMain.handle(IPC.openTask, (_e, id: string) => {
     setState(T.openTask(state, id, Date.now()));
   });
@@ -559,14 +607,11 @@ function registerIpc(): void {
     killTab(tabId);
     return true;
   });
-  ipcMain.on(IPC.setTabTitle, (_e, tabId: string, title: string) => {
-    const found = T.findTab(state, tabId);
-    if (found && found.tab.title !== title) setState(T.updateTab(state, tabId, { title }));
-  });
 
-  ipcMain.handle(IPC.ptyAttach, (_e, tabId: string, cols: number, rows: number) => {
+  ipcMain.handle(IPC.ptyAttach, (_e, tabId: string, cols: number, rows: number, restart: boolean) => {
     const found = T.findTab(state, tabId);
     if (!found) throw new Error(`no tab ${tabId}`);
+    if (restart === true) tracker.clear(tabId);
     return ptys.attach(tabId, {
       cols,
       rows,
@@ -577,15 +622,26 @@ function registerIpc(): void {
         TERM_PROGRAM: 'Humanloop',
         TERM_PROGRAM_VERSION: app.getVersion(),
       }),
-    });
+    }, restart === true);
   });
   ipcMain.on(IPC.ptyWrite, (_e, tabId: string, data: string) => {
     // A lone Esc byte is the Esc key (arrow keys and Option combos arrive as longer sequences).
-    if (data === '\x1b') tracker.interrupt(tabId);
+    // `\x1b[27u` is Esc when a program has turned on the kitty keyboard protocol.
+    if (data === '\x1b' || data === '\x1b[27u') tracker.interrupt(tabId);
     ptys.write(tabId, data);
   });
   ipcMain.on(IPC.ptyResize, (_e, tabId: string, cols: number, rows: number) => ptys.resize(tabId, cols, rows));
   ipcMain.on(IPC.ptyAck, (_e, tabId: string, chars: number) => ptys.ack(tabId, chars));
+  // The page is unloading (a reload): its terminals are going away, and tabs
+  // re-attach as the new page shows them. This comes from the page itself
+  // rather than a navigation event, because a navigation the window blocks
+  // (say, a file dropped on it) also starts one, and must not detach anything.
+  ipcMain.on(IPC.unload, (e) => {
+    if (e.sender !== win?.webContents) return;
+    ptys.detachAll();
+    finishRecording(undefined);
+    terminalFocused = false;
+  });
   ipcMain.on(IPC.terminalFocus, (_e, focused: boolean) => {
     terminalFocused = focused;
   });
@@ -609,6 +665,9 @@ function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
       contextIsolation: true,
+      // Terminals acknowledge output as they draw it; a throttled hidden or
+      // minimized window would fall behind and pause busy shells.
+      backgroundThrottling: false,
     },
   });
   w.once('ready-to-show', () => {
@@ -625,9 +684,15 @@ function createWindow(): BrowserWindow {
     terminalFocused = false;
     ptys.detachAll();
   });
-  // A reload replaces the renderer and its terminals; tabs re-attach as they are shown.
-  w.webContents.on('did-start-navigation', (details) => {
-    if (details.isMainFrame && !details.isSameDocument) ptys.detachAll();
+
+  // A crashed renderer acknowledges nothing, which would leave every shell
+  // paused behind a blank window: detach the shells and load a fresh page.
+  w.webContents.on('render-process-gone', (_e, details) => {
+    console.error('Renderer gone:', details.reason);
+    ptys.detachAll();
+    finishRecording(undefined);
+    terminalFocused = false;
+    if (details.reason !== 'clean-exit' && !w.isDestroyed()) w.reload();
   });
   // While recording a shortcut, the key press goes to the recorder instead of the menu or page.
   w.webContents.on('before-input-event', (e, input) => {
@@ -693,7 +758,11 @@ app.on('before-quit', (e) => {
 
 app.on('will-quit', () => {
   hookServer.stop();
-  stateStore.flushSync();
+  try {
+    stateStore.flushSync();
+  } catch (err) {
+    console.error('Could not save state on quit:', err);
+  }
   ptys.killAll();
 });
 
@@ -706,7 +775,7 @@ void app.whenReady().then(async () => {
   } catch (err) {
     // The app still works as a terminal; agent state just won't update.
     console.error(`Could not listen on ${hookSocket}:`, err);
-    dialog.showErrorBox(
+    showError(
       "Humanloop can't track Claude",
       `Humanloop could not open its hook socket at ${hookSocket}, so it won't see what Claude is doing in its tabs. Terminals still work.\n\n${String(err)}`,
     );
@@ -717,6 +786,14 @@ void app.whenReady().then(async () => {
   installMenu();
   registerIpc();
   win = createWindow();
+  if (stateReadError) {
+    showError(
+      "Humanloop couldn't read your saved tasks",
+      `It started with no tasks. The file was kept as ${stateReadError.aside.replace(homedir(), '~')}.\n\n${stateReadError.error}`,
+    );
+  }
+  // Find Claude's config folder from your login shell, then check its hooks there.
+  void resolveClaudeConfigDir().then(refreshHookStatus);
   setState(state); // no-op unless launch reconciliation changed something
   stateStore.save(state);
   updateDockAndPower();
@@ -724,7 +801,7 @@ void app.whenReady().then(async () => {
   if (process.env.HUMANLOOP_SMOKE) {
     void runSmokeTest({
       win,
-      createTaskAndTab: () => createTask({ title: 'Smoke test', description: '', priority: 5 }),
+      createTaskAndTab: () => createTask({ title: 'Smoke test', description: '', priority: 2 }),
       writeToTab: (tabId, data) => ptys.write(tabId, data),
       observeOutput: (fn) => {
         outputObserver = fn;

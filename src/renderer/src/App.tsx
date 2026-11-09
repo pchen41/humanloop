@@ -3,12 +3,13 @@ import type { CommandId } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
 import type { HookState, ResumeOffer } from '../../shared/ipc';
 import type { AppState, Settings, Task } from '../../shared/model';
+import { acceleratorFor, sameAccelerator } from '../../shared/shortcuts';
 import { findTask } from '../../shared/tasks';
 import { SettingsView } from './SettingsView';
 import { Sidebar } from './Sidebar';
 import { TaskEditor, type EditorMode } from './TaskEditor';
 import { TaskView } from './TaskView';
-import { terminals } from './terminals';
+import { setOptionAsMeta, terminals } from './terminals';
 
 const api = window.humanloop;
 
@@ -33,6 +34,8 @@ export function App() {
   const [chosenTab, setChosenTab] = useState<Record<string, string>>({});
   const [editor, setEditor] = useState<EditorMode>();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** A menu command chosen while no window was open, run once the data has loaded. */
+  const [pendingCommand, setPendingCommand] = useState<CommandId>();
   const [find, setFind] = useState<{ query: string; focusSignal: number }>();
   /** Bumped each time Next task finds nothing else, so the notice restarts. */
   const [nothingElse, setNothingElse] = useState(0);
@@ -41,33 +44,19 @@ export function App() {
 
   useEffect(() => {
     let alive = true;
-    // Updates can arrive before the initial snapshot does. Keep the newest of
-    // each so the older snapshot never overwrites them.
-    let early: Partial<Loaded> = {};
-    const offState = api.onState((state) => {
-      early.state = state;
-      setData((d) => d && { ...d, state });
-    });
-    const offSettings = api.onSettings((settings) => {
-      early.settings = settings;
-      setData((d) => d && { ...d, settings });
-    });
-    const offAgents = api.onAgents((agents) => {
-      early.agents = agents;
-      setData((d) => d && { ...d, agents });
-    });
-    const offHooks = api.onHooks((hooks) => {
-      early.hooks = hooks;
-      setData((d) => d && { ...d, hooks });
-    });
-    const offResume = api.onResume((resume) => {
-      early.resume = resume;
-      setData((d) => d && { ...d, resume });
-    });
+    // IPC keeps order and main answers getInitialData in one go, so the
+    // snapshot is newer than any update that arrived before it: updates only
+    // apply once it's here.
+    const offState = api.onState((state) => setData((d) => d && { ...d, state }));
+    const offSettings = api.onSettings((settings) => setData((d) => d && { ...d, settings }));
+    const offAgents = api.onAgents((agents) => setData((d) => d && { ...d, agents }));
+    const offHooks = api.onHooks((hooks) => setData((d) => d && { ...d, hooks }));
+    const offResume = api.onResume((resume) => setData((d) => d && { ...d, resume }));
     void api.getInitialData().then((d) => {
-      if (alive && d.showSettings) setSettingsOpen(true);
-      if (alive) setData({ ...d, ...early });
-      early = {};
+      if (!alive) return;
+      if (d.showSettings) setSettingsOpen(true);
+      setData(d);
+      if (d.command) setPendingCommand(d.command);
     });
     return () => {
       alive = false;
@@ -82,6 +71,11 @@ export function App() {
   const state = data?.state;
   const openTask = state ? findTask(state, state.openTaskId) : undefined;
   const activeTabId = selectedTab(openTask, chosenTab);
+
+  const optionAsMeta = data?.settings.optionAsMeta;
+  useEffect(() => {
+    if (optionAsMeta !== undefined) setOptionAsMeta(optionAsMeta);
+  }, [optionAsMeta]);
 
   // Drop terminals for tabs that were closed or deleted.
   useEffect(() => {
@@ -107,8 +101,10 @@ export function App() {
       const i = openTask.tabs.findIndex((t) => t.id === tabId);
       const closed = await api.closeTab(tabId);
       if (closed && tabId === activeTabId) {
-        // Select the tab that slides into its place, like a browser.
-        const rest = openTask.tabs.filter((t) => t.id !== tabId);
+        // Select the tab that slides into its place, like a browser. The tabs
+        // may have changed while a confirmation was open, so use the latest.
+        const latest = stateRef.current && findTask(stateRef.current, openTask.id);
+        const rest = (latest?.tabs ?? openTask.tabs).filter((t) => t.id !== tabId);
         const next = rest[Math.min(i, rest.length - 1)];
         if (next) selectTab(openTask.id, next.id);
       }
@@ -121,8 +117,10 @@ export function App() {
   commandRef.current = (id) => {
     if (settingsOpen) return;
     if (editor) {
-      // ⌘Return is also the editor's Save; the menu may take the key before the form sees it.
-      if (id === 'nextTask') submitEditor.current?.();
+      // ⌘Return is the editor's Save, and the menu may take that key before
+      // the form sees it: whichever command it is bound to then saves.
+      const accel = data && acceleratorFor(data.settings, id);
+      if (accel && sameAccelerator(accel, 'CmdOrCtrl+Return')) submitEditor.current?.();
       return;
     }
     const tabs = openTask?.tabs ?? [];
@@ -185,6 +183,11 @@ export function App() {
     }
   };
   useEffect(() => api.onCommand((id) => commandRef.current(id)), []);
+  useEffect(() => {
+    if (!data || !pendingCommand) return;
+    commandRef.current(pendingCommand);
+    setPendingCommand(undefined);
+  }, [data, pendingCommand]);
   useEffect(
     () =>
       // Opens over the task editor, if one is open, so its unsaved draft is kept.
@@ -224,7 +227,11 @@ export function App() {
   }, [activeTabId]);
   const closeSettings = useCallback(() => {
     setSettingsOpen(false);
-    if (!editor && activeTabId) requestAnimationFrame(() => terminals.peek(activeTabId)?.focus());
+    requestAnimationFrame(() => {
+      // Back to the editor if Settings opened over it, else the terminal.
+      if (editor) document.querySelector<HTMLElement>('.modal input')?.focus();
+      else if (activeTabId) terminals.peek(activeTabId)?.focus();
+    });
   }, [activeTabId, editor]);
 
   const view = useMemo(() => {
@@ -267,10 +274,13 @@ export function App() {
   }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, settingsOpen, find, closeFind]);
 
   if (!data || !state) return null;
+  // While a dialog is open, everything behind it is inert: no focus, clicks or typing reach it.
+  const modalOpen = !!editor || settingsOpen;
 
   return (
     <div className="app">
       <Sidebar
+        inert={modalOpen}
         state={state}
         settings={data.settings}
         agents={data.agents}
@@ -279,12 +289,14 @@ export function App() {
         onMenu={onTaskMenu}
         onNew={() => setEditor({ kind: 'create' })}
       />
-      <main className="main">
+      <main className="main" inert={modalOpen}>
         {view}
         {nothingElse > 0 && <Notice key={nothingElse} text="Nothing else needs you" onDone={clearNotice} />}
       </main>
       {editor && (
         <TaskEditor
+          key={editor.kind === 'edit' ? editor.task.id : 'new'}
+          inert={settingsOpen}
           mode={editor}
           homeDir={data.homeDir}
           globalDefaultCwd={data.settings.defaultCwd}

@@ -9,14 +9,27 @@ import * as pty from 'node-pty';
 const HIGH_WATER = 512 * 1024;
 /** Resume once the renderer is back under this. */
 const LOW_WATER = 128 * 1024;
-/** Output kept per tab so a reloaded renderer can redraw recent history. */
+/**
+ * Output kept per tab so a reloaded renderer can redraw recent history. It is
+ * raw output, so terminal modes set before it starts (bracketed paste, the
+ * alternate screen) are not replayed; a proper fix is a headless terminal in
+ * the main process, planned with scrollback replay.
+ */
 const REPLAY_LIMIT = 256 * 1024;
+/** How long a closed tab's shell gets to exit after SIGHUP before it is killed. */
+const KILL_GRACE_MS = 3000;
 /** How often batched output is sent to the renderer. */
 const FLUSH_MS = 8;
 
+/** How a shell ended. `clean` means it exited normally with code 0 (you typed `exit`), not killed by a signal. */
+export interface PtyExit {
+  code: number;
+  clean: boolean;
+}
+
 export interface PtySink {
   data(tabId: string, data: string): void;
-  exit(tabId: string, exitCode: number): void;
+  exit(tabId: string, exit: PtyExit): void;
 }
 
 interface Entry {
@@ -27,7 +40,9 @@ interface Entry {
   paused: boolean;
   /** False while no window is showing this tab's output (closed or reloading). */
   attached: boolean;
-  exited?: number;
+  /** Set once the shell has ended. The entry stays, with its output, until the tab restarts it or closes. */
+  exited?: PtyExit;
+  listeners: pty.IDisposable[];
 }
 
 export interface SpawnOptions {
@@ -97,20 +112,24 @@ export class PtyManager {
   }
 
   /**
-   * Starts the tab's shell if it is not running and returns recent output so
-   * the renderer can redraw it. Restarts a shell that has exited.
+   * Starts the tab's shell if it has none, and returns recent output so the
+   * renderer can redraw it. A shell that ended while nothing was showing it
+   * is reported with its output, not silently replaced; `restart` starts a
+   * new one in its place.
    */
-  attach(tabId: string, opts: SpawnOptions): { replay: string } {
+  attach(tabId: string, opts: SpawnOptions, restart = false): { replay: string; exited?: PtyExit } {
     const existing = this.entries.get(tabId);
-    if (existing && existing.exited === undefined) {
+    if (existing && (existing.exited === undefined || !restart)) {
       // The replay already contains anything still pending, so drop it to
       // avoid drawing the same output twice.
       existing.pending = '';
       existing.attached = true;
       existing.unacked = 0;
+      const replay = replayFrom(existing.replay);
+      if (existing.exited) return { replay, exited: existing.exited };
       this.updatePause(existing);
       this.resize(tabId, opts.cols, opts.rows);
-      return { replay: existing.replay };
+      return { replay };
     }
     this.spawn(tabId, opts);
     return { replay: '' };
@@ -121,25 +140,28 @@ export class PtyManager {
     // the app was opened from Finder with launchd's minimal environment.
     const proc = pty.spawn('/bin/zsh', ['-l'], {
       name: 'xterm-256color',
-      cols: Math.max(2, opts.cols),
-      rows: Math.max(1, opts.rows),
+      cols: size(opts.cols, 80, 2),
+      rows: size(opts.rows, 24, 1),
       cwd: opts.cwd,
       env: opts.env,
     });
-    const entry: Entry = { proc, replay: '', pending: '', unacked: 0, paused: false, attached: true };
+    const entry: Entry = { proc, replay: '', pending: '', unacked: 0, paused: false, attached: true, listeners: [] };
     this.entries.set(tabId, entry);
 
-    proc.onData((data) => {
-      entry.replay += data;
-      if (entry.replay.length > REPLAY_LIMIT) entry.replay = entry.replay.slice(-REPLAY_LIMIT);
-      entry.pending += data;
-      this.scheduleFlush();
-    });
-    proc.onExit(({ exitCode }) => {
-      entry.exited = exitCode;
-      this.flush();
-      this.sink.exit(tabId, exitCode);
-    });
+    entry.listeners.push(
+      proc.onData((data) => {
+        entry.replay += data;
+        // Trimmed in batches, so heavy output doesn't copy the whole buffer on every chunk.
+        if (entry.replay.length > REPLAY_LIMIT * 2) entry.replay = entry.replay.slice(-REPLAY_LIMIT);
+        entry.pending += data;
+        this.scheduleFlush();
+      }),
+      proc.onExit(({ exitCode, signal }) => {
+        entry.exited = { code: exitCode, clean: exitCode === 0 && !signal };
+        this.flush();
+        this.sink.exit(tabId, entry.exited);
+      }),
+    );
   }
 
   write(tabId: string, data: string): void {
@@ -151,7 +173,7 @@ export class PtyManager {
     const e = this.entries.get(tabId);
     if (!e || e.exited !== undefined) return;
     try {
-      e.proc.resize(Math.max(2, cols), Math.max(1, rows));
+      e.proc.resize(size(cols, e.proc.cols, 2), size(rows, e.proc.rows, 1));
     } catch {
       // The process can exit between the check and the resize.
     }
@@ -160,7 +182,7 @@ export class PtyManager {
   /** The renderer has drawn this many characters. */
   ack(tabId: string, chars: number): void {
     const e = this.entries.get(tabId);
-    if (!e) return;
+    if (!e || !Number.isFinite(chars) || chars < 0) return;
     e.unacked = Math.max(0, e.unacked - chars);
     this.updatePause(e);
   }
@@ -180,15 +202,31 @@ export class PtyManager {
     return this.entries.get(tabId)?.proc.pid;
   }
 
+  /**
+   * Ends the tab's shell: SIGHUP, like closing a terminal window, then SIGKILL
+   * if it's still there a few seconds later (a shell that ignores SIGHUP).
+   * Its output is no longer collected.
+   */
   kill(tabId: string): void {
     const e = this.entries.get(tabId);
     this.entries.delete(tabId);
-    if (!e || e.exited !== undefined) return;
+    if (!e) return;
+    for (const l of e.listeners) l.dispose();
+    if (e.exited !== undefined) return;
+    const pid = e.proc.pid;
     try {
       e.proc.kill('SIGHUP');
     } catch {
-      // already gone
+      return; // already gone
     }
+    setTimeout(() => {
+      try {
+        process.kill(pid, 0); // still running?
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // exited
+      }
+    }, KILL_GRACE_MS).unref();
   }
 
   /**
@@ -239,4 +277,21 @@ export class PtyManager {
       this.sink.data(tabId, data);
     }
   }
+}
+
+/** A sane terminal dimension from the renderer, which is not trusted: finite, whole, at least `min`. */
+function size(v: number, fallback: number, min: number): number {
+  return Number.isFinite(v) ? Math.max(min, Math.floor(v)) : fallback;
+}
+
+/**
+ * The replay to send: at most REPLAY_LIMIT characters, starting at a line
+ * break when there is one near the start, so it doesn't begin halfway through
+ * an escape sequence or a character.
+ */
+function replayFrom(replay: string): string {
+  if (replay.length <= REPLAY_LIMIT) return replay;
+  const tail = replay.slice(-REPLAY_LIMIT);
+  const nl = tail.indexOf('\n');
+  return nl >= 0 && nl < 4096 ? tail.slice(nl + 1) : tail;
 }

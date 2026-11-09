@@ -18,11 +18,12 @@ const HOOK_TEXT: Record<HookState, string> = {
   installed: 'Installed. Claude sessions in Humanloop tabs report what they are doing.',
   outdated: 'Out of date. Update them so every event reaches Humanloop.',
   missing: "Not installed. Without them Humanloop can't tell when Claude is working or waiting.",
-  unreadable: "~/.claude/settings.json can't be read, so Humanloop can't check its hooks.",
+  unreadable: "Claude Code's settings.json can't be read, so Humanloop can't check its hooks.",
+  disabled: 'Installed, but Claude Code\'s settings turn off all hooks (disableAllHooks), so they don\'t run.',
 };
 
 /** Settings apply as you change them; there is no Save. */
-export function SettingsView({ settings, hooks, homeDir, onClose }: Props) {
+export function SettingsView({ settings, hooks, homeDir, onClose: close }: Props) {
   const [cwd, setCwd] = useState(settings.defaultCwd ?? '');
   // Follow changes made elsewhere (e.g. editing settings.json by hand).
   useEffect(() => setCwd(settings.defaultCwd ?? ''), [settings.defaultCwd]);
@@ -37,6 +38,12 @@ export function SettingsView({ settings, hooks, homeDir, onClose }: Props) {
       setCwd(dir);
       void api.updateSettings({ defaultCwd: dir });
     }
+  }
+
+  // Closing saves a directory you typed but didn't confirm with Return.
+  function onClose() {
+    saveCwd(cwd);
+    close();
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -61,6 +68,24 @@ export function SettingsView({ settings, hooks, homeDir, onClose }: Props) {
             value={settings.policy}
             onChange={(key, value) => value !== undefined && void api.updateSettings({ policy: { [key]: value } })}
           />
+        </section>
+
+        <section>
+          <h3>Terminal</h3>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={settings.optionAsMeta}
+              onChange={(e) => void api.updateSettings({ optionAsMeta: e.target.checked })}
+            />
+            <span>
+              Use Option as Meta
+              <small>
+                For zsh word movement like Option+←. Turn this off if your keyboard types characters such as @ {'{'} [ |
+                with Option.
+              </small>
+            </span>
+          </label>
         </section>
 
         <section>
@@ -114,12 +139,12 @@ export function SettingsView({ settings, hooks, homeDir, onClose }: Props) {
           <h3>Claude Code hooks</h3>
           <p className={`section-hint hooks-${hooks}`}>{HOOK_TEXT[hooks]}</p>
           <div className="row-buttons">
-            {hooks !== 'installed' && (
+            {hooks !== 'installed' && hooks !== 'disabled' && (
               <button type="button" className={hooks === 'missing' ? 'primary' : ''} onClick={() => void api.installHooks()}>
                 {hooks === 'outdated' ? 'Update Hooks…' : 'Install Hooks…'}
               </button>
             )}
-            {(hooks === 'installed' || hooks === 'outdated') && (
+            {(hooks === 'installed' || hooks === 'outdated' || hooks === 'disabled') && (
               <button type="button" onClick={() => void api.removeHooks()}>
                 Remove Hooks…
               </button>
