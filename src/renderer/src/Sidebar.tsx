@@ -189,13 +189,13 @@ function TaskRow(props: {
       data-tip={task.title}
       data-tip-measure=".task-title"
     >
-      {/* P2 and P3 show no chip; the order within the queue carries them. */}
-      {task.priority <= 1 && <span className={`priority p${task.priority}`}>P{task.priority}</span>}
+      {/* Every row has a chip, so titles line up; its weight falls with urgency. */}
+      <span className={`priority p${task.priority}`}>P{task.priority}</span>
       <span className="task-title">{task.title}</span>
       {task.tabs.length > 0 && (
         <span className="dots">
           {task.tabs.map((tab) => (
-            <Glyph key={tab.id} kind={tabGlyphKind(activity, tab, effectivePolicy(settings.policy, task.policy, tab.policy))} />
+            <Glyph key={tab.id} kind={tabGlyphKind(activity, tab, effectivePolicy(settings.policy, task.policy, tab.policy))} muted={tab.muted} />
           ))}
         </span>
       )}

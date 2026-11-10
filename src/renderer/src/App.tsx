@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CommandId } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
-import type { ResumeOffer } from '../../shared/ipc';
+import type { CommandInfo, ResumeOffer } from '../../shared/ipc';
 import { QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
 import { acceleratorFor, sameAccelerator, textKeyCommand } from '../../shared/shortcuts';
 import type { TabActivity } from './Glyph';
@@ -13,7 +13,8 @@ import { Sidebar } from './Sidebar';
 import { TruncationTooltip } from './Tooltip';
 import { TaskEditor, type EditorMode } from './TaskEditor';
 import { TaskView } from './TaskView';
-import { setOptionAsMeta, terminals } from './terminals';
+import { setOptionAsMeta, setTerminalTheme, terminals } from './terminals';
+import type { ThemeName } from '../../shared/themes';
 
 const api = window.humanloop;
 
@@ -22,7 +23,8 @@ interface Loaded {
   settings: Settings;
   homeDir: string;
   agents: Record<string, TabAgent>;
-  commands: string[];
+  commands: Record<string, CommandInfo>;
+  theme: ThemeName;
   resume: Record<string, ResumeOffer>;
 }
 
@@ -65,6 +67,7 @@ export function App() {
     const offSettings = api.onSettings((settings) => setData((d) => d && { ...d, settings }));
     const offAgents = api.onAgents((agents) => setData((d) => d && { ...d, agents }));
     const offCommands = api.onCommands((commands) => setData((d) => d && { ...d, commands }));
+    const offTheme = api.onTheme((theme) => setData((d) => d && { ...d, theme }));
     const offResume = api.onResume((resume) => setData((d) => d && { ...d, resume }));
     void api.getInitialData().then((d) => {
       if (!alive) return;
@@ -78,6 +81,7 @@ export function App() {
       offSettings();
       offAgents();
       offCommands();
+      offTheme();
       offResume();
     };
   }, []);
@@ -87,7 +91,7 @@ export function App() {
   const resume = data?.resume;
   const commands = data?.commands;
   const activity = useMemo<TabActivity | undefined>(
-    () => agents && resume && commands && { agents, resume, commands: new Set(commands) },
+    () => agents && resume && commands && { agents, resume, commands },
     [agents, resume, commands],
   );
   const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
@@ -99,6 +103,14 @@ export function App() {
   const openTask = state ? findTask(state, state.openTaskId) : undefined;
   const lastTabIndex = useRef<Record<string, number>>({});
   const activeTabId = selectedTab(openTask, chosenTab, lastTabIndex.current);
+
+  // The theme: CSS variables by data-theme on <html>, and the terminals' colours.
+  const theme = data?.theme;
+  useLayoutEffect(() => {
+    if (!theme) return;
+    document.documentElement.dataset.theme = theme;
+    setTerminalTheme(theme);
+  }, [theme]);
 
   const optionAsMeta = data?.settings.optionAsMeta;
   useEffect(() => {
@@ -271,7 +283,7 @@ export function App() {
     };
   }, []);
 
-  const onTaskMenu = useCallback((task: Task) => api.showTaskMenu(task.id), []);
+  const onTaskMenu = useCallback((task: Task) => void api.showTaskMenu(task.id), []);
   const editorRef = useRef(editor);
   editorRef.current = editor;
   // The menu's Back and Forward follow Settings (Back closes it).
@@ -469,18 +481,21 @@ export function App() {
  * and a ⌄ button for the task's menu (Edit, Park, Mark done, Delete).
  */
 function TaskTitle({ task }: { task: Task }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <h1 className="task-name">
       <span data-tip={task.title} data-tip-width="560">
         {task.title}
       </span>
       <button
-        className="ib task-menu"
+        className={`ib task-menu${menuOpen ? ' open' : ''}`}
         aria-label="Task actions"
-        title="Task actions"
+        aria-haspopup="menu"
+        onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
-          api.showTaskMenu(task.id, { x: r.left, y: r.bottom + 4 });
+          setMenuOpen(true);
+          void api.showTaskMenu(task.id, { x: r.left, y: r.bottom + 4 }).finally(() => setMenuOpen(false));
         }}
       >
         <ChevronDownIcon />

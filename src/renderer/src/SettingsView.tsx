@@ -3,6 +3,16 @@ import type { Settings } from '../../shared/model';
 import { shortenHome } from './format';
 import { PolicyControls } from './PolicyControls';
 import { ShortcutsSection } from './ShortcutsSection';
+import {
+  APPEARANCES,
+  DARK_THEMES,
+  LIGHT_THEMES,
+  THEME_LABELS,
+  THEME_PREVIEWS,
+  type DarkTheme,
+  type LightTheme,
+  type ThemeName,
+} from '../../shared/themes';
 
 const api = window.humanloop;
 
@@ -14,6 +24,7 @@ interface Props {
 }
 
 const SECTIONS = [
+  { id: 'appearance', title: 'Appearance' },
   { id: 'turn', title: 'Turn rules' },
   { id: 'tabs', title: 'Tabs' },
   { id: 'notifications', title: 'Notifications & power' },
@@ -42,7 +53,7 @@ export function SettingsView({ settings, homeDir, flushRef }: Props) {
 
   // The nav marks the section at the top of the scrolled content.
   const content = useRef<HTMLDivElement>(null);
-  const [current, setCurrent] = useState<SectionId>('turn');
+  const [current, setCurrent] = useState<SectionId>(SECTIONS[0].id);
   const onScroll = () => {
     const el = content.current;
     if (!el) return;
@@ -71,6 +82,53 @@ export function SettingsView({ settings, homeDir, flushRef }: Props) {
       </nav>
 
       <div className="settings-content" ref={content} onScroll={onScroll}>
+        <section className="sec" id="section-appearance" aria-labelledby="settings-appearance">
+          <h2 id="settings-appearance">Appearance</h2>
+          <p className="lead">Themes change colours only. Layout, shapes and what each colour means stay the same.</p>
+          <div className="srow">
+            <div className="t">
+              <b id="settings-appearance-mode">Theme</b>
+              <span className="help">System follows macOS, switching between the dark and light themes chosen below.</span>
+            </div>
+            <div className="seg" role="radiogroup" aria-labelledby="settings-appearance-mode">
+              {APPEARANCES.map((a) => (
+                <button
+                  type="button"
+                  key={a}
+                  role="radio"
+                  aria-checked={settings.appearance === a}
+                  className={settings.appearance === a ? 'on' : ''}
+                  onClick={() => void api.updateSettings({ appearance: a })}
+                >
+                  {a === 'system' ? 'System' : a === 'light' ? 'Light' : 'Dark'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="srow top">
+            <div className="t">
+              <b id="settings-dark-theme">Dark theme</b>
+            </div>
+            <ThemeCards
+              labelledBy="settings-dark-theme"
+              themes={DARK_THEMES}
+              chosen={settings.darkTheme}
+              onChoose={(t) => void api.updateSettings({ darkTheme: t as DarkTheme })}
+            />
+          </div>
+          <div className="srow top">
+            <div className="t">
+              <b id="settings-light-theme">Light theme</b>
+            </div>
+            <ThemeCards
+              labelledBy="settings-light-theme"
+              themes={LIGHT_THEMES}
+              chosen={settings.lightTheme}
+              onChoose={(t) => void api.updateSettings({ lightTheme: t as LightTheme })}
+            />
+          </div>
+        </section>
+
         <section className="sec" id="section-turn" aria-labelledby="settings-turn">
           <h2 id="settings-turn">Turn rules</h2>
           <p className="lead">When a task comes back to you. Tasks can override these.</p>
@@ -157,4 +215,50 @@ export function SettingsView({ settings, homeDir, flushRef }: Props) {
 
 function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange(on: boolean): void }) {
   return <button type="button" className={`tg ${on ? 'on' : ''}`} role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)} />;
+}
+
+/** Theme cards: a small preview drawn in each theme's own colours, as a radio group. */
+function ThemeCards(props: { labelledBy: string; themes: readonly ThemeName[]; chosen: ThemeName; onChoose(t: ThemeName): void }) {
+  return (
+    <div className="theme-cards" role="radiogroup" aria-labelledby={props.labelledBy}>
+      {props.themes.map((t) => {
+        const c = THEME_PREVIEWS[t];
+        const on = t === props.chosen;
+        return (
+          <button
+            type="button"
+            key={t}
+            role="radio"
+            aria-checked={on}
+            className={`theme-card${on ? ' on' : ''}`}
+            onClick={() => props.onChoose(t)}
+          >
+            <span
+              className="pv"
+              aria-hidden
+              style={{ background: c.window, borderColor: c.line, ['--bar' as string]: c.bar, ['--fg' as string]: c.fg, ['--nx' as string]: c.you }}
+            >
+              <span className="pv-side" style={{ background: c.chrome, borderColor: c.line }}>
+                <i style={{ ['--dot' as string]: c.you }} />
+                <i style={{ ['--dot' as string]: c.agent }} />
+                <i className="o" style={{ ['--dot' as string]: c.shell }} />
+              </span>
+              <span className="pv-main">
+                <span className="hd">
+                  <i className="tt" />
+                  <b />
+                </span>
+                <span className="tb" />
+                <i style={{ width: '70%' }} />
+                <i style={{ width: '48%' }} />
+                <i style={{ width: '82%' }} />
+                <i style={{ width: '36%' }} />
+              </span>
+            </span>
+            <span className="nm">{THEME_LABELS[t]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }

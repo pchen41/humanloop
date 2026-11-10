@@ -63,9 +63,12 @@ if [[ -n \${HUMANLOOP_CLAUDE_SETTINGS-} ]]; then
   fi
 fi
 
+# Marks for command tracking: the command line as it starts (control
+# characters dropped, cut to 200 characters), and its exit status at the next
+# prompt (zsh gives every prompt hook the command's $?).
 autoload -Uz add-zsh-hook
-__humanloop_preexec() { builtin print -n '\\e]6973;C\\a' }
-__humanloop_precmd() { builtin print -n '\\e]6973;D\\a' }
+__humanloop_preexec() { builtin print -rn -- $'\\e]6973;C;'"\${\${1//[[:cntrl:]]/ }[1,200]}"$'\\a' }
+__humanloop_precmd() { builtin print -rn -- $'\\e]6973;D;'"$?"$'\\a' }
 add-zsh-hook preexec __humanloop_preexec
 add-zsh-hook precmd __humanloop_precmd
 `,

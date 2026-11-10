@@ -1,9 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { CommandId } from '../../shared/commands';
 import { acceleratorFor } from '../../shared/shortcuts';
-import { agentFor } from '../../shared/agents';
-import { effectivePolicy, type Policy, type Settings, type Task } from '../../shared/model';
-import { backgroundSummary, Glyph, tabGlyphKind, type TabActivity } from './Glyph';
+import { effectivePolicy, type Policy, type Settings, type Tab, type Task } from '../../shared/model';
+import { Glyph, tabGlyphKind, tabGlyphLabel, type TabActivity } from './Glyph';
 import { FindBar } from './FindBar';
 import { formatAccelerator, linkify, shellQuote, shortenHome, tip } from './format';
 import { NewTabIcon, TabMenuIcon } from './icons';
@@ -200,7 +199,28 @@ function TabStrip(props: {
     bar.current?.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [activeTabId]);
 
+  // While a drag is on, tabs that change place slide there (120ms) instead of jumping.
+  const lefts = useRef(new Map<string, number>());
+  useLayoutEffect(() => {
+    const next = new Map<string, number>();
+    for (const el of bar.current?.querySelectorAll<HTMLElement>('[data-tab-id]') ?? []) {
+      const id = el.dataset.tabId!;
+      const before = lefts.current.get(id);
+      next.set(id, el.offsetLeft);
+      if (!dragging || id === dragging || before === undefined || before === el.offsetLeft) continue;
+      el.style.transition = 'none';
+      el.style.transform = `translateX(${before - el.offsetLeft}px)`;
+      void el.offsetWidth; // apply the start position before animating from it
+      el.style.transition = 'transform 120ms ease';
+      el.style.transform = '';
+    }
+    lefts.current = next;
+  });
+
   const byId = new Map(task.tabs.map((t) => [t.id, t]));
+  const policyOf = (tab: Tab) => effectivePolicy(props.globalPolicy, task.policy, tab.policy);
+  // A running command's tooltip says how long it has run.
+  const now = useNow(Object.values(activity.commands).some((c) => c.state === 'running'));
   const tabs = dragOrder
     ? [...dragOrder.flatMap((id) => byId.get(id) ?? []), ...task.tabs.filter((t) => !dragOrder.includes(t.id))]
     : task.tabs;
@@ -236,17 +256,16 @@ function TabStrip(props: {
         moved = true;
         setDragging(id);
       }
-      // The ghost stays on the strip, between its edges.
+      // The ghost stays on the strip's row, between its edges; only its x follows the pointer.
       const strip = bar.current.getBoundingClientRect();
       const x = Math.min(Math.max(ev.clientX - grab, strip.left), strip.right - tabBox.width);
-      setGhost({ x, y: tabBox.top, width: tabBox.width });
+      setGhost({ x, y: tabBox.top + 2, width: tabBox.width });
       // The dragged tab goes before the first other tab whose middle is right of the pointer.
+      // (Layout positions, not on-screen ones: tabs sliding aside mustn't change the answer.)
       const shown = [...bar.current.querySelectorAll<HTMLElement>('[data-tab-id]')];
       const others = shown.filter((el) => el.dataset.tabId !== id);
-      const index = others.filter((el) => {
-        const r = el.getBoundingClientRect();
-        return r.left + r.width / 2 < ev.clientX;
-      }).length;
+      const origin = strip.left - bar.current.scrollLeft;
+      const index = others.filter((el) => origin + el.offsetLeft + el.offsetWidth / 2 < ev.clientX).length;
       const ids = others.map((el) => el.dataset.tabId!);
       const next = [...ids.slice(0, index), id, ...ids.slice(index)];
       if (next.join() !== shown.map((el) => el.dataset.tabId).join()) setDragOrder(next);
@@ -294,10 +313,9 @@ function TabStrip(props: {
   };
 
   return (
-    <div className="tab-bar" role="tablist" aria-label="Terminal tabs" ref={bar}>
+    <div className={`tab-bar${dragging ? ' dragging' : ''}`} role="tablist" aria-label="Terminal tabs" ref={bar}>
       {tabs.map((tab) => {
         const title = terminals.peek(tab.id)?.title || tab.title;
-        const agent = agentFor(activity.agents, tab.id);
         const active = tab.id === activeTabId;
         return (
           <div
@@ -311,7 +329,8 @@ function TabStrip(props: {
               // otherwise take focus from the terminal (or Find) and leave it on the page,
               // where typing goes nowhere.
               e.preventDefault();
-              if (e.button !== 0) return;
+              // A ctrl-click opens the menu, like a right-click, without selecting the tab.
+              if (e.button !== 0 || e.ctrlKey) return;
               onSelectTab(tab.id);
               if (!findFieldFocused()) requestAnimationFrame(() => terminals.peek(tab.id)?.focus());
             }}
@@ -328,8 +347,9 @@ function TabStrip(props: {
             }}
           >
             <Glyph
-              kind={tabGlyphKind(activity, tab, effectivePolicy(props.globalPolicy, task.policy, tab.policy))}
-              detail={agent && !tab.muted ? backgroundSummary(agent.backgroundTasks) : undefined}
+              kind={tabGlyphKind(activity, tab, policyOf(tab))}
+              muted={tab.muted}
+              label={tabGlyphLabel(activity, tab, policyOf(tab), now)}
             />
             <span className="tab-title" data-tip={title}>
               {title}
@@ -356,9 +376,7 @@ function TabStrip(props: {
       })}
       {ghost && dragging && byId.get(dragging) && (
         <div className="tab tab-ghost" aria-hidden style={{ left: ghost.x, top: ghost.y, width: ghost.width }}>
-          <Glyph
-            kind={tabGlyphKind(activity, byId.get(dragging)!, effectivePolicy(props.globalPolicy, task.policy, byId.get(dragging)!.policy))}
-          />
+          <Glyph kind={tabGlyphKind(activity, byId.get(dragging)!, policyOf(byId.get(dragging)!))} muted={byId.get(dragging)!.muted} />
           <span className="tab-title">{terminals.peek(dragging)?.title || byId.get(dragging)!.title}</span>
         </div>
       )}
@@ -367,4 +385,16 @@ function TabStrip(props: {
       </button>
     </div>
   );
+}
+
+/** The time now, kept current every 5 seconds while `ticking`. */
+function useNow(ticking: boolean): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!ticking) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(t);
+  }, [ticking]);
+  return ticking ? now : Date.now();
 }

@@ -1,11 +1,13 @@
-/* Tokens: design/SPEC.md. Mint means you, blue means Claude, everything else is grey. */
+/* Tokens: design/SPEC.md. Mint means you, amber means Claude, everything else is grey.
+   Four themes share the roles; main picks one and sets data-theme on <html>.
+   Graphite (dark) is the default. */
 :root {
   --bg-window: #111113;
   --bg-chrome: #17171a;
   --bg-raised: #1a1a1e;
   --bg-selected: #26262b;
   --bg-hover: #1f1f23;
-  --bg-terminal: #0c0c0e;
+  --bg-terminal: #131316;
   --bg-input: #17171a;
   --bg-solid: #1f1f24;
   --bg-seg-on: #34343c;
@@ -21,20 +23,24 @@
   --fg-4: #6f6f7a;
   --fg-5: #55555e;
   --fg-disabled: #44444c;
+  /* A muted tab's name. */
+  --fg-muted: #55555e;
   --you: #6fd2b0;
   --you-text: #6fd2b0;
   --you-tint: rgba(111, 210, 176, 0.13);
   --you-tint-2: rgba(111, 210, 176, 0.16);
   --you-tint-3: rgba(111, 210, 176, 0.18);
   --you-ring: rgba(111, 210, 176, 0.22);
-  --agent: #5b9cf6;
+  --agent: #e6b450;
   --danger: #f16c6c;
   --on-danger: #1b0b0b;
   --shell: #5a5a66;
-  --muted-glyph: #3a3a42;
   --warn: #f2c46b;
   --warn-tint: rgba(242, 196, 107, 0.16);
+  /* Priority chips: P1 fill, P2 fill, P3 ring. */
   --chip: #34343c;
+  --chip-p2: #26262b;
+  --chip-p3: #2a2a31;
   --toggle-off: #3a3a42;
   --toggle-on: #6fd2b0;
   --scrim: rgba(8, 8, 10, 0.6);
@@ -43,6 +49,10 @@
   --link-line: #4a4a54;
   --bg-tooltip: #2a2a31;
   --line-tooltip: #36363e;
+  /* A tab being dragged. */
+  --ghost-bg: #1f1f24;
+  --ghost-line: #33333b;
+  --shadow-ghost: 0 10px 24px rgba(0, 0, 0, 0.55), 0 2px 4px rgba(0, 0, 0, 0.4);
 
   --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
@@ -56,53 +66,154 @@
   background: var(--bg-window);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg-window: #f5f5f7;
-    --bg-chrome: #ececef;
-    --bg-raised: #ffffff;
-    --bg-selected: #dfdfe4;
-    --bg-hover: #e5e5e9;
-    --bg-terminal: #fcfcfd;
-    --bg-input: #ececef;
-    --bg-solid: #ffffff;
-    --bg-seg-on: #d4d4da;
-    --bg-kbd: #e2e2e7;
-    --bg-cap: #f5f5f7;
-    --line: #d9d9de;
-    --line-raised: #cfcfd6;
-    --line-row: #e4e4e8;
-    --line-card: #d9d9de;
-    --fg-1: #1c1c21;
-    --fg-2: #5a5a66;
-    --fg-3: #6b6b76;
-    --fg-4: #63636e;
-    --fg-5: #6b6b76;
-    --fg-disabled: #b0b0b8;
-    --you: #147c5a;
-    --you-text: #0f5e44;
-    --you-tint: #dcefe6;
-    --you-tint-2: rgba(15, 94, 68, 0.12);
-    --you-tint-3: #dcefe6;
-    --you-ring: rgba(20, 124, 90, 0.22);
-    --agent: #3b7fe0;
-    --danger: #d9453f;
-    --on-danger: #1b0b0b;
-    --shell: #a0a0aa;
-    --muted-glyph: #c4c4cb;
-    --warn: #8a5a00;
-    --warn-tint: rgba(138, 90, 0, 0.12);
-    --chip: #d4d4da;
-    --toggle-off: #c4c4cc;
-    --toggle-on: #126f50;
-    --scrim: rgba(28, 28, 33, 0.28);
-    --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.18);
-    --shadow-pop: 0 10px 28px rgba(0, 0, 0, 0.14);
-    --link-line: #b8b8c0;
-    --bg-tooltip: #ffffff;
-    --line-tooltip: #cfcfd6;
-    color-scheme: light;
-  }
+/* Dusk: dark, cool, lower contrast. */
+:root[data-theme='dusk'] {
+  --bg-window: #1a1d24;
+  --bg-chrome: #20242c;
+  --bg-raised: #252a33;
+  --bg-selected: #313744;
+  --bg-hover: #292e38;
+  --bg-terminal: #1c2027;
+  --bg-input: #20242c;
+  --bg-solid: #2a2f39;
+  --bg-seg-on: #3b4250;
+  --bg-kbd: #333947;
+  --bg-cap: #2c313b;
+  --line: #2c313b;
+  --line-raised: #3a4050;
+  --line-row: #262a33;
+  --line-card: #333947;
+  --fg-1: #d9dee8;
+  --fg-2: #a3aab8;
+  --fg-3: #8a91a0;
+  --fg-4: #6f7786;
+  --fg-5: #58606e;
+  --fg-disabled: #4a5160;
+  --fg-muted: #58606e;
+  --you: #7cd4b6;
+  --you-text: #7cd4b6;
+  --you-tint: rgba(124, 212, 182, 0.13);
+  --you-tint-2: rgba(124, 212, 182, 0.16);
+  --you-tint-3: rgba(124, 212, 182, 0.18);
+  --you-ring: rgba(124, 212, 182, 0.22);
+  --agent: #e2b35c;
+  --danger: #ef7b78;
+  --shell: #646c7c;
+  --chip: #3b4250;
+  --chip-p2: #313744;
+  --chip-p3: #333947;
+  --toggle-off: #3b4250;
+  --toggle-on: #7cd4b6;
+  --scrim: rgba(10, 12, 16, 0.6);
+  --link-line: #4c5362;
+  --bg-tooltip: #333947;
+  --line-tooltip: #3f4655;
+  --ghost-bg: #2a2f39;
+  --ghost-line: #3f4655;
+}
+
+/* Paper: light, neutral. */
+:root[data-theme='paper'] {
+  --bg-window: #f5f5f7;
+  --bg-chrome: #ececef;
+  --bg-raised: #ffffff;
+  --bg-selected: #dfdfe4;
+  --bg-hover: #e5e5e9;
+  --bg-terminal: #f7f7f9;
+  --bg-input: #ececef;
+  --bg-solid: #ffffff;
+  --bg-seg-on: #d4d4da;
+  --bg-kbd: #e2e2e7;
+  --bg-cap: #f5f5f7;
+  --line: #d9d9de;
+  --line-raised: #cfcfd6;
+  --line-row: #e4e4e8;
+  --line-card: #d9d9de;
+  --fg-1: #1c1c21;
+  --fg-2: #5a5a66;
+  --fg-3: #6b6b76;
+  --fg-4: #63636e;
+  --fg-5: #6b6b76;
+  --fg-disabled: #b0b0b8;
+  --fg-muted: #a8a8b2;
+  --you: #147c5a;
+  --you-text: #0f5e44;
+  --you-tint: #dcefe6;
+  --you-tint-2: rgba(15, 94, 68, 0.12);
+  --you-tint-3: #dcefe6;
+  --you-ring: rgba(20, 124, 90, 0.22);
+  --agent: #b4780c;
+  --danger: #d9453f;
+  --shell: #a0a0aa;
+  --warn: #8a5a00;
+  --warn-tint: rgba(138, 90, 0, 0.12);
+  --chip: #d4d4da;
+  --chip-p2: #e2e2e7;
+  --chip-p3: #d9d9de;
+  --toggle-off: #c4c4cc;
+  --toggle-on: #126f50;
+  --scrim: rgba(28, 28, 33, 0.28);
+  --shadow-sheet: 0 24px 64px rgba(0, 0, 0, 0.18);
+  --shadow-pop: 0 10px 28px rgba(0, 0, 0, 0.14);
+  --link-line: #b8b8c0;
+  --bg-tooltip: #ffffff;
+  --line-tooltip: #cfcfd6;
+  --ghost-bg: #ffffff;
+  --ghost-line: #cfcfd6;
+  --shadow-ghost: 0 10px 24px rgba(0, 0, 0, 0.18), 0 2px 4px rgba(0, 0, 0, 0.08);
+  color-scheme: light;
+}
+
+/* Linen: light, warm, lower contrast. */
+:root[data-theme='linen'] {
+  --bg-window: #f4f0e7;
+  --bg-chrome: #ece7db;
+  --bg-raised: #fbf8f1;
+  --bg-selected: #e2dcce;
+  --bg-hover: #e7e1d4;
+  --bg-terminal: #f6f2ea;
+  --bg-input: #ece7db;
+  --bg-solid: #fbf8f1;
+  --bg-seg-on: #d7d0c1;
+  --bg-kbd: #e6e0d3;
+  --bg-cap: #f4f0e7;
+  --line: #ddd6c8;
+  --line-raised: #cfc7b7;
+  --line-row: #e5dfd2;
+  --line-card: #ddd6c8;
+  --fg-1: #2c2721;
+  --fg-2: #5e5649;
+  --fg-3: #726a5c;
+  --fg-4: #6e6659;
+  --fg-5: #726a5c;
+  --fg-disabled: #b4ab9b;
+  --fg-muted: #ada495;
+  --you: #1e7a58;
+  --you-text: #175c43;
+  --you-tint: #dcebdf;
+  --you-tint-2: rgba(23, 92, 67, 0.12);
+  --you-tint-3: #dcebdf;
+  --you-ring: rgba(30, 122, 88, 0.22);
+  --agent: #a5680a;
+  --danger: #c9483e;
+  --shell: #a89f8f;
+  --warn: #85581a;
+  --warn-tint: rgba(133, 88, 26, 0.12);
+  --chip: #d7d0c1;
+  --chip-p2: #e6e0d3;
+  --chip-p3: #ddd6c8;
+  --toggle-off: #cfc7b7;
+  --toggle-on: #1e7a58;
+  --scrim: rgba(44, 39, 33, 0.25);
+  --shadow-sheet: 0 24px 64px rgba(60, 45, 20, 0.16);
+  --shadow-pop: 0 10px 28px rgba(60, 45, 20, 0.12);
+  --link-line: #bbb2a2;
+  --bg-tooltip: #fbf8f1;
+  --line-tooltip: #cfc7b7;
+  --ghost-bg: #fffdf8;
+  --ghost-line: #cfc7b7;
+  --shadow-ghost: 0 10px 24px rgba(60, 45, 20, 0.16), 0 2px 4px rgba(60, 45, 20, 0.08);
+  color-scheme: light;
 }
 
 * {
@@ -118,6 +229,14 @@ body,
   user-select: none;
   -webkit-font-smoothing: antialiased;
   background: var(--bg-window);
+}
+
+/* Until main says which theme is in use, the page stays clear and the window's
+   own background (already that theme's colour) shows, so no other theme flashes. */
+:root:not([data-theme]),
+:root:not([data-theme]) body,
+:root:not([data-theme]) #root {
+  background: transparent;
 }
 
 button {
@@ -393,6 +512,10 @@ textarea.in {
 .glyph.working {
   background: var(--agent);
 }
+/* A command you ran: filled grey while it runs (a shell, working), the mint ring once it's done. */
+.glyph.command {
+  background: var(--shell);
+}
 .glyph.needsYou {
   background: var(--you);
   box-shadow: 0 0 0 3px var(--you-ring);
@@ -400,7 +523,8 @@ textarea.in {
 .dots .glyph.needsYou {
   box-shadow: 0 0 0 2px var(--you-ring);
 }
-.glyph.idle {
+.glyph.idle,
+.glyph.commandDone {
   border: 1.5px solid var(--you);
 }
 .glyph.shell {
@@ -411,7 +535,7 @@ textarea.in {
 }
 /* Left out of the turn decision: a dim filled disc. */
 .glyph.muted {
-  background: var(--muted-glyph);
+  opacity: 0.45;
 }
 /* A ring of even dashes; a dashed border breaks up unevenly at this size. */
 .glyph.resumable {
@@ -569,6 +693,15 @@ textarea.in {
   background: var(--danger);
   color: var(--on-danger);
 }
+.priority.p2 {
+  background: var(--chip-p2);
+  color: var(--fg-2);
+}
+.priority.p3 {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--chip-p3);
+  color: var(--fg-4);
+}
 .task-wait {
   flex: none;
   min-width: 34px;
@@ -654,6 +787,10 @@ body.resizing * {
 .task-name .task-menu {
   width: 22px;
   height: 22px;
+}
+.task-name .task-menu.open {
+  background: var(--bg-selected);
+  color: var(--fg-1);
 }
 .header-controls {
   flex: 0 1 auto;
@@ -787,6 +924,8 @@ body.resizing * {
 }
 
 .tab-bar {
+  /* Tabs' offsetLeft is measured from here while dragging. */
+  position: relative;
   flex: none;
   height: 37px;
   display: flex;
@@ -822,27 +961,42 @@ body.resizing * {
   border-bottom-color: var(--fg-1);
 }
 .tab.muted {
-  color: var(--fg-5);
+  color: var(--fg-muted);
 }
-.tab.muted.active {
-  border-bottom-color: var(--fg-5);
+/* While dragging: the tab lifts out as a ghost that follows the pointer, its
+   slot stays as a faint well where it will land, and no tab reacts to hover. */
+.tab-bar.dragging .tab {
+  pointer-events: none;
 }
-/* While dragging, the tab's own slot shows where it will land; a ghost follows the pointer. */
+.tab-bar.dragging .tab-menu {
+  opacity: 0;
+}
 .tab.dragging {
-  opacity: 0.35;
+  position: relative;
+  border-bottom-color: transparent;
+}
+.tab.dragging > * {
+  visibility: hidden;
+}
+.tab.dragging::after {
+  content: '';
+  position: absolute;
+  inset: 4px 0;
+  border-radius: 6px;
+  background: var(--bg-raised);
 }
 .tab-ghost {
   position: fixed;
   z-index: 20;
   pointer-events: none;
-  color: var(--fg-1);
-  background: var(--bg-raised);
-  border: 1px solid var(--line-raised);
-  border-radius: 6px;
-  box-shadow: var(--shadow-pop);
-  box-sizing: border-box;
+  height: 32px;
   max-width: none;
-  opacity: 0.95;
+  padding: 0 10px;
+  color: var(--fg-1);
+  background: var(--ghost-bg);
+  border: 1px solid var(--ghost-line);
+  border-radius: 6px;
+  box-shadow: var(--shadow-ghost);
 }
 .tab-title {
   flex: 1;
@@ -1217,6 +1371,123 @@ body.resizing * {
   flex: none;
 }
 
+/* Appearance: a theme card is a small preview drawn in that theme's colours. */
+.srow.top {
+  align-items: flex-start;
+}
+.theme-cards {
+  display: flex;
+  gap: 14px;
+  flex: none;
+}
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  font-size: 12px;
+  line-height: 16px;
+}
+.theme-card.on {
+  color: var(--fg-1);
+  font-weight: 500;
+}
+.theme-card .pv {
+  display: flex;
+  width: 148px;
+  height: 92px;
+  border-radius: 8px;
+  border: 1px solid;
+  overflow: hidden;
+  font-size: 0;
+}
+.theme-card.on .pv {
+  box-shadow: 0 0 0 2px var(--you);
+}
+.theme-card:focus-visible {
+  outline: none;
+}
+.theme-card:focus-visible .pv {
+  outline: 2px solid var(--you);
+  outline-offset: 3px;
+}
+.pv-side {
+  width: 46px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 7px 0;
+  border-right: 1px solid;
+}
+.pv-side i {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 5px;
+}
+.pv-side i::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--dot);
+  flex: none;
+}
+.pv-side i.o::before {
+  background: transparent;
+  border: 1px solid var(--dot);
+}
+.pv-side i::after {
+  content: '';
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bar);
+}
+.pv-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 9px 10px 0;
+}
+.pv-main > i {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bar);
+}
+.pv-main .hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 8px;
+  margin-bottom: 2px;
+}
+.pv-main .hd .tt {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fg);
+}
+.pv-main .hd b {
+  width: 22px;
+  height: 8px;
+  border-radius: 3px;
+  background: var(--nx);
+}
+.pv-main .tb {
+  width: 18px;
+  height: 2px;
+  background: var(--fg);
+  margin: 2px 0 4px;
+}
+
 /* A narrow window drops the section nav; rows wrap their control below the label.
    (After the rules it overrides.) */
 @container settings (max-width: 640px) {
@@ -1308,7 +1579,7 @@ body.resizing * {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--agent);
+  background: var(--fg-4);
 }
 .keys {
   display: inline-flex;

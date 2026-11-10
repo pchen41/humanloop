@@ -2,6 +2,7 @@
 // Everything in AppState is saved to disk; runtime-only state lives elsewhere.
 
 import { COMMAND_IDS } from './commands';
+import { APPEARANCES, DARK_THEMES, LIGHT_THEMES, type Appearance, type DarkTheme, type LightTheme } from './themes';
 
 export type Queue = 'yourTurn' | 'agentsTurn' | 'parked' | 'done';
 
@@ -124,6 +125,10 @@ export interface Settings {
   optionAsMeta: boolean;
   /** New tabs start in the current tab's directory (else the task's, or the default). */
   newTabsInCurrentDir: boolean;
+  /** System follows macOS, switching between the chosen dark and light themes. */
+  appearance: Appearance;
+  darkTheme: DarkTheme;
+  lightTheme: LightTheme;
 }
 
 export const EMPTY_STATE: AppState = { tasks: [], history: [], historyIndex: -1 };
@@ -135,6 +140,9 @@ export const DEFAULT_SETTINGS: Settings = {
   keepAwake: false,
   optionAsMeta: true,
   newTabsInCurrentDir: true,
+  appearance: 'system',
+  darkTheme: 'graphite',
+  lightTheme: 'paper',
 };
 
 /** A change made in the settings screen. A null defaultCwd clears it. */
@@ -145,6 +153,9 @@ export interface SettingsPatch {
   keepAwake?: boolean;
   optionAsMeta?: boolean;
   newTabsInCurrentDir?: boolean;
+  appearance?: Appearance;
+  darkTheme?: DarkTheme;
+  lightTheme?: LightTheme;
   /** Command id -> accelerator; "" removes the shortcut, null puts the default back. */
   shortcuts?: Record<string, string | null>;
 }
@@ -169,6 +180,9 @@ export function patchSettingsJson(raw: Record<string, unknown>, patch: SettingsP
   for (const key of ['notifications', 'keepAwake', 'optionAsMeta', 'newTabsInCurrentDir'] as const) {
     if (typeof patch[key] === 'boolean') out[key] = patch[key];
   }
+  if (APPEARANCES.includes(patch.appearance as Appearance)) out.appearance = patch.appearance;
+  if (DARK_THEMES.includes(patch.darkTheme as DarkTheme)) out.darkTheme = patch.darkTheme;
+  if (LIGHT_THEMES.includes(patch.lightTheme as LightTheme)) out.lightTheme = patch.lightTheme;
   if (typeof patch.shortcuts === 'object' && patch.shortcuts !== null && !Array.isArray(patch.shortcuts)) {
     const current = raw.shortcuts;
     const shortcuts: Record<string, unknown> =

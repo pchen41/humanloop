@@ -17,11 +17,14 @@ import {
   type Task,
 } from './model';
 import { cleanShortcuts } from './shortcuts';
+import { APPEARANCES, DARK_THEMES, LIGHT_THEMES } from './themes';
 import { HISTORY_LIMIT } from './tasks';
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+const oneOf = <T extends string>(v: unknown, values: readonly T[], fallback: T): T =>
+  values.includes(v as T) ? (v as T) : fallback;
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
 function priority(v: unknown): Priority {
@@ -147,6 +150,9 @@ export function normalizeSettings(raw: unknown): Settings {
     optionAsMeta: typeof raw.optionAsMeta === 'boolean' ? raw.optionAsMeta : DEFAULT_SETTINGS.optionAsMeta,
     newTabsInCurrentDir:
       typeof raw.newTabsInCurrentDir === 'boolean' ? raw.newTabsInCurrentDir : DEFAULT_SETTINGS.newTabsInCurrentDir,
+    appearance: oneOf(raw.appearance, APPEARANCES, DEFAULT_SETTINGS.appearance),
+    darkTheme: oneOf(raw.darkTheme, DARK_THEMES, DEFAULT_SETTINGS.darkTheme),
+    lightTheme: oneOf(raw.lightTheme, LIGHT_THEMES, DEFAULT_SETTINGS.lightTheme),
   };
   const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;

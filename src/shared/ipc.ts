@@ -4,6 +4,7 @@ import type { CommandId } from './commands';
 import type { TabAgent } from './agents';
 import type { RecordResult } from './shortcuts';
 import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
+import type { ThemeName } from './themes';
 
 
 export interface InitialData {
@@ -12,8 +13,10 @@ export interface InitialData {
   homeDir: string;
   /** Claude sessions by tab id. */
   agents: Record<string, TabAgent>;
-  /** Tabs where a command has been running long enough to count (command tracking). */
-  commands: string[];
+  /** Commands run in tabs that have run long enough to count, or just finished, by tab id. */
+  commands: Record<string, CommandInfo>;
+  /** The theme in use. */
+  theme: ThemeName;
   /** Settings was chosen from the menu before this window existed. */
   showSettings: boolean;
   /** A menu command chosen before this window existed, to run once it has loaded. */
@@ -28,6 +31,11 @@ export interface PtyExitInfo {
   clean: boolean;
 }
 
+/** A command you ran in a tab: still running (past the 5-second mark), or finished until you type there. */
+export type CommandInfo =
+  | { state: 'running'; command: string; since: number }
+  | { state: 'done'; command: string; exit?: number };
+
 export interface ResumeOffer {
   sessionId: string;
   cwd: string;
@@ -39,7 +47,9 @@ export interface HumanloopApi {
   onSettings(cb: (settings: Settings) => void): () => void;
   onCommand(cb: (id: CommandId) => void): () => void;
   onAgents(cb: (agents: Record<string, TabAgent>) => void): () => void;
-  onCommands(cb: (tabIds: string[]) => void): () => void;
+  onCommands(cb: (commands: Record<string, CommandInfo>) => void): () => void;
+  /** The theme in use changed (Settings, or macOS switching appearance). */
+  onTheme(cb: (theme: ThemeName) => void): () => void;
   /** The app menu's Settings… item was chosen. */
   onShowSettings(cb: () => void): () => void;
   /** Opens Settings the way the menu does. */
@@ -90,7 +100,7 @@ export interface HumanloopApi {
   deleteTask(id: string): Promise<boolean>;
   /** Shows the native context menu for a task (Edit, Park, Done, Delete). */
   /** `at`: where to open it, in window coordinates (default: at the pointer). */
-  showTaskMenu(id: string, at?: { x: number; y: number }): void;
+  showTaskMenu(id: string, at?: { x: number; y: number }): Promise<void>;
   /** The task menu's Edit item was chosen. */
   onEditTask(cb: (id: string) => void): () => void;
   chooseDirectory(current?: string): Promise<string | undefined>;
@@ -140,6 +150,7 @@ export const IPC = {
   settings: 'app:settings',
   agents: 'app:agents',
   commands: 'app:commands',
+  theme: 'app:theme',
   showSettings: 'app:show-settings',
   openSettings: 'app:open-settings',
   settingsShown: 'app:settings-shown',

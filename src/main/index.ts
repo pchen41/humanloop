@@ -24,7 +24,7 @@ import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
 import { agentFor, effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
-import { CommandTracker } from './commandTracker';
+import { CommandTracker, type CommandInfo } from './commandTracker';
 import { writeZshIntegration, zshIntegrationEnv } from './shellIntegration';
 import { hookSettings } from '../shared/hooks';
 import { HookServer, hookSocketPath } from './hookServer';
@@ -39,6 +39,7 @@ import { buildMenu, type MenuContext } from './menu';
 import { dismissNotification, keepAwake, notify, setDockBadge } from './dock';
 import { PtyManager, shellEnv, usableCwd } from './pty';
 import { runSmokeTest } from './smoke';
+import { resolveTheme, WINDOW_COLORS, type ThemeName } from '../shared/themes';
 import { JsonStore, readJson, readJsonObject, symlinkTarget, writeJsonSync } from './store';
 
 // Dev builds keep their own data so they never touch the installed app's tasks.
@@ -94,14 +95,16 @@ const ptys = new PtyManager({
 const zshDir = join(userData, 'zsh');
 const zshReady = writeZshIntegration(zshDir);
 
-/** Tabs whose command finished in the update being made, for the notification's wording. */
-let commandsFinished = new Set<string>();
+/** Commands that finished in the update being made, by tab, for the notification's wording. */
+let commandsFinished = new Map<string, CommandInfo>();
 const commands = new CommandTracker(
   (tabId, finished) => {
-    win?.webContents.send(IPC.commands, [...commands.snapshot()]);
-    if (finished) commandsFinished.add(tabId);
+    const info = commands.info();
+    win?.webContents.send(IPC.commands, info);
+    const done = info[tabId];
+    if (finished && done) commandsFinished.set(tabId, done);
     setState(state); // re-file tasks
-    commandsFinished = new Set();
+    commandsFinished = new Map();
     updateDockAndPower();
   },
   (tabId) => ptys.busyPrograms([tabId]).size > 0,
@@ -177,8 +180,9 @@ function notifyArrivals(prev: AppState): void {
   const of = stateOf();
   for (const task of Q.arrivals(prev, state)) {
     const s = of(task);
-    const body = task.tabs.some((t) => commandsFinished.has(t.id))
-      ? 'Command finished'
+    const done = task.tabs.map((t) => commandsFinished.get(t.id)).find((c) => c?.state === 'done');
+    const body = done
+      ? `${programName(done.command) || 'A command'} finished${done.state === 'done' && done.exit ? `, exit ${done.exit}` : ''}`
       : s === 'needsYou'
         ? 'Claude needs you'
         : s === 'none'
@@ -186,6 +190,16 @@ function notifyArrivals(prev: AppState): void {
           : 'Claude is done';
     notify(task.id, task.title, body, () => showTask(task.id));
   }
+}
+
+/**
+ * The program a command line runs, for notifications: "psql" from
+ * "PGPASSWORD=… psql -h db …". Notifications can show on the lock screen, so
+ * they name only the program; the tab's tooltip has the whole line.
+ */
+function programName(command: string): string {
+  const words = command.trim().split(/\s+/).filter((w) => !/^[A-Za-z_][A-Za-z0-9_]*=/.test(w));
+  return basename(words[0] ?? '');
 }
 
 /** Brings the window forward (opening one if needed) with the task open. */
@@ -280,8 +294,21 @@ function updateSettings(patch: SettingsPatch): void {
 }
 
 /** Puts new settings into effect: menu shortcuts, the renderer, and queue filing under the new policy. */
+/** The theme in use: Settings' appearance picks the dark or light one (System asks macOS). */
+function currentTheme(): ThemeName {
+  return resolveTheme(settings, nativeTheme.shouldUseDarkColors);
+}
+
+/** Native menus and dialogs, the window and the page follow the appearance setting and theme. */
+function applyAppearance(): void {
+  if (nativeTheme.themeSource !== settings.appearance) nativeTheme.themeSource = settings.appearance;
+  win?.setBackgroundColor(windowColor());
+  win?.webContents.send(IPC.theme, currentTheme());
+}
+
 function applySettings(next: Settings): void {
   settings = next;
+  applyAppearance();
   installMenu();
   win?.webContents.send(IPC.settings, settings);
   setState(state);
@@ -601,7 +628,8 @@ function registerIpc(): void {
         settings,
         homeDir: homedir(),
         agents: tracker.snapshot(),
-        commands: [...commands.snapshot()],
+        commands: commands.info(),
+        theme: currentTheme(),
         showSettings: show,
         resume: currentResumeOffers(),
       };
@@ -686,7 +714,7 @@ function registerIpc(): void {
     updateMenuContext();
   });
   ipcMain.handle(IPC.deleteTask, (_e, id: unknown) => (typeof id === 'string' ? deleteTaskWithConfirm(id) : false));
-  ipcMain.on(IPC.taskMenu, (_e, id: unknown, at: unknown) => {
+  ipcMain.handle(IPC.taskMenu, (_e, id: unknown, at: unknown) => {
     const task = typeof id === 'string' ? T.findTask(state, id) : undefined;
     if (!task) return;
     const parked = task.queue === 'parked';
@@ -696,7 +724,7 @@ function registerIpc(): void {
       task.id === state.openTaskId ? { accelerator: acceleratorFor(settings, cmd), registerAccelerator: false } : {};
     const pos = at as { x?: unknown; y?: unknown } | undefined;
     const where = typeof pos?.x === 'number' && typeof pos.y === 'number' ? { x: Math.round(pos.x), y: Math.round(pos.y) } : {};
-    Menu.buildFromTemplate([
+    const menu = Menu.buildFromTemplate([
       { label: 'Edit Task…', ...keys('editTask'), click: () => win?.webContents.send(IPC.editTask, task.id) },
       { type: 'separator' },
       parked
@@ -707,7 +735,9 @@ function registerIpc(): void {
         : { label: 'Mark Done', ...keys('markDone'), click: () => markDone(task.id) },
       { type: 'separator' },
       { label: 'Delete Task…', click: () => void deleteTaskWithConfirm(task.id) },
-    ]).popup({ window: win, ...where });
+    ]);
+    // Resolves once the menu closes, so the ⌄ that opened it can look pressed until then.
+    return new Promise<void>((resolve) => menu.popup({ window: win, ...where, callback: () => resolve() }));
   });
   ipcMain.handle(IPC.chooseDirectory, async (_e, current?: string) => {
     const opts: Electron.OpenDialogOptions = {
@@ -761,6 +791,7 @@ function registerIpc(): void {
     // byte is the key itself (arrows and Option combos arrive as longer
     // sequences); the CSI-u forms are the same keys under the kitty keyboard protocol.
     if (INTERRUPT_KEYS.has(data)) tracker.interrupt(tabId);
+    commands.typed(tabId);
     ptys.write(tabId, data);
   });
   ipcMain.on(IPC.ptyWriteBinary, (_e, tabId: unknown, data: unknown) => {
@@ -796,7 +827,7 @@ function registerIpc(): void {
 
 /** The page's background (--bg-window) in the current appearance. */
 function windowColor(): string {
-  return nativeTheme.shouldUseDarkColors ? '#111113' : '#F5F5F7';
+  return WINDOW_COLORS[currentTheme()];
 }
 
 function createWindow(): BrowserWindow {
@@ -820,7 +851,10 @@ function createWindow(): BrowserWindow {
     },
   });
   // Matches the page, so a live resize never flashes the other appearance's colour.
-  const onTheme = () => w.setBackgroundColor(windowColor());
+  const onTheme = () => {
+    w.setBackgroundColor(windowColor());
+    w.webContents.send(IPC.theme, currentTheme());
+  };
   nativeTheme.on('updated', onTheme);
   w.on('closed', () => nativeTheme.off('updated', onTheme));
   w.once('ready-to-show', () => {
@@ -961,6 +995,7 @@ void app.whenReady().then(async () => {
     );
   }
   if (!existsSync(settingsFile)) writeDefaultSettings();
+  nativeTheme.themeSource = settings.appearance;
   watchSettings();
   menuReady = true;
   installMenu();

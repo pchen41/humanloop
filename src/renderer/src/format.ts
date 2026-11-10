@@ -70,6 +70,15 @@ export function formatWait(since: number, now: number): string {
   return `${Math.floor(d / 365)}y`;
 }
 
+/** How long something has run: 40s, 4m 12s, 1h 05m. */
+export function formatDuration(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
+}
+
 /** A command's menu label as the settings screen shows it: "Show Next Tab…" -> "Show next tab". */
 export function sentenceCase(label: string): string {
   const words = label.replace(/…$/, '').split(' ');

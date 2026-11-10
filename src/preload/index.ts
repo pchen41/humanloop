@@ -16,6 +16,7 @@ const api: HumanloopApi = {
   onCommand: (cb) => listen(IPC.command, cb),
   onAgents: (cb) => listen(IPC.agents, cb),
   onCommands: (cb) => listen(IPC.commands, cb),
+  onTheme: (cb) => listen(IPC.theme, cb),
   onShowSettings: (cb) => listen(IPC.showSettings, cb),
   openSettings: () => ipcRenderer.send(IPC.openSettings),
   settingsShown: (open) => ipcRenderer.send(IPC.settingsShown, open),
@@ -37,7 +38,7 @@ const api: HumanloopApi = {
   toggleParked: () => ipcRenderer.invoke(IPC.toggleParked),
   toggleDone: () => ipcRenderer.invoke(IPC.toggleDone),
   deleteTask: (id) => ipcRenderer.invoke(IPC.deleteTask, id),
-  showTaskMenu: (id, at) => ipcRenderer.send(IPC.taskMenu, id, at),
+  showTaskMenu: (id, at) => ipcRenderer.invoke(IPC.taskMenu, id, at),
   onEditTask: (cb) => listen(IPC.editTask, cb),
   chooseDirectory: (current) => ipcRenderer.invoke(IPC.chooseDirectory, current),
 

@@ -10,14 +10,15 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SearchAddon, type ISearchOptions } from '@xterm/addon-search';
 import { Terminal, type ITheme } from '@xterm/xterm';
 import type { PtyExitInfo } from '../../shared/ipc';
+import { isDarkTheme, type ThemeName } from '../../shared/themes';
 
 const api = window.humanloop;
 
-const DARK: ITheme = {
-  background: '#0c0c0e',
-  foreground: '#cfcfd6',
-  cursor: '#cfcfd6',
-  cursorAccent: '#0c0c0e',
+const GRAPHITE: ITheme = {
+  background: '#131316',
+  foreground: '#c2c2ca',
+  cursor: '#c2c2ca',
+  cursorAccent: '#131316',
   selectionBackground: '#34405a',
   black: '#2a2a30',
   red: '#f16c6c',
@@ -26,7 +27,7 @@ const DARK: ITheme = {
   blue: '#7eb0ff',
   magenta: '#c58bff',
   cyan: '#6fd2b0',
-  white: '#f2f2f6',
+  white: '#e3e3e9',
   brightBlack: '#7d7d89',
   brightRed: '#ff8a8a',
   brightGreen: '#8ee0b3',
@@ -34,14 +35,27 @@ const DARK: ITheme = {
   brightBlue: '#a1c6ff',
   brightMagenta: '#d6aaff',
   brightCyan: '#94e0c6',
-  brightWhite: '#ffffff',
+  brightWhite: '#e3e3e9',
 };
 
-const LIGHT: ITheme = {
-  background: '#fcfcfd',
-  foreground: '#2b2b33',
-  cursor: '#2b2b33',
-  cursorAccent: '#fcfcfd',
+const DUSK: ITheme = {
+  ...GRAPHITE,
+  background: '#1c2027',
+  foreground: '#bfc6d2',
+  cursor: '#bfc6d2',
+  cursorAccent: '#1c2027',
+  selectionBackground: '#3a4660',
+  black: '#2c313b',
+  white: '#e0e5ee',
+  brightBlack: '#7b8393',
+  brightWhite: '#e0e5ee',
+};
+
+const PAPER: ITheme = {
+  background: '#f7f7f9',
+  foreground: '#3a3a44',
+  cursor: '#3a3a44',
+  cursorAccent: '#f7f7f9',
   selectionBackground: '#cfdcf5',
   black: '#2b2b33',
   red: '#d9453f',
@@ -50,7 +64,7 @@ const LIGHT: ITheme = {
   blue: '#2f6fd0',
   magenta: '#8a4fd0',
   cyan: '#147c5a',
-  white: '#d4d4da',
+  white: '#2a2a32',
   brightBlack: '#8a8a95',
   brightRed: '#c0392f',
   brightGreen: '#26834e',
@@ -58,8 +72,28 @@ const LIGHT: ITheme = {
   brightBlue: '#2559ad',
   brightMagenta: '#723fb0',
   brightCyan: '#0f5e44',
-  brightWhite: '#ffffff',
+  brightWhite: '#2a2a32',
 };
+
+const LINEN: ITheme = {
+  ...PAPER,
+  background: '#f6f2ea',
+  foreground: '#443e36',
+  cursor: '#443e36',
+  cursorAccent: '#f6f2ea',
+  selectionBackground: '#e3d9c4',
+  black: '#443e36',
+  red: '#c9483e',
+  green: '#2e8e59',
+  yellow: '#85581a',
+  blue: '#3568b8',
+  cyan: '#1e7a58',
+  white: '#2c2721',
+  brightBlack: '#8c8375',
+  brightWhite: '#2c2721',
+};
+
+const THEMES: Record<ThemeName, ITheme> = { graphite: GRAPHITE, dusk: DUSK, paper: PAPER, linen: LINEN };
 
 /** Find highlights. The addon needs #RRGGBB colors. */
 const DARK_SEARCH = {
@@ -75,15 +109,15 @@ const LIGHT_SEARCH = {
   activeMatchColorOverviewRuler: '#b8860b',
 };
 
-// The app follows the system appearance; open terminals switch with it.
-const lightQuery = window.matchMedia('(prefers-color-scheme: light)');
-const theme = (): ITheme => (lightQuery.matches ? LIGHT : DARK);
-const searchColors = () => (lightQuery.matches ? LIGHT_SEARCH : DARK_SEARCH);
+/** The theme in use, from the main process (Settings > Appearance). Open terminals switch with it. */
+let currentTheme: ThemeName = 'graphite';
+const theme = (): ITheme => THEMES[currentTheme];
+const searchColors = () => (isDarkTheme(currentTheme) ? DARK_SEARCH : LIGHT_SEARCH);
 /**
- * Programs print "white" text expecting a dark background; on the light one
- * xterm darkens any colour too faint to read. The dark theme is left exact.
+ * Programs print "white" text expecting a dark background; on a light theme
+ * xterm darkens any colour too faint to read. The dark themes are left exact.
  */
-const minimumContrast = (): number => (lightQuery.matches ? 4.5 : 1);
+const minimumContrast = (): number => (isDarkTheme(currentTheme) ? 1 : 4.5);
 
 type Listener = () => void;
 
@@ -310,12 +344,6 @@ class TerminalRegistry {
   private version = 0;
 
   constructor() {
-    lightQuery.addEventListener('change', () =>
-      this.forEach((h) => {
-        h.term.options.theme = theme();
-        h.term.options.minimumContrastRatio = minimumContrast();
-      }),
-    );
     api.onPtyData((tabId, data) => this.handles.get(tabId)?.write(data));
     api.onPtyExit((tabId, exit) => {
       // A tab with no terminal yet learns about the exit when it attaches.
@@ -399,6 +427,16 @@ export function setOptionAsMeta(on: boolean): void {
 }
 
 export const terminals = new TerminalRegistry();
+
+/** Puts a theme on every open terminal, and on ones created later. */
+export function setTerminalTheme(name: ThemeName): void {
+  if (name === currentTheme) return;
+  currentTheme = name;
+  terminals.forEach((h) => {
+    h.term.options.theme = theme();
+    h.term.options.minimumContrastRatio = minimumContrast();
+  });
+}
 
 declare global {
   interface Window {
