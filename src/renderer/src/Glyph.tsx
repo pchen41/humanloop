@@ -23,7 +23,7 @@ const LABELS: Record<TabGlyphKind, string> = {
 export interface TabActivity {
   agents: Record<string, TabAgent>;
   resume: Record<string, ResumeOffer>;
-  /** Tabs running a command that counts (command tracking). */
+  /** Tabs where a command has been running for a while. */
   commands: ReadonlySet<string>;
 }
 
@@ -31,7 +31,7 @@ export function tabGlyphKind(activity: TabActivity, tab: Tab, policy: Policy): T
   if (tab.muted) return 'muted';
   const agent = agentFor(activity.agents, tab.id);
   if (agent) return effectiveTabState(agent, policy);
-  if (activity.commands.has(tab.id)) return 'command';
+  if (activity.commands.has(tab.id) && policy.commandsBusy) return 'command';
   return Object.hasOwn(activity.resume, tab.id) ? 'resumable' : 'shell';
 }
 

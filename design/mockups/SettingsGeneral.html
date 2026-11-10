@@ -5,8 +5,6 @@
 <title>Humanloop — settings</title>
 </head>
 <body>
-
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -34,7 +32,7 @@ body{margin:0;background:#111113}
 .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dots{display:flex;gap:4px;flex:none}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
-.d.w{background:#5b9cf6}
+.d.w{background:#e6b450}
 .d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.22)}
 .d.ok{border:1.5px solid #6fd2b0}
 .d.sh{border:1px solid #5a5a66}
@@ -63,7 +61,6 @@ body{margin:0;background:#111113}
 .st.ok{background:rgba(111,210,176,.16);color:#6fd2b0}
 .st.off{background:#26262b;color:#8a8a95}
 </style>
-
 <div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
 
   <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
@@ -100,6 +97,7 @@ body{margin:0;background:#111113}
 
     <div style="flex: 1; min-height: 0; display: flex">
       <nav aria-label="Settings sections" style="width: 190px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px">
+        <button class="snav">Appearance</button>
         <button class="snav on">Turn rules</button>
         <button class="snav">Tabs</button>
         <button class="snav">Notifications &amp; power</button>
@@ -174,6 +172,5 @@ body{margin:0;background:#111113}
     </div>
   </main>
 </div>
-
 </body>
 </html>

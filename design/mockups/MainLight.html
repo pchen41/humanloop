@@ -5,8 +5,6 @@
 <title>Humanloop — main window, light mode</title>
 </head>
 <body>
-
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -21,7 +19,7 @@ body{margin:0;background:#f5f5f7}
 .btn.primary{background:#dcefe6;border-color:#dcefe6;color:#0f5e44;font-weight:600}
 .btn.primary .k{background:rgba(15,94,68,.12);color:#0f5e44}
 .btn .kk{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1;font-weight:500;opacity:.9;height:20px;padding:0 6px;box-sizing:border-box;border:1px solid rgba(15,94,68,.4);border-radius:4px;display:inline-flex;align-items:center;margin-right:-2px}
-.btn.quiet .kk{border-color:#2a2a31}
+.btn.quiet .kk{border-color:#cfcfd6}
 .acts{display:flex;gap:2px;flex:none;opacity:0;transition:opacity .12s}
 .sep{opacity:0;transition:opacity .12s}
 .tbar:hover .acts,.tbar:hover .sep{opacity:1}
@@ -36,27 +34,27 @@ body{margin:0;background:#f5f5f7}
 .row.sel{background:#dfdfe4}
 .rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box}
 .rail.you{background:#147c5a}
-.rail.agent{background:repeating-linear-gradient(180deg,#3b7fe0 0 4px,transparent 4px 7px)}
+.rail.agent{background:repeating-linear-gradient(180deg,#b4780c 0 4px,transparent 4px 7px)}
 .rail.parked{border:1px solid #b8b8c0}
 .pri{flex:none;width:22px;height:16px;border-radius:4px;background:#d4d4da;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#1c1c21}
 .pri.p0{background:#d9453f;color:#1b0b0b}
 .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dots{display:flex;gap:4px;flex:none}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
-.d.w{background:#3b7fe0}
+.d.w{background:#b4780c}
 .d.n{background:#147c5a;box-shadow:0 0 0 2px rgba(20,124,90,.22)}
 .d.ok{border:1.5px solid #147c5a}
 .d.sh{border:1px solid #a0a0aa}
-.d.pk{background:#c4c4cb}
+.d.pk{opacity:.45}
 .age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#63636e}
 .age.you{color:#147c5a}
 .age.agent{color:#63636e}
 .g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
-.g.w{background:#3b7fe0}
+.g.w{background:#b4780c}
 .g.n{background:#147c5a;box-shadow:0 0 0 3px rgba(20,124,90,.22)}
 .g.ok{border:1.5px solid #147c5a}
 .g.sh{border:1.5px solid #a0a0aa}
-.g.pk{background:#c4c4cb}
+.g.pk{opacity:.45}
 .tab{display:inline-flex;align-items:center;gap:8px;height:36px;min-width:100px;max-width:220px;padding:0 4px 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#6b6b76;font-size:12.5px;margin-right:4px;text-align:left}
 .tab.on{color:#1c1c21;border-bottom-color:#1c1c21}
 .tab .tn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -64,10 +62,9 @@ body{margin:0;background:#f5f5f7}
 .tm{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:4px;color:#6f6f7a;padding:0;opacity:0}
 .tab.on .tm,.tab:hover .tm,.tab.menu .tm{opacity:1}
 .tab.menu .tm{background:#dfdfe4;color:#1c1c21}
-.term{margin:0;font-size:12.5px;line-height:18px;color:#2b2b33;white-space:pre}
-.c-dim{color:#8a8a95}.c-org{color:#c96a3c}.c-grn{color:#2f9e5f}.c-red{color:#d9453f}.c-blu{color:#2f6fd0}.c-yel{color:#8a5a00}.c-wht{color:#1c1c21}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#3a3a44;white-space:pre}
+.c-dim{color:#8a8a95}.c-org{color:#c96a3c}.c-grn{color:#2f9e5f}.c-red{color:#d9453f}.c-blu{color:#2f6fd0}.c-yel{color:#8a5a00}.c-wht{color:#2a2a32}
 </style>
-
 <div class="win" style="width: 1440px; height: 900px; display: flex; background: #f5f5f7; border-radius: 12px; overflow: hidden; position: relative">
 
   <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #ececef; border-right: 1px solid #d9d9de">
@@ -116,7 +113,7 @@ body{margin:0;background:#f5f5f7}
       <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
     </div>
 
-    <div style="flex: 1; min-height: 0; position: relative; background: #fcfcfd">
+    <div style="flex: 1; min-height: 0; position: relative; background: #f7f7f9">
 <pre class="term" style="padding: 16px 20px; margin: 0"><span class="c-dim">╭────────────────────────────────────────────────────────────╮
 │</span> <span class="c-org">✻</span> <span class="c-wht">Welcome to Claude Code!</span>                                  <span class="c-dim">│
 │                                                            │
@@ -160,6 +157,5 @@ body{margin:0;background:#f5f5f7}
 <span class="c-org">✻</span> <span class="c-wht">Crafting…</span> <span class="c-dim">(esc to interrupt · 2m 14s · ↓ 3.1k tokens)</span></pre>    </div>
   </main>
 </div>
-
 </body>
 </html>

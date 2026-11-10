@@ -147,7 +147,6 @@ export function normalizeSettings(raw: unknown): Settings {
     optionAsMeta: typeof raw.optionAsMeta === 'boolean' ? raw.optionAsMeta : DEFAULT_SETTINGS.optionAsMeta,
     newTabsInCurrentDir:
       typeof raw.newTabsInCurrentDir === 'boolean' ? raw.newTabsInCurrentDir : DEFAULT_SETTINGS.newTabsInCurrentDir,
-    trackCommands: typeof raw.trackCommands === 'boolean' ? raw.trackCommands : DEFAULT_SETTINGS.trackCommands,
   };
   const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;

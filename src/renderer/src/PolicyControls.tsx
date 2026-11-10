@@ -31,6 +31,15 @@ const FIELDS: { key: Key; label: string; options: [Policy[Key], string, string][
     ],
     help: "Whether a task stays Claude's turn while dev servers or watchers it started are still running.",
   },
+  {
+    key: 'commandsBusy',
+    label: 'Running commands',
+    options: [
+      [true, 'Wait for them', 'wait'],
+      [false, 'Ignore them', 'ignore'],
+    ],
+    help: "Whether a task is the agent's turn while a command you ran in it runs longer than 5 seconds.",
+  },
 ];
 
 export type PolicyKey = Key;

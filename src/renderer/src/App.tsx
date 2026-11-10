@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommandId } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
-import type { HookState, ResumeOffer } from '../../shared/ipc';
+import type { ResumeOffer } from '../../shared/ipc';
 import { QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
 import { acceleratorFor, sameAccelerator, textKeyCommand } from '../../shared/shortcuts';
 import type { TabActivity } from './Glyph';
@@ -23,8 +23,6 @@ interface Loaded {
   homeDir: string;
   agents: Record<string, TabAgent>;
   commands: string[];
-  hooks: HookState;
-  claudeSettingsPath: string;
   resume: Record<string, ResumeOffer>;
 }
 
@@ -67,7 +65,6 @@ export function App() {
     const offSettings = api.onSettings((settings) => setData((d) => d && { ...d, settings }));
     const offAgents = api.onAgents((agents) => setData((d) => d && { ...d, agents }));
     const offCommands = api.onCommands((commands) => setData((d) => d && { ...d, commands }));
-    const offHooks = api.onHooks((hooks) => setData((d) => d && { ...d, hooks }));
     const offResume = api.onResume((resume) => setData((d) => d && { ...d, resume }));
     void api.getInitialData().then((d) => {
       if (!alive) return;
@@ -81,7 +78,6 @@ export function App() {
       offSettings();
       offAgents();
       offCommands();
-      offHooks();
       offResume();
     };
   }, []);
@@ -447,8 +443,6 @@ export function App() {
         {settingsOpen ? (
           <SettingsView
             settings={data.settings}
-            hooks={data.hooks}
-            claudeSettingsPath={data.claudeSettingsPath}
             homeDir={data.homeDir}
             flushRef={flushSettings}
           />

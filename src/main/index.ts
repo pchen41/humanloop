@@ -26,7 +26,6 @@ import { agentFor, effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
 import { CommandTracker } from './commandTracker';
 import { writeZshIntegration, zshIntegrationEnv } from './shellIntegration';
-import { currentHookState, shortPath as claudeSettingsPath } from './claudeSettings';
 import { hookSettings } from '../shared/hooks';
 import { HookServer, hookSocketPath } from './hookServer';
 import {
@@ -87,7 +86,7 @@ const ptys = new PtyManager({
     win?.webContents.send(IPC.ptyExit, tabId, exit);
   },
   mark(tabId, mark) {
-    if (settings.trackCommands) commands.mark(tabId, mark);
+    commands.mark(tabId, mark);
   },
 });
 
@@ -279,8 +278,6 @@ function updateSettings(patch: SettingsPatch): void {
 
 /** Puts new settings into effect: menu shortcuts, the renderer, and queue filing under the new policy. */
 function applySettings(next: Settings): void {
-  // Turning tracking off stops counting commands at once.
-  if (!next.trackCommands) commands.clearAll();
   settings = next;
   installMenu();
   win?.webContents.send(IPC.settings, settings);
@@ -349,7 +346,6 @@ function watchSettings(): void {
   }
 }
 
-let hookStatus = currentHookState();
 /** The menu is built once the app is ready; until then there is nothing to update. */
 let menuReady = false;
 let menuContextKey = '';
@@ -412,7 +408,6 @@ function runCommand(id: CommandId): void {
 }
 
 function showSettings(): void {
-  refreshHookStatus(); // ~/.claude/settings.json may have been edited by hand
   if (win && !rendererReady) {
     settingsPending = true; // the loading page picks it up with its data
     win.show();
@@ -423,11 +418,6 @@ function showSettings(): void {
     settingsPending = true;
     win = createWindow();
   }
-}
-
-function refreshHookStatus(): void {
-  hookStatus = currentHookState();
-  win?.webContents.send(IPC.hooks, hookStatus);
 }
 
 /** Rebuilds the menu when its labels or enabled items would change. */
@@ -550,6 +540,7 @@ function tabMenu(task: Task, tab: Tab, active: boolean): Menu {
     { type: 'separator' },
     rule('subagentsBusy', 'Subagents'),
     rule('backgroundShellsBusy', 'Background Shells'),
+    rule('commandsBusy', 'Running Commands'),
     { type: 'separator' },
     {
       label: 'Close Tab',
@@ -608,8 +599,6 @@ function registerIpc(): void {
         homeDir: homedir(),
         agents: tracker.snapshot(),
         commands: [...commands.snapshot()],
-        hooks: hookStatus,
-        claudeSettingsPath: claudeSettingsPath(),
         showSettings: show,
         resume: currentResumeOffers(),
       };

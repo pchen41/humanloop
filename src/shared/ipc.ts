@@ -5,8 +5,6 @@ import type { TabAgent } from './agents';
 import type { RecordResult } from './shortcuts';
 import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
 
-/** Whether Claude runs hooks: 'disabled' when its settings turn them off, 'unreadable' when settings.json isn't valid JSON. */
-export type HookState = 'ok' | 'unreadable' | 'disabled';
 
 export interface InitialData {
   state: AppState;
@@ -16,9 +14,6 @@ export interface InitialData {
   agents: Record<string, TabAgent>;
   /** Tabs where a command has been running long enough to count (command tracking). */
   commands: string[];
-  hooks: HookState;
-  /** Where Humanloop installs its hooks: Claude Code's settings.json, with ~ for home. */
-  claudeSettingsPath: string;
   /** Settings was chosen from the menu before this window existed. */
   showSettings: boolean;
   /** A menu command chosen before this window existed, to run once it has loaded. */
@@ -45,10 +40,9 @@ export interface HumanloopApi {
   onCommand(cb: (id: CommandId) => void): () => void;
   onAgents(cb: (agents: Record<string, TabAgent>) => void): () => void;
   onCommands(cb: (tabIds: string[]) => void): () => void;
-  onHooks(cb: (hooks: HookState) => void): () => void;
   /** The app menu's Settings… item was chosen. */
   onShowSettings(cb: () => void): () => void;
-  /** Opens Settings the way the menu does, checking the hooks again first. */
+  /** Opens Settings the way the menu does. */
   openSettings(): void;
   /** Settings opened or closed: Back and Forward in the menu change with it. */
   settingsShown(open: boolean): void;
@@ -146,7 +140,6 @@ export const IPC = {
   settings: 'app:settings',
   agents: 'app:agents',
   commands: 'app:commands',
-  hooks: 'app:hooks',
   showSettings: 'app:show-settings',
   openSettings: 'app:open-settings',
   settingsShown: 'app:settings-shown',

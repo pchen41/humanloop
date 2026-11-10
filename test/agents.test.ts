@@ -151,9 +151,11 @@ describe('taskAgentState', () => {
     expect(taskAgentState(ignoring, 'any')).toBe('idle');
   });
 
-  it('counts a running command as working, unless Claude runs in the tab', () => {
-    expect(taskAgentState([{ commandRunning: true, policy: DEFAULT_POLICY }], 'any')).toBe('working');
-    expect(taskAgentState([{ agent: agent('idle'), commandRunning: true, policy: DEFAULT_POLICY }], 'any')).toBe('idle');
+  it('counts a running command as working when the rules wait for commands, unless Claude runs in the tab', () => {
+    const wait = { ...DEFAULT_POLICY, commandsBusy: true };
+    expect(taskAgentState([{ commandRunning: true, policy: wait }], 'any')).toBe('working');
+    expect(taskAgentState([{ commandRunning: true, policy: { ...DEFAULT_POLICY, commandsBusy: false } }], 'any')).toBe('none');
+    expect(taskAgentState([{ agent: agent('idle'), commandRunning: true, policy: wait }], 'any')).toBe('idle');
   });
 });
 

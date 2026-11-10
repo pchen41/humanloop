@@ -84,12 +84,18 @@ describe('per-task overrides', () => {
     let s = T.createTask(EMPTY_STATE, { title: 'a', description: '', priority: 2 }, 'a', 1);
     s = T.addTab(s, 'a', { id: 't', title: 'zsh' });
     s = T.addTab(s, 'a', { id: 'u', title: 'zsh' });
-    const filed = (st: typeof s, running = new Set<string>()) =>
-      T.findTask(Q.reconcile(st, Q.agentStateOf({ t: working }, DEFAULT_POLICY, running), 10), 'a')?.queue;
+    const waitForCommands = { ...DEFAULT_POLICY, commandsBusy: true };
+    const filed = (st: typeof s, running = new Set<string>(), policy = waitForCommands) =>
+      T.findTask(Q.reconcile(st, Q.agentStateOf({ t: working }, policy, running), 10), 'a')?.queue;
     expect(filed(s)).toBe('agentsTurn');
     s = T.updateTab(s, 't', { muted: true });
     expect(filed(s)).toBe('yourTurn');
     expect(filed(s, new Set(['u']))).toBe('agentsTurn');
+    // Commands count only where the rules wait for them: globally, or for this tab.
+    const ignoreCommands = { ...DEFAULT_POLICY, commandsBusy: false };
+    expect(filed(s, new Set(['u']), ignoreCommands)).toBe('yourTurn');
+    s = T.updateTab(s, 'u', { policy: { commandsBusy: true } });
+    expect(filed(s, new Set(['u']), ignoreCommands)).toBe('agentsTurn');
   });
 });
 
@@ -132,7 +138,7 @@ describe('notifications and keep-awake settings', () => {
     expect(normalizeSettings({ newTabsInCurrentDir: false }).newTabsInCurrentDir).toBe(false);
     expect(normalizeSettings({ newTabsInCurrentDir: 0 }).newTabsInCurrentDir).toBe(true);
     expect(patchSettingsJson({ a: 1 }, { newTabsInCurrentDir: false })).toEqual({ a: 1, newTabsInCurrentDir: false });
-    expect(normalizeSettings({}).trackCommands).toBe(false);
-    expect(patchSettingsJson({}, { trackCommands: true })).toEqual({ trackCommands: true });
+    expect(normalizeSettings({}).policy.commandsBusy).toBe(true);
+    expect(normalizeSettings({ policy: { commandsBusy: false } }).policy.commandsBusy).toBe(false);
   });
 });

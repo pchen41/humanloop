@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type { HookState } from '../../shared/ipc';
 import type { Settings } from '../../shared/model';
 import { shortenHome } from './format';
 import { PolicyControls } from './PolicyControls';
@@ -9,9 +8,6 @@ const api = window.humanloop;
 
 interface Props {
   settings: Settings;
-  hooks: HookState;
-  /** Claude Code's settings.json, which Humanloop leaves alone. */
-  claudeSettingsPath: string;
   homeDir: string;
   /** Saves a directory typed but not yet confirmed; called as Settings closes. */
   flushRef: React.RefObject<(() => void) | undefined>;
@@ -21,34 +17,12 @@ const SECTIONS = [
   { id: 'turn', title: 'Turn rules' },
   { id: 'tabs', title: 'Tabs' },
   { id: 'notifications', title: 'Notifications & power' },
-  { id: 'claude', title: 'Claude Code' },
   { id: 'shortcuts', title: 'Keyboard shortcuts' },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
-const HOOKS: Record<HookState, { pill: string; tone: 'ok' | 'warn'; title: string; help: string }> = {
-  ok: {
-    pill: 'Built in',
-    tone: 'ok',
-    title: 'Hooks are built in',
-    help: 'Claude sessions you start in Humanloop tabs report when they are working or waiting.',
-  },
-  unreadable: {
-    pill: "Can't read",
-    tone: 'warn',
-    title: "settings.json can't be read",
-    help: "Humanloop can't check whether Claude Code runs hooks until the file is valid JSON again.",
-  },
-  disabled: {
-    pill: 'Turned off',
-    tone: 'warn',
-    title: 'Hooks turned off',
-    help: "Claude Code's settings (yours or your organisation's) turn hooks off, so Humanloop can't tell when Claude is working or waiting.",
-  },
-};
-
 /** Settings, in the main column. Changes apply as you make them; there is no Save. */
-export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flushRef }: Props) {
+export function SettingsView({ settings, homeDir, flushRef }: Props) {
   const [cwd, setCwd] = useState(settings.defaultCwd ?? '');
   // Follow changes made elsewhere (e.g. editing settings.json by hand).
   useEffect(() => setCwd(settings.defaultCwd ?? ''), [settings.defaultCwd]);
@@ -85,7 +59,6 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
     setCurrent(id);
   };
 
-  const hook = HOOKS[hooks];
 
   return (
     <div className="settings">
@@ -147,20 +120,6 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
             </div>
             <Toggle label="Use Option as Meta" on={settings.optionAsMeta} onChange={(on) => void api.updateSettings({ optionAsMeta: on })} />
           </div>
-          <div className="srow">
-            <div className="t">
-              <b>Track commands run in tabs</b>
-              <span className="help">
-                A command still running after 5 seconds makes it the agent's turn until it finishes. Mute a tab to leave it
-                out.
-              </span>
-            </div>
-            <Toggle
-              label="Track commands run in tabs"
-              on={settings.trackCommands}
-              onChange={(on) => void api.updateSettings({ trackCommands: on })}
-            />
-          </div>
         </section>
 
         <section className="sec" id="section-notifications" aria-labelledby="settings-notifications">
@@ -185,21 +144,6 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
               on={settings.keepAwake}
               onChange={(on) => void api.updateSettings({ keepAwake: on })}
             />
-          </div>
-        </section>
-
-        <section className="sec" id="section-claude" aria-labelledby="settings-claude">
-          <h2 id="settings-claude">Claude Code</h2>
-          <p className="lead">
-            Humanloop reads Claude's state through hooks it gives <span className="mono">claude</span> when you start it in a tab.
-            Nothing is added to <span className="mono">{claudeSettingsPath}</span>.
-          </p>
-          <div className="hook-card">
-            <span className={`pill ${hook.tone}`}>{hook.pill}</span>
-            <div className="t">
-              <b>{hook.title}</b>
-              <span className="help">{hook.help}</span>
-            </div>
           </div>
         </section>
 

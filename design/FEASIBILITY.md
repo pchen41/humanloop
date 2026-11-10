@@ -58,6 +58,13 @@ decisions and stay in even though they are not trivial.
   `styles.css`. Keep system fonts (SF Pro / SF Mono) unless you want to bundle Inter and
   JetBrains Mono; the mockups use them only because they are loaded from the web.
 
+- **Reorder tabs by dragging** (`TabDrag.html`). Pointer events on the tab strip, not HTML5
+  drag and drop (Electron's native drag image is a washed-out snapshot and cannot be styled).
+  On pointerdown record the tab and x; past 4px, render the ghost as a fixed-position copy
+  that follows `clientX`, give the strip's other tabs a transform that slides them around
+  the slot index under the pointer, and on pointerup splice `task.tabs` to the new index and
+  persist. Esc cancels. An hour or two; the order already lives in the tab array.
+
 ## New work that stays in (asked for)
 
 - **Settings as a full pane with a left nav** (**asked for**). Today Settings is a modal over
@@ -88,8 +95,9 @@ decisions and stay in even though they are not trivial.
   files (`ZDOTDIR` pointed at its data folder), which run the user's files unchanged, then
   wrap `claude` to pass Humanloop's hooks with `--settings` (Claude Code adds them to the
   user's own and runs an identical command once) and print a mark as each command starts
-  and each prompt appears. With "Track commands run in tabs" on, a command running for 5
-  seconds is the agent's turn until it ends. Nothing in the user's zsh or Claude settings is
+  and each prompt appears. Under the "Running commands" turn rule (Wait for them
+  by default; set globally, per task or per tab), a command running for 5 seconds is the
+  agent's turn until it ends. Nothing in the user's zsh or Claude settings is
   written.
 
 ## Drop for now (new features the mockups show but nobody asked for)

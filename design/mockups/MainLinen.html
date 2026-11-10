@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Linen · Humanloop — main window, light mode</title>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#f4f0e7}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#2c2721;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.qn,.age,.term{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#726a5c;padding:0}
+.ib:disabled{color:#b4ab9b}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a89f8f;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.primary{background:#dcebdf;border-color:#dcebdf;color:#175c43;font-weight:600}
+.btn.primary .k{background:rgba(23,92,67,.12);color:#175c43}
+.btn .kk{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1;font-weight:500;opacity:.9;height:20px;padding:0 6px;box-sizing:border-box;border:1px solid rgba(23,92,67,.4);border-radius:4px;display:inline-flex;align-items:center;margin-right:-2px}
+.btn.quiet .kk{border-color:#cfc7b7}
+.acts{display:flex;gap:2px;flex:none;opacity:0;transition:opacity .12s}
+.sep{opacity:0;transition:opacity .12s}
+.tbar:hover .acts,.tbar:hover .sep{opacity:1}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#e6e0d3;color:#a89f8f;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 4px 18px;font-size:12px;line-height:16px;color:#6e6659;font-weight:600}
+.qh{border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #726a5c;flex:none;margin-right:2px}
+.qh.col::before{transform:rotate(-90deg)}
+.qn{font-size:11px;line-height:16px;font-weight:600;color:#6e6659}
+.qn.you{color:#1e7a58}
+.row{display:flex;align-items:center;gap:8px;height:36px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 6px;border:0;border-radius:6px;background:transparent;text-align:left}
+.row.sel{background:#e2dcce}
+.rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box}
+.rail.you{background:#1e7a58}
+.rail.agent{background:repeating-linear-gradient(180deg,#a5680a 0 4px,transparent 4px 7px)}
+.rail.parked{border:1px solid #bbb2a2}
+.pri{flex:none;width:22px;height:16px;border-radius:4px;background:#d7d0c1;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#2c2721}
+.pri.p0{background:#c9483e;color:#1b0b0b}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:4px;flex:none}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
+.d.w{background:#a5680a}
+.d.n{background:#1e7a58;box-shadow:0 0 0 2px rgba(30,122,88,.22)}
+.d.ok{border:1.5px solid #1e7a58}
+.d.sh{border:1px solid #a89f8f}
+.d.pk{opacity:.45}
+.age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6e6659}
+.age.you{color:#1e7a58}
+.age.agent{color:#6e6659}
+.g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
+.g.w{background:#a5680a}
+.g.n{background:#1e7a58;box-shadow:0 0 0 3px rgba(30,122,88,.22)}
+.g.ok{border:1.5px solid #1e7a58}
+.g.sh{border:1.5px solid #a89f8f}
+.g.pk{opacity:.45}
+.tab{display:inline-flex;align-items:center;gap:8px;height:36px;min-width:100px;max-width:220px;padding:0 4px 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#726a5c;font-size:12.5px;margin-right:4px;text-align:left}
+.tab.on{color:#2c2721;border-bottom-color:#2c2721}
+.tab .tn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tab.pk{color:#ada495}
+.tm{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:4px;color:#7a7264;padding:0;opacity:0}
+.tab.on .tm,.tab:hover .tm,.tab.menu .tm{opacity:1}
+.tab.menu .tm{background:#e2dcce;color:#2c2721}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#443e36;white-space:pre}
+.c-dim{color:#8c8375}.c-org{color:#c96a3c}.c-grn{color:#2e8e59}.c-red{color:#c9483e}.c-blu{color:#3568b8}.c-yel{color:#85581a}.c-wht{color:#2c2721}
+</style>
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #f4f0e7; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #ece7db; border-right: 1px solid #ddd6c8">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back to previous task (⌘[)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])" disabled><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">3</span></button>
+      <button class="row" title="Fix flaky queue ordering test"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">40s</span></button>
+      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">12m</span></button>
+      <button class="row" title="Dock badge count ignores parked tasks"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 05m</span></button>
+
+      <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">4</span></button>
+      <button class="row sel" title="Add a shortcut recorder to Settings" aria-current="true"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age agent">6m</span></button>
+      <button class="row" title="Resizable sidebar: persist width across launches"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age agent">2m</span></button>
+      <button class="row" title="Migrate test runner to vitest 3"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age agent">41m</span></button>
+      <button class="row" title="Notifications: deep-link to the task on click"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age agent">18m</span></button>
+
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
+      <button class="row" title="Explore split panes inside a tab"><span class="ttl" style="color: #726a5c">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row" title="Light theme pass"><span class="ttl" style="color: #726a5c">Light theme pass</span><span class="age">5d</span></button>
+
+      <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">1</span></button>
+    </nav>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div class="tbar" style="height: 44px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 12px 0 20px">
+      <h1 title="Add a shortcut recorder to Settings" style="flex: 1; min-width: 0; margin: 0 8px 0 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Add a shortcut recorder to Settings</h1>
+      <div class="acts"><button class="ib" aria-label="Edit task (⌘E)" title="Edit task  ⌘E"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 2.4l2 2L5 11H3v-2z"/><path d="M8.4 3.6l2 2"/></svg></button><button class="ib" aria-label="Park task (⌘⇧P)" title="Park task  ⌘⇧P"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5v9M9 2.5v9"/></svg></button><button class="ib" aria-label="Mark done (⌘⇧D)" title="Mark done  ⌘⇧D"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7"/></svg></button></div>
+      <span class="sep" aria-hidden="true" style="width: 1px; height: 16px; background: #ddd6c8; margin: 0 6px; flex: none"></span>
+      <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+      <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
+      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span style="min-width: 0; overflow: hidden; text-overflow: ellipsis">Fix flaky queue ordering test</span><span class="kk">⌘↩</span></button>
+    </div>
+
+    <div role="tablist" aria-label="Terminal tabs" style="flex: none; display: flex; align-items: center; padding: 0 20px 0 12px; border-bottom: 1px solid #ddd6c8">
+      <div class="tab on" role="tab" aria-selected="true" title="claude"><span class="g w"></span><span class="tn">claude</span><button class="tm" aria-label="Options for claude"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <div class="tab" role="tab" aria-selected="false" title="claude · review"><span class="g ok"></span><span class="tn">claude · review</span><button class="tm" aria-label="Options for claude · review"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <div class="tab" role="tab" aria-selected="false" title="vite dev"><span class="g sh"></span><span class="tn">vite dev</span><button class="tm" aria-label="Options for vite dev"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <div class="tab" role="tab" aria-selected="false" title="vitest --watch"><span class="g sh"></span><span class="tn">vitest --watch</span><button class="tm" aria-label="Options for vitest --watch"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 3.75 2.5 2.5 2.5-2.5"/></svg></button></div>
+      <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; position: relative; background: #f6f2ea">
+<pre class="term" style="padding: 16px 20px; margin: 0"><span class="c-dim">╭────────────────────────────────────────────────────────────╮
+│</span> <span class="c-org">✻</span> <span class="c-wht">Welcome to Claude Code!</span>                                  <span class="c-dim">│
+│                                                            │
+│</span>   /help for help, /status for your current setup           <span class="c-dim">│
+│                                                            │
+│</span>   <span class="c-dim">cwd: /Users/peter/Documents/humanloop</span>                    <span class="c-dim">│
+╰────────────────────────────────────────────────────────────╯</span>
+
+<span class="c-dim">&gt;</span> <span class="c-wht">Add a shortcut recorder to Settings. Clicking a shortcut should start
+  recording, esc cancels, and show a conflict when the chord is already used.</span>
+
+<span class="c-org">●</span> I'll look at how shortcuts are stored before touching the UI.
+
+<span class="c-grn">●</span> <span class="c-wht">Read</span>(src/shared/model.ts)
+  <span class="c-dim">⎿  Read 184 lines</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Search</span>(pattern: "shortcut", path: "src/renderer/src")
+  <span class="c-dim">⎿  Found 6 files</span>
+
+<span class="c-org">●</span> Shortcuts live on <span class="c-blu">Settings.shortcuts</span> as a map from command id to an
+  accelerator string. I'll add a ShortcutRecorder component and move the
+  conflict check into normalize.ts so both the UI and the main process share it.
+
+<span class="c-grn">●</span> <span class="c-wht">Write</span>(src/renderer/src/ShortcutRecorder.tsx)
+  <span class="c-dim">⎿  Wrote 96 lines to src/renderer/src/ShortcutRecorder.tsx</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Update</span>(src/shared/normalize.ts)
+  <span class="c-dim">⎿  Updated src/shared/normalize.ts with 22 additions and 1 removal</span>
+<span class="c-dim">       41</span>    export function normalizeShortcuts(input: unknown): Shortcuts {
+<span class="c-dim">       42</span> <span class="c-grn">+    const seen = new Map&lt;string, CommandId&gt;();</span>
+<span class="c-dim">       43</span> <span class="c-grn">+    for (const [id, accel] of Object.entries(result)) {</span>
+<span class="c-dim">       44</span> <span class="c-grn">+      const taken = seen.get(accel);</span>
+<span class="c-dim">       45</span> <span class="c-grn">+      if (taken) conflicts.push({ id, accel, takenBy: taken });</span>
+<span class="c-dim">       46</span> <span class="c-grn">+      seen.set(accel, id);</span>
+<span class="c-dim">       47</span> <span class="c-grn">+    }</span>
+<span class="c-dim">       …</span>
+
+<span class="c-grn">●</span> <span class="c-wht">Bash</span>(npm test -- test/settings.test.ts)
+  <span class="c-dim">⎿  Running…</span>
+
+<span class="c-org">✻</span> <span class="c-wht">Crafting…</span> <span class="c-dim">(esc to interrupt · 2m 14s · ↓ 3.1k tokens)</span></pre>    </div>
+  </main>
+</div>
+</body>
+</html>

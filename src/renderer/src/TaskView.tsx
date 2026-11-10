@@ -185,6 +185,8 @@ function TabStrip(props: {
   /** The order while a drag is under way. */
   const [dragOrder, setDragOrder] = useState<string[]>();
   const [dragging, setDragging] = useState<string>();
+  /** A copy of the dragged tab that follows the pointer along the strip, in window coordinates. */
+  const [ghost, setGhost] = useState<{ x: number; y: number; width: number }>();
   /** Ends the drag under way, if any (also when the strip goes away mid-drag). */
   const stopDrag = useRef<() => void>(undefined);
   useEffect(() => () => stopDrag.current?.(), []);
@@ -217,6 +219,8 @@ function TabStrip(props: {
   const startDrag = (e: React.PointerEvent, id: string) => {
     stopDrag.current?.();
     const startX = e.clientX;
+    const tabBox = e.currentTarget.getBoundingClientRect();
+    const grab = startX - tabBox.left;
     let order: string[] | undefined;
     let moved = false;
     const move = (ev: PointerEvent) => {
@@ -226,6 +230,10 @@ function TabStrip(props: {
         moved = true;
         setDragging(id);
       }
+      // The ghost stays on the strip, between its edges.
+      const strip = bar.current.getBoundingClientRect();
+      const x = Math.min(Math.max(ev.clientX - grab, strip.left), strip.right - tabBox.width);
+      setGhost({ x, y: tabBox.top, width: tabBox.width });
       // The dragged tab goes before the first other tab whose middle is right of the pointer.
       const shown = [...bar.current.querySelectorAll<HTMLElement>('[data-tab-id]')];
       const others = shown.filter((el) => el.dataset.tabId !== id);
@@ -250,6 +258,7 @@ function TabStrip(props: {
       if (!moved) return;
       const index = order?.indexOf(id) ?? -1;
       // The saved order arrives with the state before moveTab answers (IPC keeps order).
+      setGhost(undefined);
       void (index >= 0 ? api.moveTab(id, index) : Promise.resolve()).finally(() => {
         setDragOrder(undefined);
         setDragging(undefined);
@@ -322,6 +331,14 @@ function TabStrip(props: {
           </div>
         );
       })}
+      {ghost && dragging && byId.get(dragging) && (
+        <div className="tab tab-ghost" aria-hidden style={{ left: ghost.x, top: ghost.y, width: ghost.width }}>
+          <Glyph
+            kind={tabGlyphKind(activity, byId.get(dragging)!, effectivePolicy(props.globalPolicy, task.policy, byId.get(dragging)!.policy))}
+          />
+          <span className="tab-title">{terminals.peek(dragging)?.title || byId.get(dragging)!.title}</span>
+        </div>
+      )}
       <button className="ib tab-new" onClick={props.onNewTab} title={tip('New tab', props.newTabKey)} aria-label="New tab">
         <NewTabIcon />
       </button>

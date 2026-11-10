@@ -5,8 +5,6 @@
 <title>Humanloop — settings, light mode</title>
 </head>
 <body>
-
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -20,7 +18,7 @@ body{margin:0;background:#f5f5f7}
 .btn.primary{background:#dcefe6;border-color:#dcefe6;color:#0f5e44;font-weight:600}
 .btn.primary .k{background:rgba(15,94,68,.12);color:#0f5e44}
 .btn .kk{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1;font-weight:500;opacity:.9;height:20px;padding:0 6px;box-sizing:border-box;border:1px solid rgba(15,94,68,.4);border-radius:4px;display:inline-flex;align-items:center;margin-right:-2px}
-.btn.quiet .kk{border-color:#2a2a31}
+.btn.quiet .kk{border-color:#cfcfd6}
 .btn.solid{border-color:#cfcfd6;background:#ffffff;color:#1c1c21}
 .btn.danger{color:#d9453f}
 .k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#e2e2e7;color:#a0a0aa;white-space:nowrap}
@@ -34,7 +32,7 @@ body{margin:0;background:#f5f5f7}
 .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dots{display:flex;gap:4px;flex:none}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
-.d.w{background:#3b7fe0}
+.d.w{background:#b4780c}
 .d.n{background:#147c5a;box-shadow:0 0 0 2px rgba(20,124,90,.22)}
 .d.ok{border:1.5px solid #147c5a}
 .d.sh{border:1px solid #a0a0aa}
@@ -63,7 +61,6 @@ body{margin:0;background:#f5f5f7}
 .st.ok{background:rgba(20,124,90,.16);color:#147c5a}
 .st.off{background:#dfdfe4;color:#6b6b76}
 </style>
-
 <div class="win" style="width: 1440px; height: 900px; display: flex; background: #f5f5f7; border-radius: 12px; overflow: hidden; position: relative">
 
   <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #ececef; border-right: 1px solid #d9d9de">
@@ -100,6 +97,7 @@ body{margin:0;background:#f5f5f7}
 
     <div style="flex: 1; min-height: 0; display: flex">
       <nav aria-label="Settings sections" style="width: 190px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px">
+        <button class="snav">Appearance</button>
         <button class="snav on">Turn rules</button>
         <button class="snav">Tabs</button>
         <button class="snav">Notifications &amp; power</button>
@@ -174,6 +172,5 @@ body{margin:0;background:#f5f5f7}
     </div>
   </main>
 </div>
-
 </body>
 </html>

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Appearance · Humanloop — settings</title>
+</head>
+<body>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#111113}
+.win{font-family:Inter,-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;font-size:13px;line-height:18px;color:#ededf1;-webkit-font-smoothing:antialiased}
+.mono,.k,.pri,.qn,.age,.in.mono{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.win button{font:inherit;color:inherit;cursor:default}
+.tl{width:12px;height:12px;border-radius:50%;flex:none}
+.ib{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:6px;color:#8a8a95;padding:0}
+.btn{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:#a3a3ad;font-size:12.5px;font-weight:500;white-space:nowrap}
+.btn.primary{background:rgba(111,210,176,.13);border-color:transparent;color:#6fd2b0;font-weight:600}
+.btn.primary .k{background:rgba(111,210,176,.16);color:#6fd2b0}
+.btn .kk{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;line-height:1;font-weight:500;opacity:.9;height:20px;padding:0 6px;box-sizing:border-box;border:1px solid rgba(111,210,176,.4);border-radius:4px;display:inline-flex;align-items:center;margin-right:-2px}
+.btn.quiet .kk{border-color:#2a2a31}
+.btn.solid{border-color:#2f2f36;background:#1f1f24;color:#ededf1}
+.btn.danger{color:#f16c6c}
+.k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
+.qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600;border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
+.qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
+.qh.col::before{transform:rotate(-90deg)}
+.qn{font-size:11px;line-height:16px;font-weight:600;color:#6f6f7a}
+.qn.you{color:#6fd2b0}
+.row{display:flex;align-items:center;gap:8px;height:36px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 10px;border:0;border-radius:6px;background:transparent;text-align:left}
+.pri{flex:none;width:22px;height:16px;border-radius:4px;background:#34343c;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#ededf1}
+.ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dots{display:flex;gap:4px;flex:none}
+.d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
+.d.w{background:#e6b450}
+.d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.22)}
+.d.ok{border:1.5px solid #6fd2b0}
+.d.sh{border:1px solid #5a5a66}
+.age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
+.age.you{color:#6fd2b0}
+.snav{display:flex;align-items:center;height:30px;padding:0 10px;border-radius:6px;border:0;background:transparent;color:#8a8a95;font-size:12.5px;width:100%;text-align:left}
+.snav.on{background:#26262b;color:#ededf1;font-weight:500}
+.sec{display:flex;flex-direction:column;gap:4px;padding:22px 0 18px;border-top:1px solid #222227}
+.sec h2{margin:0 0 4px;font-size:14px;font-weight:600}
+.sec .lead{margin:0 0 8px;font-size:12.5px;color:#8a8a95;line-height:17px}
+.srow{display:flex;align-items:center;gap:16px;padding:12px 0}
+.srow + .srow{border-top:1px solid #1c1c20}
+.srow .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.srow .t b{font-size:13px;font-weight:500}
+.help{font-size:11.5px;line-height:16px;color:#8a8a95}
+.seg{display:inline-flex;background:#17171a;border:1px solid #2f2f36;border-radius:6px;padding:2px;gap:2px;flex:none}
+.seg button{height:24px;padding:0 10px;border-radius:4px;border:0;background:transparent;color:#a3a3ad;font-size:12px;white-space:nowrap}
+.seg button.on{background:#34343c;color:#ededf1;font-weight:500}
+.tg{width:34px;height:20px;border-radius:10px;background:#3a3a42;position:relative;border:0;padding:0;flex:none}
+.tg.on{background:#6fd2b0}
+.tg i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.tg.on i{left:16px}
+.in{height:32px;padding:0 10px;background:#17171a;border:1px solid #2f2f36;border-radius:6px;color:#ededf1;font:inherit;font-size:12.5px;outline:0;box-sizing:border-box;width:100%}
+.tcs{display:flex;gap:14px;flex:none}
+.tc{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:0;border:0;background:transparent;color:#8a8a95;font-size:12px;line-height:16px}
+.tc.on{color:#ededf1;font-weight:500}
+.pv{display:flex;width:148px;height:92px;border-radius:8px;border:1px solid;overflow:hidden;box-sizing:border-box;position:relative;font-size:0}
+.tc.on .pv{box-shadow:0 0 0 2px #6fd2b0}
+.tc.on .pv::after{content:"✓";position:absolute;right:6px;top:6px;width:14px;height:14px;border-radius:50%;background:#6fd2b0;color:#0b2a1f;font:700 9px/14px Inter,sans-serif;text-align:center}
+.pv-side{width:46px;flex:none;display:flex;flex-direction:column;gap:8px;padding:14px 7px 0;box-sizing:border-box;border-right:1px solid}
+.pv-side i{display:flex;align-items:center;gap:4px;height:5px}
+.pv-side i::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--dot);flex:none;box-sizing:border-box}
+.pv-side i.o::before{background:transparent;border:1px solid var(--dot)}
+.pv-side i::after{content:"";flex:1;height:4px;border-radius:2px;background:var(--bar)}
+.pv-main{flex:1;display:flex;flex-direction:column;gap:7px;padding:9px 10px 0}
+.pv-main i{display:block;height:4px;border-radius:2px;background:var(--bar)}
+.pv-main .hd{display:flex;align-items:center;gap:4px;height:8px;margin-bottom:2px}
+.pv-main .hd i{flex:1;height:4px;background:var(--fg)}
+.pv-main .hd b{width:22px;height:8px;border-radius:3px;background:var(--nx);display:block}
+.pv-main .tb{width:18px;height:2px;background:var(--fg);margin:2px 0 4px}
+.st{display:inline-flex;align-items:center;gap:6px;height:20px;padding:0 8px;border-radius:10px;font-size:11px;font-weight:600}
+.st.warn{background:rgba(242,196,107,.16);color:#f2c46b}
+.st.ok{background:rgba(111,210,176,.16);color:#6fd2b0}
+.st.off{background:#26262b;color:#8a8a95}
+</style>
+<div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
+
+  <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 13px">
+      <span class="tl" style="background: #ff5f57"></span><span class="tl" style="background: #febc2e"></span><span class="tl" style="background: #28c840"></span>
+      <span style="flex: 1"></span>
+      <button class="ib" aria-label="Back (⌘[)"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5 4.5 7 9 11.5"/></svg></button>
+      <button class="ib" aria-label="Forward (⌘])"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 2.5 4.5 4.5L5 11.5"/></svg></button>
+    </div>
+    <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
+      <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">3</span></button>
+      <button class="row" title="Fix flaky queue ordering test"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">3m</span></button>
+      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">15m</span></button>
+      <button class="row" title="Dock badge count ignores parked tasks"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 08m</span></button>
+      <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">4</span></button>
+      <button class="row" title="Add a shortcut recorder to Settings"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">9m</span></button>
+      <button class="row" title="Resizable sidebar: persist width across launches"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">5m</span></button>
+      <button class="row" title="Migrate test runner to vitest 3"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">44m</span></button>
+      <button class="row" title="Notifications: deep-link to the task on click"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">21m</span></button>
+      <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
+      <button class="row" title="Explore split panes inside a tab"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row" title="Light theme pass"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+      <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">1</span></button>
+    </nav>
+  </aside>
+
+  <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+    <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 20px">
+      <h1 style="margin: 0; font-size: 13px; font-weight: 600">Settings</h1>
+      <span style="flex: 1"></span>
+      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span>Fix flaky queue ordering test</span><span class="kk">⌘↩</span></button>
+      <button class="btn">Close <span class="k">esc</span></button>
+    </div>
+
+    <div style="flex: 1; min-height: 0; display: flex">
+      <nav aria-label="Settings sections" style="width: 190px; flex: none; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px">
+        <button class="snav on">Appearance</button>
+        <button class="snav">Turn rules</button>
+        <button class="snav">Tabs</button>
+        <button class="snav">Notifications &amp; power</button>
+        <button class="snav">Claude Code</button>
+        <button class="snav">Keyboard shortcuts</button>
+      </nav>
+
+      <div style="flex: 1; min-width: 0; overflow: hidden; padding: 0 40px 0 30px">
+        <div style="max-width: 760px">
+
+          <section class="sec" style="border-top: 0" aria-labelledby="s-app">
+            <h2 id="s-app">Appearance</h2>
+            <p class="lead">Themes change colours only. Layout, shapes and what each colour means stay the same.</p>
+            <div class="srow">
+              <div class="t"><b>Appearance</b><span class="help">System follows macOS, switching between the dark and light themes chosen below.</span></div>
+              <div class="seg" role="radiogroup" aria-label="Appearance"><button class="on" role="radio" aria-checked="true">System</button><button role="radio" aria-checked="false">Light</button><button role="radio" aria-checked="false">Dark</button></div>
+            </div>
+            <div class="srow" style="align-items: flex-start">
+              <div class="t"><b>Dark theme</b><span class="help">Graphite is neutral. Dusk is cooler and lower in contrast.</span></div>
+              <div class="tcs" role="radiogroup" aria-label="Dark theme"><button class="tc on" role="radio" aria-checked="true"><span class="pv" style="background:#111113;border-color:#222227;--bar:#3b3b44;--fg:#8a8a95;--nx:#6fd2b0"><span class="pv-side" style="background:#17171a;border-color:#222227"><i style="--dot:#6fd2b0"></i><i style="--dot:#e6b450"></i><i class="o" style="--dot:#5a5a66"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Graphite</span></button><button class="tc" role="radio" aria-checked="false"><span class="pv" style="background:#1a1d24;border-color:#2c313b;--bar:#444b5b;--fg:#8a91a0;--nx:#7cd4b6"><span class="pv-side" style="background:#20242c;border-color:#2c313b"><i style="--dot:#7cd4b6"></i><i style="--dot:#e2b35c"></i><i class="o" style="--dot:#646c7c"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Dusk</span></button></div>
+            </div>
+            <div class="srow" style="align-items: flex-start">
+              <div class="t"><b>Light theme</b><span class="help">Paper is neutral. Linen is warmer and lower in contrast.</span></div>
+              <div class="tcs" role="radiogroup" aria-label="Light theme"><button class="tc on" role="radio" aria-checked="true"><span class="pv" style="background:#f5f5f7;border-color:#d9d9de;--bar:#c9c9d0;--fg:#5a5a66;--nx:#147c5a"><span class="pv-side" style="background:#ececef;border-color:#d9d9de"><i style="--dot:#147c5a"></i><i style="--dot:#b4780c"></i><i class="o" style="--dot:#a0a0aa"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Paper</span></button><button class="tc" role="radio" aria-checked="false"><span class="pv" style="background:#f4f0e7;border-color:#ddd6c8;--bar:#cdc4b3;--fg:#5e5649;--nx:#1e7a58"><span class="pv-side" style="background:#ece7db;border-color:#ddd6c8"><i style="--dot:#1e7a58"></i><i style="--dot:#a5680a"></i><i class="o" style="--dot:#a89f8f"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Linen</span></button></div>
+            </div>
+          </section>
+
+          <section class="sec" aria-labelledby="s-turn">
+            <h2 id="s-turn">Turn rules</h2>
+            <p class="lead">When a task comes back to you. Tasks can override these.</p>
+            <div class="srow">
+              <div class="t"><b>Multiple Claude tabs</b><span class="help">Decides when a task with more than one Claude running becomes your turn.</span></div>
+              <div class="seg" role="radiogroup" aria-label="Several Claude tabs"><button class="on" role="radio" aria-checked="true">After one finishes</button><button role="radio" aria-checked="false">After all finish</button></div>
+            </div>
+            <div class="srow">
+              <div class="t"><b>Background subagents</b><span class="help">Whether a task stays Claude's turn while subagents it started are still running.</span></div>
+              <div class="seg" role="radiogroup" aria-label="Background subagents"><button class="on" role="radio" aria-checked="true">Wait for them</button><button role="radio" aria-checked="false">Ignore them</button></div>
+            </div>
+            <div class="srow">
+              <div class="t"><b>Background shells</b><span class="help">Whether a task stays Claude's turn while dev servers or watchers it started are still running.</span></div>
+              <div class="seg" role="radiogroup" aria-label="Background shells"><button role="radio" aria-checked="false">Wait for them</button><button class="on" role="radio" aria-checked="true">Ignore them</button></div>
+            </div>
+          </section>
+
+          <section class="sec" aria-labelledby="s-tabs">
+            <h2 id="s-tabs">Tabs</h2>
+            <div class="srow">
+              <div class="t"><b>Open new tabs in the current tab's directory</b><span class="help">Otherwise new tabs use the task's directory, or the default below.</span></div>
+              <button class="tg on" role="switch" aria-checked="true" aria-label="Open new tabs in the current tab's directory"><i></i></button>
+            </div>
+            <div class="srow">
+              <div class="t"><label for="g-dir"><b>Default directory</b></label></div>
+              <div style="display: flex; gap: 8px; width: 360px"><input class="in mono" id="g-dir" value="~/Documents"><button class="btn solid" style="height: 32px; flex: none">Choose…</button></div>
+            </div>
+          </section>
+
+          <section class="sec" aria-labelledby="s-notif">
+            <h2 id="s-notif">Notifications &amp; power</h2>
+            <div class="srow">
+              <div class="t"><b>Notify me when a task comes back to me</b><span class="help">Only while Humanloop is in the background.</span></div>
+              <button class="tg on" role="switch" aria-checked="true" aria-label="Notify me when a task comes back to me"><i></i></button>
+            </div>
+            <div class="srow">
+              <div class="t"><b>Keep the Mac awake while Claude is working</b></div>
+              <button class="tg on" role="switch" aria-checked="true" aria-label="Keep the Mac awake while Claude is working"><i></i></button>
+            </div>
+          </section>
+
+          <section class="sec" aria-labelledby="s-cc">
+            <h2 id="s-cc">Claude Code</h2>
+            <p class="lead">Humanloop reads Claude's state through a hook in <span class="mono" style="color: #a3a3ad">~/.claude/settings.json</span>.</p>
+            <div style="display: flex; align-items: center; gap: 14px; padding: 14px 16px; border: 1px solid #2a2a30; border-radius: 8px; background: #17171a">
+              <span class="st warn">Out of date</span>
+              <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                <b style="font-size: 13px; font-weight: 500">Hook v2 installed, v3 available</b>
+                <span class="help">v3 adds subagent detection. Claude Code 2.1.3 at <span class="mono">/opt/homebrew/bin/claude</span>.</span>
+              </div>
+              <button class="btn primary">Update</button>
+              <button class="btn danger">Remove</button>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 10px; align-items: center" class="help">
+              <span class="st ok">Installed</span>
+              <span class="st off">Not installed</span>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -5,8 +5,6 @@
 <title>Humanloop — main window</title>
 </head>
 <body>
-
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -36,27 +34,27 @@ body{margin:0;background:#111113}
 .row.sel{background:#26262b}
 .rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box}
 .rail.you{background:#6fd2b0}
-.rail.agent{background:repeating-linear-gradient(180deg,#5b9cf6 0 4px,transparent 4px 7px)}
+.rail.agent{background:repeating-linear-gradient(180deg,#e6b450 0 4px,transparent 4px 7px)}
 .rail.parked{border:1px solid #4a4a54}
 .pri{flex:none;width:22px;height:16px;border-radius:4px;background:#34343c;font-size:10px;line-height:16px;font-weight:600;text-align:center;color:#ededf1}
 .pri.p0{background:#f16c6c;color:#1b0b0b}
 .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dots{display:flex;gap:4px;flex:none}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
-.d.w{background:#5b9cf6}
+.d.w{background:#e6b450}
 .d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.22)}
 .d.ok{border:1.5px solid #6fd2b0}
 .d.sh{border:1px solid #5a5a66}
-.d.pk{background:#3a3a42}
+.d.pk{opacity:.45}
 .age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
 .age.you{color:#6fd2b0}
 .age.agent{color:#6f6f7a}
 .g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
-.g.w{background:#5b9cf6}
+.g.w{background:#e6b450}
 .g.n{background:#6fd2b0;box-shadow:0 0 0 3px rgba(111,210,176,.22)}
 .g.ok{border:1.5px solid #6fd2b0}
 .g.sh{border:1.5px solid #5a5a66}
-.g.pk{background:#3a3a42}
+.g.pk{opacity:.45}
 .tab{display:inline-flex;align-items:center;gap:8px;height:36px;min-width:100px;max-width:220px;padding:0 4px 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:4px;text-align:left}
 .tab.on{color:#ededf1;border-bottom-color:#ededf1}
 .tab .tn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -64,10 +62,9 @@ body{margin:0;background:#111113}
 .tm{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:4px;color:#6f6f7a;padding:0;opacity:0}
 .tab.on .tm,.tab:hover .tm,.tab.menu .tm{opacity:1}
 .tab.menu .tm{background:#26262b;color:#ededf1}
-.term{margin:0;font-size:12.5px;line-height:18px;color:#cfcfd6;white-space:pre}
-.c-dim{color:#7d7d89}.c-org{color:#e48a5b}.c-grn{color:#6ccf9a}.c-red{color:#f16c6c}.c-blu{color:#7eb0ff}.c-yel{color:#f2c46b}.c-wht{color:#f2f2f6}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#c2c2ca;white-space:pre}
+.c-dim{color:#7d7d89}.c-org{color:#e48a5b}.c-grn{color:#6ccf9a}.c-red{color:#f16c6c}.c-blu{color:#7eb0ff}.c-yel{color:#f2c46b}.c-wht{color:#e3e3e9}
 </style>
-
 <div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
 
   <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
@@ -117,7 +114,7 @@ body{margin:0;background:#111113}
       <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
     </div>
 
-    <div style="flex: 1; min-height: 0; position: relative; background: #0c0c0e">
+    <div style="flex: 1; min-height: 0; position: relative; background: #131316">
 <pre class="term" style="padding: 16px 20px; margin: 0"><span class="c-dim">╭────────────────────────────────────────────────────────────╮
 │</span> <span class="c-org">✻</span> <span class="c-wht">Welcome to Claude Code!</span>                                  <span class="c-dim">│
 │                                                            │
@@ -161,6 +158,5 @@ body{margin:0;background:#111113}
 <span class="c-org">✻</span> <span class="c-wht">Crafting…</span> <span class="c-dim">(esc to interrupt · 2m 14s · ↓ 3.1k tokens)</span></pre>    </div>
   </main>
 </div>
-
 </body>
 </html>

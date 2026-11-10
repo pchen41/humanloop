@@ -34,8 +34,9 @@ recording. This is a visual and copy redesign on top of it, plus one new setting
 | `TaskEditorTurns.html` | Edit sheet, Turn rules open with one override |
 | `TitleHover.html` | Over-long task title: hover-revealed task actions, full-title tooltips in the bar and the sidebar |
 | `TabMenu.html` | Tab menu open on the active tab: Mute tab, per-tab turn rules with a submenu open, Close; one muted tab |
+| `TabDrag.html` | Reordering tabs: the dragged tab lifted as a ghost, the others slid aside, a faint well at the landing spot |
 | `Resume.html` | After relaunch: one-line resume offer in the tab, resumable dots in the sidebar |
-| `SettingsGeneral.html` | Settings: Turn rules, Tabs, Notifications & power, Claude Code |
+| `SettingsGeneral.html` | Settings: Turn rules, Tabs, Notifications & power (its Claude Code section is dropped) |
 | `SettingsShortcuts.html` | Settings: shortcuts list, a recording in progress, a conflict |
 | `MainLight.html`, `SettingsLight.html` | Light theme of the two above |
 | `Tokens.html` | Tokens, type scale, state glyph table, row anatomy |
@@ -162,6 +163,18 @@ follow the dot rules above. Full name in a tooltip.
 No close ×. At the right end of the active tab, and of any tab under the pointer, a 18px
 chevron button opens the tab menu (`TabMenu.html`). Close is in that menu and on ⌘W.
 
+Reordering (`TabDrag.html`): press a tab and move sideways past a 4px threshold and it
+lifts out of the strip as a ghost: the same glyph and name on a raised card (bg/raised a
+step lighter, `#1F1F24`, 1px `#33333B` border, radius 6, 32px tall, 10px side padding, no
+chevron, shadow `0 10px 24px rgba(0,0,0,.55)` plus `0 2px 4px rgba(0,0,0,.4)`), offset so
+the pointer sits inside it and clamped to the strip's row; only its x follows the pointer.
+The other tabs slide (120ms) to open a 100–220px slot where it will land, and that slot
+shows a faint well (bg/raised, radius 6, 4px inset top and bottom) so the landing spot is
+visible even when the ghost has moved on. Release drops the tab into the slot with a short
+settle; Esc, or releasing outside the strip, slides it back to where it came from. While a
+drag is on, no tab shows a chevron or hover state and the cursor stays the arrow. Light
+theme: ghost `#FFFFFF` on a `#CFCFD6` border with a lighter shadow (`rgba(0,0,0,.18)`).
+
 Muted tab: the glyph is a dim filled disc (surface/5-ish `#3A3A42`, light `#C4C4CB`) and
 the name is fg/5. A muted tab is left out when deciding whose turn the task is; its
 sidebar dot uses the same dim disc.
@@ -173,7 +186,7 @@ rows, no help text). Rows, top to bottom:
 - "Mute tab", a checkmark item (a check at the right while muted; the main menu reserves
   no check column, so labels start 10px in; the submenu keeps a 12px one for its radio check). "Mute" rather than "Park": parking is
   a task-level state with its own queue, and a muted tab simply stops asking for attention.
-- "Subagents" and "Background shells", each showing the tab's resolved value at the right in
+- "Subagents", "Background shells" and "Running commands", each showing the tab's resolved value at the right in
   fg/4 ("Wait for them" / "Ignore them") and opening a submenu of three radio items:
   "Task's setting" with the task's value as a dim suffix (e.g. "wait"), "Wait for them",
   "Ignore them". "Task's setting" is the default and stores nothing, so the tab follows the
@@ -229,6 +242,9 @@ Fields, each label-above-control with an optional one-line help:
   - Background shells — Default / "Wait for them" / "Ignore them"
     Help: "Whether a task stays Claude's turn while dev servers or watchers it started are
     still running."
+  - Running commands — Default / "Wait for them" / "Ignore them" (Settings: Wait for them)
+    Help: "Whether a task is the agent's turn while a command you ran in it runs longer than
+    5 seconds."
   Default stores nothing, so the task tracks Settings. An explicit value tints its segment
   mint. The same control appears in the tab menu with "Task's setting" as the first option,
   so a tab tracks its task the same way. No override badge on rows.
@@ -238,11 +254,12 @@ Footer: "Delete task…" (red text, left), Cancel, Save ⌘↩ (mint tint).
 
 ## Settings
 
-Left nav (190px): Turn rules, Tabs, Notifications & power, Claude Code, Keyboard shortcuts.
+Left nav (190px): Turn rules, Tabs, Notifications & power, Keyboard shortcuts. (No Claude
+Code section: the hooks are built in, so there is nothing to set.)
 Content max-width 760. Every change applies instantly; no save button. Each row is label +
 optional help at left, control at right.
 
-Turn rules: the same three rows and words as the editor, two options each, no "default"
+Turn rules: the same four rows and words as the editor, two options each, no "default"
 suffix (these are the defaults).
 
 Tabs
@@ -255,13 +272,6 @@ Notifications & power
 - "Notify me when a task needs my attention" (toggle). Help: "Only while Humanloop is in the
   background."
 - "Keep the Mac awake while Claude is working" (toggle).
-
-Claude Code
-- Lead: "Humanloop reads Claude's state through hooks it gives claude when you start it in a
-  tab. Nothing is added to ~/.claude/settings.json." (Each tab's zsh wraps `claude` to pass
-  the hooks with `--settings`; see FEASIBILITY.md.)
-- Status card with a pill: "Built in" (mint tint) normally; "Turned off" (amber tint
-  `rgba(242,196,107,.16)` / `#F2C46B`) when Claude Code's settings turn hooks off.
 
 Keyboard shortcuts
 - Help line: "Click a shortcut, then press the new keys. Esc cancels." and a "Reset all"

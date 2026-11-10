@@ -5,8 +5,6 @@
 <title>Humanloop — nothing waiting on you</title>
 </head>
 <body>
-
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -33,18 +31,18 @@ body{margin:0;background:#111113}
 .row{display:flex;align-items:center;gap:8px;height:36px;width:calc(100% - 16px);margin:0 8px;padding:0 8px 0 6px;border:0;border-radius:6px;background:transparent;text-align:left}
 .row.sel{background:#26262b}
 .rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box}
-.rail.agent{background:repeating-linear-gradient(180deg,#5b9cf6 0 4px,transparent 4px 7px)}
+.rail.agent{background:repeating-linear-gradient(180deg,#e6b450 0 4px,transparent 4px 7px)}
 .rail.parked{border:1px solid #4a4a54}
 .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dots{display:flex;gap:4px;flex:none}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box}
-.d.w{background:#5b9cf6}
+.d.w{background:#e6b450}
 .d.ok{border:1.5px solid #6fd2b0}
 .d.sh{border:1px solid #5a5a66}
-.d.pk{background:#3a3a42}
+.d.pk{opacity:.45}
 .age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
 .g{width:9px;height:9px;border-radius:50%;box-sizing:border-box;flex:none}
-.g.w{background:#5b9cf6}
+.g.w{background:#e6b450}
 .tab{display:inline-flex;align-items:center;gap:8px;height:36px;min-width:100px;max-width:220px;padding:0 4px 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:4px;text-align:left}
 .tab.on{color:#ededf1;border-bottom-color:#ededf1}
 .tab .tn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -52,10 +50,9 @@ body{margin:0;background:#111113}
 .tm{width:18px;height:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;border-radius:4px;color:#6f6f7a;padding:0;opacity:0}
 .tab.on .tm,.tab:hover .tm,.tab.menu .tm{opacity:1}
 .tab.menu .tm{background:#26262b;color:#ededf1}
-.term{margin:0;font-size:12.5px;line-height:18px;color:#cfcfd6;white-space:pre}
-.c-dim{color:#7d7d89}.c-org{color:#e48a5b}.c-grn{color:#6ccf9a}.c-blu{color:#7eb0ff}.c-wht{color:#f2f2f6}
+.term{margin:0;font-size:12.5px;line-height:18px;color:#c2c2ca;white-space:pre}
+.c-dim{color:#7d7d89}.c-org{color:#e48a5b}.c-grn{color:#6ccf9a}.c-blu{color:#7eb0ff}.c-wht{color:#e3e3e9}
 </style>
-
 <div class="win" style="width: 1440px; height: 900px; display: flex; background: #111113; border-radius: 12px; overflow: hidden; position: relative">
 
   <aside style="width: 288px; flex: none; display: flex; flex-direction: column; background: #17171a; border-right: 1px solid #222227">
@@ -104,7 +101,7 @@ body{margin:0;background:#111113}
       <button class="ib" aria-label="New tab (⌘T)"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
     </div>
 
-    <div style="flex: 1; min-height: 0; position: relative; background: #0c0c0e">
+    <div style="flex: 1; min-height: 0; position: relative; background: #131316">
 <pre class="term" style="padding: 16px 20px; margin: 0"><span class="c-dim">&gt;</span> <span class="c-wht">The sidebar can be dragged wider but snaps back to 300px after a relaunch.
   Persist the width in settings and clamp it between 240 and 480.</span>
 
@@ -142,6 +139,5 @@ body{margin:0;background:#111113}
     </div>
   </main>
 </div>
-
 </body>
 </html>

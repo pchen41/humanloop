@@ -5,8 +5,6 @@
 <title>Humanloop — design tokens and state language</title>
 </head>
 <body>
-
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -27,48 +25,47 @@ body{margin:0;background:#111113}
 .pri.p0{background:#f16c6c;color:#1b0b0b}
 .rail{width:3px;height:20px;border-radius:2px;flex:none;box-sizing:border-box;display:inline-block}
 .rail.you{background:#6fd2b0}
-.rail.agent{background:repeating-linear-gradient(180deg,#5b9cf6 0 4px,transparent 4px 7px)}
+.rail.agent{background:repeating-linear-gradient(180deg,#e6b450 0 4px,transparent 4px 7px)}
 .rail.parked{border:1px solid #5a5a66}
 .rail.done{background:#34343b}
 .d{width:6px;height:6px;border-radius:50%;box-sizing:border-box;display:inline-block}
-.d.w{background:#5b9cf6;box-shadow:0 0 0 2px rgba(91,156,246,.22)}
+.d.w{background:#e6b450;box-shadow:0 0 0 2px rgba(230,180,80,.22)}
 .d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.25)}
 .d.ok{border:1.5px solid #6fd2b0}
 .d.sh{border:1px solid #6a6a76}
 .d.rs{border:1.5px dashed #6fd2b0}
-.d.pk{background:#3a3a42}
+.d.pk{opacity:.45}
 .g{width:10px;height:10px;border-radius:50%;box-sizing:border-box;display:inline-block}
-.g.w{background:#5b9cf6;box-shadow:0 0 0 3px rgba(91,156,246,.22)}
+.g.w{background:#e6b450;box-shadow:0 0 0 3px rgba(230,180,80,.22)}
 .g.n{background:#6fd2b0;box-shadow:0 0 0 3px rgba(111,210,176,.25)}
 .g.ok{border:2px solid #6fd2b0}
 .g.sh{border:1.5px solid #6a6a76}
 .g.rs{border:1.5px dashed #6fd2b0}
-.g.pk{background:#3a3a42}
+.g.pk{opacity:.45}
 .age{font-size:11px;color:#8a8a95}
 .age.you{color:#6fd2b0}
-.age.agent{color:#7fb0f8}
+.age.agent{color:#eec472}
 .tbl{display:grid;grid-template-columns:150px 70px 70px 1fr;gap:0;font-size:12.5px}
 .tbl > div{display:flex;align-items:center;gap:8px;height:36px;border-top:1px solid #26262b;padding-right:8px}
 .tbl > .h{height:24px;border-top:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a8a95;font-weight:600}
 .tbl .c{justify-content:center}
 .sp{display:flex;align-items:flex-end;gap:14px}
 .sp div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:#8a8a95}
-.sp i{display:block;background:#5b9cf6;opacity:.8;border-radius:2px}
+.sp i{display:block;background:#8a8a95;opacity:.8;border-radius:2px}
 .rad{display:flex;gap:14px;align-items:flex-end}
 .rad div{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;color:#8a8a95}
-.rad i{display:block;width:44px;height:36px;border:1.5px solid #5b9cf6;background:rgba(91,156,246,.08)}
+.rad i{display:block;width:44px;height:36px;border:1.5px solid #8a8a95;background:rgba(255,255,255,.04)}
 .call{position:absolute;font-size:11px;line-height:14px;color:#a3a3ad;white-space:nowrap}
 .call::before{content:"";position:absolute;left:50%;top:-10px;width:1px;height:8px;background:#5a5a66}
 .row{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px 0 6px;border-radius:6px;background:#26262b;position:relative}
 .ttl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
-
 <div class="sheet" style="width: 1440px; height: 1240px; box-sizing: border-box; padding: 40px 48px; background: #111113; display: flex; flex-direction: column; gap: 28px">
 
   <div style="display: flex; align-items: flex-end; gap: 24px">
     <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
       <h1 style="margin: 0; font-size: 24px; line-height: 30px; font-weight: 600">Humanloop visual language</h1>
-      <p class="lead" style="font-size: 13.5px; line-height: 19px; max-width: 760px">One question organises the whole interface: whose turn is it? Mint always means <strong style="color: #6fd2b0; font-weight: 500">you</strong>, blue always means <strong style="color: #7fb0f8; font-weight: 500">Claude</strong>, and everything else stays grey. Dark, quiet and dense: the terminal is the only thing that should ever be loud.</p>
+      <p class="lead" style="font-size: 13.5px; line-height: 19px; max-width: 760px">One question organises the whole interface: whose turn is it? Mint always means <strong style="color: #6fd2b0; font-weight: 500">you</strong>, amber always means <strong style="color: #eec472; font-weight: 500">Claude</strong>, and everything else stays grey. Dark, quiet and dense: the terminal is the only thing that should ever be loud.</p>
     </div>
   </div>
 
@@ -82,7 +79,7 @@ body{margin:0;background:#111113}
         <div class="sw"><i style="background: #17171a"></i><div><b>bg/1 chrome</b><span class="tok">#17171A</span></div></div>
         <div class="sw"><i style="background: #1d1d21"></i><div><b>bg/2 raised</b><span class="tok">#1D1D21</span></div></div>
         <div class="sw"><i style="background: #26262b"></i><div><b>bg/3 selected</b><span class="tok">#26262B</span></div></div>
-        <div class="sw"><i style="background: #0c0c0e"></i><div><b>bg/terminal</b><span class="tok">#0C0C0E</span></div></div>
+        <div class="sw"><i style="background: #131316"></i><div><b>bg/terminal</b><span class="tok">#131316</span></div></div>
         <div class="sw"><i style="background: #2a2a30"></i><div><b>line</b><span class="tok">#2A2A30 · raised #36363D</span></div></div>
       </div>
       <h3>Text</h3>
@@ -95,7 +92,7 @@ body{margin:0;background:#111113}
       <h3>Meaning</h3>
       <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px">
         <div class="sw"><i style="background: #6fd2b0"></i><div><b>you</b><span class="tok">#6FD2B0 · tint 16%</span></div></div>
-        <div class="sw"><i style="background: #5b9cf6"></i><div><b>agent</b><span class="tok">#5B9CF6 · text #7FB0F8</span></div></div>
+        <div class="sw"><i style="background: #e6b450"></i><div><b>agent</b><span class="tok">#e6b450 · text #eec472</span></div></div>
         <div class="sw"><i style="background: #6fd2b0"></i><div><b>done</b><span class="tok">same mint, outlined</span></div></div>
         <div class="sw"><i style="background: #f16c6c"></i><div><b>urgent / danger</b><span class="tok">#F16C6C · P0, destructive</span></div></div>
       </div>
@@ -139,7 +136,7 @@ body{margin:0;background:#111113}
         <div>Claude done</div><div class="c"><span class="g ok"></span></div><div class="c"><span class="d ok"></span></div><div> Your turn, per the "several tabs" rule</div>
         <div>No Claude (shell)</div><div class="c"><span class="g sh"></span></div><div class="c"><span class="d sh"></span></div><div> Your turn if nothing else runs</div>
         <div>Can resume</div><div class="c"><span class="g rs"></span></div><div class="c"><span class="d rs"></span></div><div> Your turn, after a restart</div>
-        <div>Muted tab</div><div class="c"><span class="g pk"></span></div><div class="c"><span class="d pk"></span></div><div> Nowhere; the tab is left out of the decision</div>
+        <div>Muted tab</div><div class="c"><span class="g w pk"></span></div><div class="c"><span class="d w pk"></span></div><div> Nowhere; its glyph stays, dimmed</div>
       </div>
       <h3>Priority · P0–P3, default P2</h3>
       <div style="display: flex; gap: 14px; align-items: center; font-size: 12px; color: #a3a3ad; flex-wrap: wrap">
@@ -170,12 +167,11 @@ body{margin:0;background:#111113}
     <div style="width: 380px; flex: none; display: flex; flex-direction: column; gap: 10px; font-size: 12.5px; color: #a3a3ad">
       <h3>Rules the design keeps</h3>
       <div style="display: flex; gap: 8px"><span style="color: #6fd2b0">—</span><span>Mint appears only where something is waiting on you: ages, tab glyphs and the Next button.</span></div>
-      <div style="display: flex; gap: 8px"><span style="color: #7fb0f8">—</span><span>Blue is never urgent. A blue task is safe to ignore, so it never flashes or counts in the Dock badge.</span></div>
+      <div style="display: flex; gap: 8px"><span style="color: #eec472">—</span><span>Amber is never urgent. An amber task is safe to ignore, so it never flashes or counts in the Dock badge.</span></div>
       <div style="display: flex; gap: 8px"><span style="color: #8a8a95">—</span><span>Shortcuts are taught quietly: a chip on the Next button, the rest in tooltips, menus and the shortcuts screen. Nothing competes with the terminal.</span></div>
       <div style="display: flex; gap: 8px"><span style="color: #8a8a95">—</span><span>Opening a task never moves it. Only Claude starting or stopping, or Park and Done, change a queue.</span></div>
     </div>
   </div>
 </div>
-
 </body>
 </html>

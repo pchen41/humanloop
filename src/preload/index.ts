@@ -16,7 +16,6 @@ const api: HumanloopApi = {
   onCommand: (cb) => listen(IPC.command, cb),
   onAgents: (cb) => listen(IPC.agents, cb),
   onCommands: (cb) => listen(IPC.commands, cb),
-  onHooks: (cb) => listen(IPC.hooks, cb),
   onShowSettings: (cb) => listen(IPC.showSettings, cb),
   openSettings: () => ipcRenderer.send(IPC.openSettings),
   settingsShown: (open) => ipcRenderer.send(IPC.settingsShown, open),

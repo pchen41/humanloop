@@ -294,16 +294,19 @@ export type TaskAgentState = AgentState | 'none';
 /** What decides one tab's part in its task's state. */
 export interface TabInput {
   agent?: TabAgent;
-  /** A command has been running at the tab's prompt for a while (with command tracking on). */
+  /** A command has been running at the tab's prompt for a while. */
   commandRunning?: boolean;
   /** The tab's rules: its own, then the task's, then the global ones. */
   policy: Policy;
 }
 
-/** A tab's state: Claude's if it is running there, working while a command runs, else nothing. */
+/**
+ * A tab's state: Claude's if it is running there; working while a command
+ * runs, if the rules wait for commands; else nothing.
+ */
 export function tabAgentState(tab: TabInput): AgentState | undefined {
   if (tab.agent) return effectiveTabState(tab.agent, tab.policy);
-  return tab.commandRunning ? 'working' : undefined;
+  return tab.commandRunning && tab.policy.commandsBusy ? 'working' : undefined;
 }
 
 /**

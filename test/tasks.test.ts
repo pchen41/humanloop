@@ -115,7 +115,7 @@ describe('normalize', () => {
   it('keeps only known shortcuts and fills policy defaults', () => {
     const settings = normalizeSettings({ shortcuts: { newTab: 'Cmd+Y', bogus: 'X', closeTab: 3 }, policy: { multiAgent: 'all' } });
     expect(settings.shortcuts).toEqual({ newTab: 'Cmd+Y' });
-    expect(settings.policy).toEqual({ multiAgent: 'all', subagentsBusy: true, backgroundShellsBusy: true });
+    expect(settings.policy).toEqual({ multiAgent: 'all', subagentsBusy: true, backgroundShellsBusy: true, commandsBusy: true });
   });
 });
 
