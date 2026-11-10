@@ -21,9 +21,8 @@ body{margin:0;background:#111113}
 .btn.quiet .kk{border-color:#2a2a31}
 .btn.solid{border-color:#2f2f36;background:#1f1f24;color:#ededf1}
 .btn.danger{color:#f16c6c}
-.acts{display:flex;gap:2px;flex:none;opacity:0;transition:opacity .12s}
-.sep{opacity:0;transition:opacity .12s}
-.tbar:hover .acts,.tbar:hover .sep{opacity:1}
+.ib.tmn{width:22px;height:22px;flex:none;color:#6f6f7a}
+.tmn.open{background:#26262b;color:#ededf1}
 .k{font-size:10.5px;line-height:16px;padding:0 5px;border-radius:4px;background:#2a2a31;color:#a3a3ad;white-space:nowrap}
 .qh{display:flex;align-items:center;gap:8px;height:24px;margin:14px 16px 2px 18px;font-size:12px;line-height:16px;color:#8a8a95;font-weight:600;border:0;background:transparent;width:calc(100% - 34px);padding:0;text-align:left}
 .qh::before{content:"";width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #55555e;flex:none;margin-right:2px}
@@ -40,6 +39,7 @@ body{margin:0;background:#111113}
 .d.n{background:#6fd2b0;box-shadow:0 0 0 2px rgba(111,210,176,.22)}
 .d.ok{border:1.5px solid #6fd2b0}
 .d.sh{border:1px solid #5a5a66}
+.d.cmd{background:#5a5a66}
 .d.pk{opacity:.45}
 .age{flex:none;min-width:34px;text-align:right;font-size:11px;line-height:16px;color:#6f6f7a}
 .age.you{color:#6fd2b0}
@@ -47,6 +47,7 @@ body{margin:0;background:#111113}
 .g.w{background:#e6b450}
 .g.ok{border:1.5px solid #6fd2b0}
 .g.sh{border:1.5px solid #5a5a66}
+.g.cmd{background:#5a5a66}
 .g.pk{opacity:.45}
 .tab{display:inline-flex;align-items:center;gap:8px;height:36px;min-width:100px;max-width:220px;padding:0 4px 0 8px;border:0;border-bottom:2px solid transparent;background:transparent;color:#8a8a95;font-size:12.5px;margin-right:4px;text-align:left}
 .tab.on{color:#ededf1;border-bottom-color:#ededf1}
@@ -85,25 +86,23 @@ textarea.in{height:72px;padding:7px 10px;resize:none;line-height:18px}
     <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
       <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">3</span></button>
       <button class="row" title="Fix flaky queue ordering test"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">2m</span></button>
-      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">14m</span></button>
-      <button class="row" title="Dock badge count ignores parked tasks"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 07m</span></button>
+      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="pri p2">P2</span><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">14m</span></button>
+      <button class="row" title="Dock badge count ignores parked tasks"><span class="pri p2">P2</span><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 07m</span></button>
       <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">4</span></button>
-      <button class="row sel" title="Add a shortcut recorder to Settings" aria-current="true"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">8m</span></button>
-      <button class="row" title="Resizable sidebar: persist width across launches"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">4m</span></button>
-      <button class="row" title="Migrate test runner to vitest 3"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">43m</span></button>
-      <button class="row" title="Notifications: deep-link to the task on click"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">20m</span></button>
+      <button class="row sel" title="Add a shortcut recorder to Settings" aria-current="true"><span class="pri p2">P2</span><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">8m</span></button>
+      <button class="row" title="Resizable sidebar: persist width across launches"><span class="pri p2">P2</span><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">4m</span></button>
+      <button class="row" title="Migrate test runner to vitest 3"><span class="pri p2">P2</span><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">43m</span></button>
+      <button class="row" title="Notifications: deep-link to the task on click"><span class="pri p2">P2</span><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">20m</span></button>
       <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
-      <button class="row" title="Explore split panes inside a tab"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
-      <button class="row" title="Light theme pass"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+      <button class="row" title="Explore split panes inside a tab"><span class="pri p3">P3</span><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row" title="Light theme pass"><span class="pri p3">P3</span><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
       <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">1</span></button>
     </nav>
   </aside>
 
   <main style="flex: 1; min-width: 0; display: flex; flex-direction: column">
     <div class="tbar" style="height: 44px; flex: none; display: flex; align-items: center; gap: 2px; padding: 0 12px 0 20px">
-      <h1 title="Add a shortcut recorder to Settings" style="flex: 1; min-width: 0; margin: 0 8px 0 0; font-size: 15px; line-height: 20px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Add a shortcut recorder to Settings</h1>
-      <div class="acts"><button class="ib" aria-label="Edit task (⌘E)" title="Edit task  ⌘E"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.6 2.4l2 2L5 11H3v-2z"/><path d="M8.4 3.6l2 2"/></svg></button><button class="ib" aria-label="Park task (⌘⇧P)" title="Park task  ⌘⇧P"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5v9M9 2.5v9"/></svg></button><button class="ib" aria-label="Mark done (⌘⇧D)" title="Mark done  ⌘⇧D"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7"/></svg></button></div>
-      <span class="sep" aria-hidden="true" style="width: 1px; height: 16px; background: #2a2a31; margin: 0 6px; flex: none"></span>
+      <h1 style="flex: 1; min-width: 0; display: flex; align-items: center; gap: 2px; margin: 0 8px 0 0; font-size: 15px; line-height: 20px; font-weight: 600"><span title="Add a shortcut recorder to Settings" style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Add a shortcut recorder to Settings</span><button class="ib tmn" aria-label="Task actions" title="Task actions"><svg width="15" height="15" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg></button></h1>
       <button class="ib" aria-label="New task (⌘N)"><svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"/></svg></button>
       <button class="ib" aria-label="Settings (⌘,)" style="margin-right: 6px"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></svg></button>
       <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span>Fix flaky queue ordering test</span><span class="kk">⌘↩</span></button>

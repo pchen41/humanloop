@@ -61,7 +61,6 @@ body{margin:0;background:#111113}
 .tc.on{color:#ededf1;font-weight:500}
 .pv{display:flex;width:148px;height:92px;border-radius:8px;border:1px solid;overflow:hidden;box-sizing:border-box;position:relative;font-size:0}
 .tc.on .pv{box-shadow:0 0 0 2px #6fd2b0}
-.tc.on .pv::after{content:"✓";position:absolute;right:6px;top:6px;width:14px;height:14px;border-radius:50%;background:#6fd2b0;color:#0b2a1f;font:700 9px/14px Inter,sans-serif;text-align:center}
 .pv-side{width:46px;flex:none;display:flex;flex-direction:column;gap:8px;padding:14px 7px 0;box-sizing:border-box;border-right:1px solid}
 .pv-side i{display:flex;align-items:center;gap:4px;height:5px}
 .pv-side i::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--dot);flex:none;box-sizing:border-box}
@@ -90,16 +89,16 @@ body{margin:0;background:#111113}
     <nav aria-label="Task queues" style="flex: 1; overflow: hidden; padding-bottom: 12px">
       <button class="qh" style="margin-top: 6px" aria-expanded="true"><span>Your turn</span><span class="qn you">3</span></button>
       <button class="row" title="Fix flaky queue ordering test"><span class="pri">P1</span><span class="ttl">Fix flaky queue ordering test</span><span class="dots"><span class="d n"></span><span class="d sh"></span></span><span class="age you">3m</span></button>
-      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">15m</span></button>
-      <button class="row" title="Dock badge count ignores parked tasks"><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 08m</span></button>
+      <button class="row" title="Session restore: resume prompt shows wrong cwd"><span class="pri p2">P2</span><span class="ttl">Session restore: resume prompt shows wrong cwd</span><span class="dots"><span class="d ok"></span></span><span class="age you">15m</span></button>
+      <button class="row" title="Dock badge count ignores parked tasks"><span class="pri p2">P2</span><span class="ttl">Dock badge count ignores parked tasks</span><span class="dots"><span class="d sh"></span></span><span class="age you">1h 08m</span></button>
       <button class="qh" aria-expanded="true"><span>Agent's turn</span><span class="qn">4</span></button>
-      <button class="row" title="Add a shortcut recorder to Settings"><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">9m</span></button>
-      <button class="row" title="Resizable sidebar: persist width across launches"><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">5m</span></button>
-      <button class="row" title="Migrate test runner to vitest 3"><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">44m</span></button>
-      <button class="row" title="Notifications: deep-link to the task on click"><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">21m</span></button>
+      <button class="row" title="Add a shortcut recorder to Settings"><span class="pri p2">P2</span><span class="ttl">Add a shortcut recorder to Settings</span><span class="dots"><span class="d w"></span><span class="d ok"></span><span class="d sh"></span><span class="d sh"></span></span><span class="age">9m</span></button>
+      <button class="row" title="Resizable sidebar: persist width across launches"><span class="pri p2">P2</span><span class="ttl">Resizable sidebar: persist width across launches</span><span class="dots"><span class="d w"></span></span><span class="age">5m</span></button>
+      <button class="row" title="Migrate test runner to vitest 3"><span class="pri p2">P2</span><span class="ttl">Migrate test runner to vitest 3</span><span class="dots"><span class="d w"></span></span><span class="age">44m</span></button>
+      <button class="row" title="Notifications: deep-link to the task on click"><span class="pri p2">P2</span><span class="ttl">Notifications: deep-link to the task on click</span><span class="dots"><span class="d w"></span><span class="d sh"></span></span><span class="age">21m</span></button>
       <button class="qh" aria-expanded="true"><span>Parked</span><span class="qn">2</span></button>
-      <button class="row" title="Explore split panes inside a tab"><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
-      <button class="row" title="Light theme pass"><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
+      <button class="row" title="Explore split panes inside a tab"><span class="pri p3">P3</span><span class="ttl" style="color: #8a8a95">Explore split panes inside a tab</span><span class="age">2d</span></button>
+      <button class="row" title="Light theme pass"><span class="pri p3">P3</span><span class="ttl" style="color: #8a8a95">Light theme pass</span><span class="age">5d</span></button>
       <button class="qh col" aria-expanded="false"><span>Done</span><span class="qn">1</span></button>
     </nav>
   </aside>
@@ -108,7 +107,6 @@ body{margin:0;background:#111113}
     <div style="height: 44px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 20px">
       <h1 style="margin: 0; font-size: 13px; font-weight: 600">Settings</h1>
       <span style="flex: 1"></span>
-      <button class="btn primary" style="max-width: 340px"><span style="opacity: .7; font-weight: 500">Next</span><span>Fix flaky queue ordering test</span><span class="kk">⌘↩</span></button>
       <button class="btn">Close <span class="k">esc</span></button>
     </div>
 
@@ -129,15 +127,15 @@ body{margin:0;background:#111113}
             <h2 id="s-app">Appearance</h2>
             <p class="lead">Themes change colours only. Layout, shapes and what each colour means stay the same.</p>
             <div class="srow">
-              <div class="t"><b>Appearance</b><span class="help">System follows macOS, switching between the dark and light themes chosen below.</span></div>
-              <div class="seg" role="radiogroup" aria-label="Appearance"><button class="on" role="radio" aria-checked="true">System</button><button role="radio" aria-checked="false">Light</button><button role="radio" aria-checked="false">Dark</button></div>
+              <div class="t"><b>Theme</b><span class="help">System follows macOS, switching between the dark and light themes chosen below.</span></div>
+              <div class="seg" role="radiogroup" aria-label="Theme"><button class="on" role="radio" aria-checked="true">System</button><button role="radio" aria-checked="false">Light</button><button role="radio" aria-checked="false">Dark</button></div>
             </div>
             <div class="srow" style="align-items: flex-start">
-              <div class="t"><b>Dark theme</b><span class="help">Graphite is neutral. Dusk is cooler and lower in contrast.</span></div>
+              <div class="t"><b>Dark theme</b></div>
               <div class="tcs" role="radiogroup" aria-label="Dark theme"><button class="tc on" role="radio" aria-checked="true"><span class="pv" style="background:#111113;border-color:#222227;--bar:#3b3b44;--fg:#8a8a95;--nx:#6fd2b0"><span class="pv-side" style="background:#17171a;border-color:#222227"><i style="--dot:#6fd2b0"></i><i style="--dot:#e6b450"></i><i class="o" style="--dot:#5a5a66"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Graphite</span></button><button class="tc" role="radio" aria-checked="false"><span class="pv" style="background:#1a1d24;border-color:#2c313b;--bar:#444b5b;--fg:#8a91a0;--nx:#7cd4b6"><span class="pv-side" style="background:#20242c;border-color:#2c313b"><i style="--dot:#7cd4b6"></i><i style="--dot:#e2b35c"></i><i class="o" style="--dot:#646c7c"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Dusk</span></button></div>
             </div>
             <div class="srow" style="align-items: flex-start">
-              <div class="t"><b>Light theme</b><span class="help">Paper is neutral. Linen is warmer and lower in contrast.</span></div>
+              <div class="t"><b>Light theme</b></div>
               <div class="tcs" role="radiogroup" aria-label="Light theme"><button class="tc on" role="radio" aria-checked="true"><span class="pv" style="background:#f5f5f7;border-color:#d9d9de;--bar:#c9c9d0;--fg:#5a5a66;--nx:#147c5a"><span class="pv-side" style="background:#ececef;border-color:#d9d9de"><i style="--dot:#147c5a"></i><i style="--dot:#b4780c"></i><i class="o" style="--dot:#a0a0aa"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Paper</span></button><button class="tc" role="radio" aria-checked="false"><span class="pv" style="background:#f4f0e7;border-color:#ddd6c8;--bar:#cdc4b3;--fg:#5e5649;--nx:#1e7a58"><span class="pv-side" style="background:#ece7db;border-color:#ddd6c8"><i style="--dot:#1e7a58"></i><i style="--dot:#a5680a"></i><i class="o" style="--dot:#a89f8f"></i></span><span class="pv-main"><span class="hd"><i style="width:40px;flex:none"></i><i style="background:transparent"></i><b></b></span><span class="tb"></span><i style="width:70%"></i><i style="width:48%"></i><i style="width:82%"></i><i style="width:36%"></i></span></span><span class="nm">Linen</span></button></div>
             </div>
           </section>

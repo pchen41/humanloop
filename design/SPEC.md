@@ -25,47 +25,77 @@ recording. This is a visual and copy redesign on top of it, plus one new setting
 
 | File | Shows |
 | --- | --- |
-| `Main.html` | Main window in use: 10 tasks across queues, title in the top bar, open task with 4 mixed-state tabs, description line with a clickable link |
+| `Main.html` | Graphite theme (dark, default). Main window in use: 10 tasks across queues, title in the top bar, open task with 4 mixed-state tabs, description line with a clickable link |
 | `ManyTasks.html` | 30+ tasks, compact 30px rows, Agent's turn and Done collapsed, ⌘K jump palette |
 | `NoTasks.html` | First launch, no tasks |
 | `TaskNoTabs.html` | Open task with no tabs |
 | `YourTurnEmpty.html` | Empty Your turn queue and the popover after pressing ⌘↩ with nothing waiting |
 | `TaskEditor.html` | Edit sheet, Turn rules disclosure closed (default) |
 | `TaskEditorTurns.html` | Edit sheet, Turn rules open with one override |
-| `TitleHover.html` | Over-long task title: hover-revealed task actions, full-title tooltips in the bar and the sidebar |
+| `TitleMenu.html` | Over-long task title: full-title tooltips in the bar and the sidebar, and the task menu open from the ⌄ by the title |
 | `TabMenu.html` | Tab menu open on the active tab: Mute tab, per-tab turn rules with a submenu open, Close; one muted tab |
+| `ShellCommand.html` | A command you ran in a shell tab keeps the task the agent's turn: filled grey on the tab and in the sidebar, tooltip with the command and its running time |
 | `TabDrag.html` | Reordering tabs: the dragged tab lifted as a ghost, the others slid aside, a faint well at the landing spot |
 | `Resume.html` | After relaunch: one-line resume offer in the tab, resumable dots in the sidebar |
 | `SettingsGeneral.html` | Settings: Turn rules, Tabs, Notifications & power (its Claude Code section is dropped) |
 | `SettingsShortcuts.html` | Settings: shortcuts list, a recording in progress, a conflict |
-| `MainLight.html`, `SettingsLight.html` | Light theme of the two above |
+| `SettingsAppearance.html` | Settings: Appearance (System / Light / Dark) and the dark and light theme cards |
+| `MainDusk.html` | Dusk theme (dark, cool, lower contrast) of the main window |
+| `MainLight.html`, `SettingsLight.html` | Paper theme (light, neutral) of the main window and Settings |
+| `MainLinen.html` | Linen theme (light, warm, lower contrast) of the main window |
 | `Tokens.html` | Tokens, type scale, state glyph table, row anatomy |
 
 ## Tokens
 
-Dark (default). Light values in parentheses.
+Four themes, two dark and two light, share one set of roles. Graphite is the default and
+the one every mockup except the theme boards uses. A theme changes values only: layout,
+shapes, and what each colour means never change.
 
-Surfaces
-- bg/window `#111113` (`#F5F5F7`)
-- bg/chrome, sidebar `#17171A` (`#ECECEF`)
-- bg/raised: popovers, sheets `#1A1A1E` (`#FFFFFF`)
-- bg/selected, hover `#26262B` (`#DFDFE4`)
-- bg/terminal `#0C0C0E` (`#FCFCFD`)
-- line `#222227` (`#D9D9DE`); line/raised `#2F2F36` (`#CFCFD6`)
-
-Text
-- fg/1 `#EDEDF1` (`#1C1C21`)
-- fg/2 `#A3A3AD` (`#5A5A66`)
-- fg/3 `#8A8A95` (`#6B6B76`)
-- fg/4 `#6F6F7A` (`#63636E`) for ages, counts, hints
-- fg/5 `#55555E` (`#6B6B76`) for collapsed/disabled headers
+| Role | Graphite (dark) | Dusk (dark, cool) | Paper (light) | Linen (light, warm) |
+| --- | --- | --- | --- | --- |
+| bg/window | `#111113` | `#1A1D24` | `#F5F5F7` | `#F4F0E7` |
+| bg/chrome, sidebar | `#17171A` | `#20242C` | `#ECECEF` | `#ECE7DB` |
+| bg/raised: popovers, sheets | `#1A1A1E` | `#252A33` | `#FFFFFF` | `#FBF8F1` |
+| bg/selected, hover | `#26262B` | `#313744` | `#DFDFE4` | `#E2DCCE` |
+| bg/terminal | `#131316` | `#1C2027` | `#F7F7F9` | `#F6F2EA` |
+| line | `#222227` | `#2C313B` | `#D9D9DE` | `#DDD6C8` |
+| line/raised | `#2F2F36` | `#3A4050` | `#CFCFD6` | `#CFC7B7` |
+| fg/1 | `#EDEDF1` | `#D9DEE8` | `#1C1C21` | `#2C2721` |
+| fg/2 | `#A3A3AD` | `#A3AAB8` | `#5A5A66` | `#5E5649` |
+| fg/3 | `#8A8A95` | `#8A91A0` | `#6B6B76` | `#726A5C` |
+| fg/4 ages, counts, hints | `#6F6F7A` | `#6F7786` | `#63636E` | `#6E6659` |
+| fg/5 collapsed, disabled | `#55555E` | `#58606E` | `#6B6B76` | `#726A5C` |
+| you (mint) | `#6FD2B0` | `#7CD4B6` | `#147C5A` | `#1E7A58` |
+| you tint (Next button) | `rgba(111,210,176,.13)` | `rgba(124,212,182,.13)` | `#DCEFE6` / text `#0F5E44` | `#DCEBDF` / text `#175C43` |
+| agent (amber) | `#E6B450` | `#E2B35C` | `#B4780C` | `#A5680A` |
+| urgent / destructive | `#F16C6C` | `#EF7B78` | `#D9453F` | `#C9483E` |
+| plain shell outline | `#5A5A66` | `#646C7C` | `#A0A0AA` | `#A89F8F` |
+| terminal fg | `#C2C2CA` | `#BFC6D2` | `#3A3A44` | `#443E36` |
+| terminal bright white | `#E3E3E9` | `#E0E5EE` | `#2A2A32` | `#2C2721` |
 
 Meaning
-- you (mint) `#6FD2B0` (`#147C5A`); tint `rgba(111,210,176,.13–.22)` (`#DCEFE6`)
-- agent (blue) `#5B9CF6` (`#3B7FE0`)
-- done: mint, outlined
-- urgent / destructive `#F16C6C` (`#D9453F`), used only for the P0 chip and Delete/Remove
-- plain shell outline `#5A5A66` (`#A0A0AA`)
+- you: mint, always. Filled means Claude needs you; outlined means Claude is done.
+- agent: amber. Filled amber means Claude is working. Amber is never urgent and never counts
+  in the Dock badge. (It used to be blue; amber reads as "busy, wait" at a glance and keeps
+  blue free for links and the terminal's own colours.)
+- urgent / destructive: red, used only for the P0 chip and Delete/Remove.
+- muted tab: the tab's own glyph and dot at 45% opacity, so its state still reads.
+- commands you run: a shell tab whose command has run for 5 seconds (under the "Running
+  commands" rule) shows a filled grey disc: grey because it is a shell, filled because it
+  is working, the same way the idle shell is a grey ring and Claude working is a filled
+  amber disc. The queue, not the colour, says whose turn it is. When the command ends the
+  glyph becomes a mint ring (the same "settled, your turn" ring as Claude done) until you
+  type in that tab, then it goes back to the plain grey shell ring. The tab tooltip names
+  the command and how long it has run ("Running npm run backfill · 4m 12s · agent's turn
+  until it ends"); after it ends, the exit status ("npm run backfill finished, exit 0").
+  `ShellCommand.html` shows a backfill job holding a task in Agent's turn.
+
+Contrast
+- The terminal is no longer a darker well. Its background sits one step off the window
+  (lighter in the dark themes, darker in the light ones) and its default text sits one
+  step below fg/1, so the hard edge under the tab strip and the bright-on-black glare are
+  gone. Dusk and Linen go further: tinted surfaces and text that never reaches pure
+  white or near-black.
 
 Type
 - UI: Inter (fall back to -apple-system / SF Pro). 13/18 body, 12/16 secondary and help,
@@ -80,11 +110,15 @@ Spacing and shape
 - Sidebar width 288, resizable (existing behaviour).
 
 Terminal (xterm theme)
-- background `#0C0C0E`, foreground `#CFCFD6`, cursor `#CFCFD6`
+- Graphite: background `#131316`, foreground `#C2C2CA`, cursor `#C2C2CA`
 - ANSI: black `#2A2A30`, red `#F16C6C`, green `#6CCF9A`, yellow `#F2C46B`, blue `#7EB0FF`,
-  magenta `#C58BFF`, cyan `#6FD2B0`, white `#F2F2F6`, bright black `#7D7D89`
-- Light: background `#FCFCFD`, foreground `#2B2B33`, red `#D9453F`, green `#2F9E5F`,
-  yellow `#8A5A00`, blue `#2F6FD0`, bright black `#8A8A95`
+  magenta `#C58BFF`, cyan `#6FD2B0`, white `#E3E3E9`, bright black `#7D7D89`
+- Dusk: background `#1C2027`, foreground `#BFC6D2`, white `#E0E5EE`, bright black `#7B8393`;
+  ANSI colours as Graphite
+- Paper: background `#F7F7F9`, foreground `#3A3A44`, red `#D9453F`, green `#2F9E5F`,
+  yellow `#8A5A00`, blue `#2F6FD0`, white `#2A2A32`, bright black `#8A8A95`
+- Linen: background `#F6F2EA`, foreground `#443E36`, red `#C9483E`, green `#2E8E59`,
+  yellow `#85581A`, blue `#3568B8`, white `#2C2721`, bright black `#8C8375`
 - Padding 16px 20px. No border or radius; the tab strip's 1px bottom line is the only edge.
 
 ## Window layout
@@ -92,11 +126,10 @@ Terminal (xterm theme)
 Hidden title bar. The sidebar's top 44px holds the traffic lights (12px circles at x 13,
 gap 8) and back / forward icon buttons at the right; the whole 44px band is a drag region.
 The main column's top 44px band holds the task title at the left (15/20 semibold,
-ellipsis, 20px from the sidebar edge), then, right-aligned: New task (icon), Settings
-(icon), and the Next button. A 1px × 16px separator (line colour) sits 8px before New
-task, 8px after the task actions, and fades in with the hover-only task actions, keeping
-them apart from the permanent controls. The title sits on the same line as the traffic
-lights; there is no separate task header row.
+ellipsis, 20px from the sidebar edge) with a ⌄ button 2px after it that opens the task
+menu, then, right-aligned: New task (icon), Settings (icon), and the Next button. No
+separator. The title sits on the same line as the traffic lights; there is no separate
+task header row.
 
 ### Sidebar
 
@@ -104,14 +137,19 @@ Queue headers: "Your turn", "Agent's turn", "Parked", "Done". Each is a disclosu
 (small triangle at left, 12/16 semibold fg/3, count at right in mono). Any queue collapses;
 Done is collapsed by default. The count on Your turn is mint; all others fg/4.
 
-Row (36px, 30px in compact mode when the list is long): optional priority chip, title with
+Row (36px, 30px in compact mode when the list is long): priority chip, title with
 ellipsis, one 6px dot per tab, age right-aligned in mono. Hovering a row shows a tooltip
 with the full title under the row (same raised tooltip as the top bar, max 400px wide,
-wraps); `TitleHover.html` shows one.
-- Priority chip only for P0 (red fill, dark text) and P1 (grey fill, light text). P2 and P3
-  show no chip; order carries them.
-- Dots: filled blue = Claude working, filled mint with soft ring = Claude needs you,
-  outlined mint = Claude done, grey outline = plain shell, dashed mint outline = resumable.
+wraps); `TitleMenu.html` shows one.
+- Priority chip on every row (22×16, mono 10px semibold, radius 4), so titles line up:
+  P0 red fill with dark text, P1 grey fill (`#34343C`) with fg/1, P2 quiet fill
+  (bg/selected) with fg/2, P3 no fill, a 1px inset line-colour ring and fg/4. Weight falls
+  with urgency; queue order still carries the rest.
+- Dots: filled amber = Claude working, filled mint with soft ring = Claude needs you,
+  outlined mint = Claude done or your command finished, filled grey = a shell running a
+  command you gave it, grey outline = idle shell, dashed mint outline = resumable. A muted
+  tab's dot is its normal dot at 45% opacity. Filled means working and a ring means
+  settled; amber is Claude and grey is a shell.
 - Age: how long in the current queue. Mint in Your turn, fg/4 elsewhere. Format 40s, 12m,
   1h 05m, 2d, 2w, 1mo.
 - Selected row: bg/selected. No rails, no row colour of its own.
@@ -132,20 +170,25 @@ wraps); `TitleHover.html` shows one.
 
 ### Task title
 
-Lives in the top band (above). Edit, Park and Mark done are 26px icon buttons (pencil,
-pause bars, check; fg/3, 14px strokes) that sit right-aligned, 2px apart, 8px before the
-separator (at least 8px after the title), and are hidden until the pointer is over the
-band (fade in over 120ms). Each has a tooltip with its name and shortcut: "Edit task ⌘E",
-"Park task ⌘⇧P", "Mark done ⌘⇧D" (Park reads "Unpark task" on a parked task, Mark done
-reads "Reopen task" on a done one). They are also reachable by shortcut, the task's
-context menu and double-click on a sidebar row. No directory, no queue pill, no override
-note.
+Lives in the top band (above). A 22px ⌄ icon button (fg/3, 12px chevron) sits 2px after
+the title text, always visible, with the tooltip "Task actions"; while its menu is open it
+takes the selected surface and fg/1. It opens the task menu, anchored to the button's
+left edge 4px below it:
+- "Edit task…" ⌘E
+- "Park task" ⌘⇧P ("Unpark task" on a parked task)
+- "Mark done" ⌘⇧D ("Reopen task" on a done task)
+- "Delete task…" in red, no shortcut
+Separators after Edit and before Delete. Same menu from the sidebar row's context menu
+and on double-click of a row; the shortcuts work without the menu. The app builds this
+menu, and the tab menu, as native macOS menus; the drawn menus in `TitleMenu.html` and
+`TabMenu.html` are the look to use if they are ever rendered in the window. No icon
+buttons in the band, no directory, no queue pill, no override note.
 
-Long titles: the title ellipsises; the icons and the New task / Settings / Next controls
-keep their place at the right. Hovering a cut-off title shows a tooltip with the full
-title (raised surface, 12/16, under the title; only when it is actually truncated). The
-full title is always complete in the editor. `TitleHover.html` shows the hover state, the
-icons and the title tooltip.
+Long titles: the title ellipsises and the ⌄ stays right after the visible text; the New
+task / Settings / Next controls keep their place at the right. Hovering a cut-off title
+shows a tooltip with the full title (raised surface, 12/16, under the title; only when it
+is actually truncated). The full title is always complete in the editor. `TitleMenu.html`
+shows the tooltip and the open menu.
 
 Optional description line (under evaluation, shown in `Main.html`): directly under the top
 band, the task description as one 12px fg/3 line with ellipsis, 10px above the tab strip;
@@ -175,9 +218,14 @@ settle; Esc, or releasing outside the strip, slides it back to where it came fro
 drag is on, no tab shows a chevron or hover state and the cursor stays the arrow. Light
 theme: ghost `#FFFFFF` on a `#CFCFD6` border with a lighter shadow (`rgba(0,0,0,.18)`).
 
-Muted tab: the glyph is a dim filled disc (surface/5-ish `#3A3A42`, light `#C4C4CB`) and
-the name is fg/5. A muted tab is left out when deciding whose turn the task is; its
-sidebar dot uses the same dim disc.
+Running command: a shell tab with a command past the 5-second mark takes a filled grey
+glyph (the shell colour) and the sidebar dot does the same; finished, it takes the mint ring until you
+type. See Meaning under Tokens.
+
+Muted tab: the glyph keeps its state (working, needs you, done, shell) but at 45% opacity,
+and the name is fg/5. So a muted tab still tells you what Claude is doing in it; it just
+no longer decides whose turn the task is. Its sidebar dot is dimmed the same way. The
+tooltip adds "— muted".
 
 ### Tab menu
 
@@ -254,10 +302,24 @@ Footer: "Delete task…" (red text, left), Cancel, Save ⌘↩ (mint tint).
 
 ## Settings
 
-Left nav (190px): Turn rules, Tabs, Notifications & power, Keyboard shortcuts. (No Claude
+Left nav (190px): Appearance, Turn rules, Tabs, Notifications & power, Keyboard shortcuts. (No Claude
 Code section: the hooks are built in, so there is nothing to set.)
+Header: "Settings" at the left and a Close (esc) button at the right; the Next button is
+not shown while Settings is open, since Next waits until Settings closes.
 Content max-width 760. Every change applies instantly; no save button. Each row is label +
 optional help at left, control at right.
+
+Appearance (`SettingsAppearance.html`)
+- "Theme": segmented System / Light / Dark, default System (the section is already called Appearance). Help: "System follows macOS,
+  switching between the dark and light themes chosen below."
+- "Dark theme": two theme cards, Graphite (default) and Dusk. No help line; the cards show it.
+- "Light theme": two theme cards, Paper (default) and Linen.
+- A theme card is a radio: a 148×92 preview drawn in the theme's own colours (sidebar
+  strip with three rows and their dots, header bar with a mint Next pill, tab underline,
+  four lines of text), 1px line border, radius 8, name underneath in 12px. The chosen card
+  has a 2px mint ring and its name is fg/1 medium; the others are fg/3. No check badge. Picking a card applies at once.
+- Stored as `appearance: 'system' | 'light' | 'dark'`, `darkTheme: 'graphite' | 'dusk'`,
+  `lightTheme: 'paper' | 'linen'`.
 
 Turn rules: the same four rows and words as the editor, two options each, no "default"
 suffix (these are the defaults).
@@ -278,7 +340,7 @@ Keyboard shortcuts
   button.
 - Two columns: Tasks; then Tabs and Terminal stacked. Rows 34px: name left, key caps right
   (mono 11px, 20px tall caps with a 2px bottom edge).
-- A shortcut changed from its default shows a small blue dot before the keys; hovering a row
+- A shortcut changed from its default shows a small grey dot before the keys; hovering a row
   reveals Reset and Remove as grey text buttons.
 - Recording: the row gets a 1px mint ring; the keys area shows the chord as it is typed with
   a mint caret. Esc cancels.
@@ -295,10 +357,12 @@ Terminal: Find ⌘F, Find next ⌘G, Find previous ⌘⇧G, Clear terminal ⌘L,
 Bigger text ⌘=, Smaller text ⌘-, Reset text size ⌘0.
 Keep whatever the code already defines where it differs; the list is illustrative.
 
-## Light theme
+## Themes
 
-Same layout and rules; only values change (see Tokens). The Next button is a mint tint
-`#DCEFE6` with `#0F5E44` text, never a solid fill. Follow the system appearance.
+Same layout and rules in all four; only values change (see Tokens). In the light themes
+the Next button is a mint tint (`#DCEFE6` with `#0F5E44` text on Paper), never a solid
+fill. `MainDusk.html`, `MainLight.html` (Paper) and `MainLinen.html` show the main window
+in the three non-default themes; `SettingsLight.html` is Settings on Paper.
 
 ## Out of scope
 

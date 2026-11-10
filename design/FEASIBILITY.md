@@ -27,21 +27,22 @@ decisions and stay in even though they are not trivial.
 
 ## Small changes (an hour or less each)
 
-- Priority chip only on P0 and P1: a condition in the sidebar row.
+- Priority chip on every row, in four looks (`p0`…`p3` classes on the existing chip).
 - One dot per tab instead of one per task: the row maps `task.tabs` to `agents[tab.id]`;
   the data is already in the renderer. Dashed "can resume" dot from `data.resume[tab.id]`.
 - Queue header labels in sentence case ("Your turn"); counts always shown.
 - Remove: the cwd next to the task title, the tab shortcut hints, the override mark on rows,
   the "+ New Task" button at the bottom of the sidebar, the `kbd` chips on buttons.
 - Header bar in the main column with the task title at the left, then New task (icon),
-  Settings (icon), and the **Next button that names the task ⌘↩ will open** (**asked for**).
+  Settings (icon), and the **Next button that names the task ⌘↩ will open** (**asked for**);
+  the Next button is hidden while Settings fills the main column.
   The title moves into this bar; there is no separate task header row. The target is
   `tasksInQueue(state,'yourTurn')` minus the open task, which `queues.ts` already computes.
   The quiet state and the popover reuse the existing `nothingElse` notice.
 - Back / Forward icon buttons next to the traffic lights (`canGoBack` / `canGoForward` exist).
-- Edit / Park / Done become icon buttons next to the title, shown only while the pointer is
-  over the top bar (CSS `opacity` on hover; keep them focusable), each with a name-and-
-  shortcut tooltip. Long titles ellipsise; a tooltip shows the full title when truncated.
+- Edit / Park / Done / Delete live in a task menu opened by a ⌄ button right after the
+  title (built; a native menu from `IPC.taskMenu`). The sidebar row's context menu is the
+  same menu. The designed menu look in `TitleMenu.html` is for reference only.
 - Description line under the task title with clickable links (**asked for**): render the
   existing `task.description` as one ellipsised line and linkify URLs; the window-open
   handler already sends http(s) links to the default browser.
@@ -75,10 +76,22 @@ decisions and stay in even though they are not trivial.
   tab's shell directory, read from the system with `lsof` (ca5d3db dropped the OSC 7 path).
   It is a toggle in Settings > Tabs (`newTabsInCurrentDir` in settings.json, default on);
   off, new tabs use the task's directory or the default directory.
-- **Light theme.** `styles.css` already uses CSS variables and `color-scheme: dark`, so the
-  chrome is a second variable set under `prefers-color-scheme: light`. The terminal needs a
-  second `THEME` and a `matchMedia` listener to swap it on open terminals. Values are in
-  SPEC.md. A couple of hours; do it last.
+- **Themes** (**asked for**): two dark (Graphite, Dusk) and two light (Paper, Linen), plus
+  an Appearance setting (System / Light / Dark with a chosen dark and light theme).
+  `styles.css` already uses CSS variables, so each theme is one variable block selected by
+  a `data-theme` attribute on `<html>`; the main process resolves `appearance` against
+  `nativeTheme.shouldUseDarkColors` and pushes the active theme name to the renderer, which
+  also sets `color-scheme`. The terminal needs a `THEME` object per theme and a call to
+  `terminal.options.theme = …` on every open terminal when it changes. Settings gains three
+  fields (`appearance`, `darkTheme`, `lightTheme`) and the Appearance section with the
+  theme cards (`SettingsAppearance.html`). Values are in SPEC.md. Half a day.
+- **Running commands get their own glyph.** `tabGlyphKind` already returns `'command'`;
+  `Glyph.tsx` draws it as Claude working. Draw it as a filled disc in the shell grey instead, and add a `'commandDone'` kind, a mint ring, set when the command ends
+  and cleared on the next keypress in that tab (the shell marks give both moments). The
+  tooltip text comes from the same command record. An hour.
+- **Agent colour is amber, not blue; muted tabs keep their glyph.** `Glyph.tsx` and the
+  sidebar dots use the `--agent` variable; a muted tab renders its normal glyph with
+  `opacity: .45` instead of a grey disc. Minutes.
 
 - **Per-tab turn rules and muted tabs** (**asked for**). `Tab` gains `muted?: boolean` and
   `policy?: Partial<Pick<Policy,'subagentsBusy'|'backgroundShellsBusy'>>`; `normalize.ts`
