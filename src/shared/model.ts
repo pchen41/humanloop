@@ -35,9 +35,13 @@ export const DEFAULT_POLICY: Policy = {
 
 export const POLICY_KEYS = ['multiAgent', 'subagentsBusy', 'backgroundShellsBusy'] as const;
 
-/** The task's overrides on top of the global policy. */
-export function effectivePolicy(global: Policy, task: Partial<Policy>): Policy {
-  return { ...global, ...task };
+/** The turn rules a tab can set for itself, in its menu. */
+export const TAB_POLICY_KEYS = ['subagentsBusy', 'backgroundShellsBusy'] as const;
+export type TabPolicy = Partial<Pick<Policy, (typeof TAB_POLICY_KEYS)[number]>>;
+
+/** The rules in effect: a tab's own, then its task's, then the global ones. */
+export function effectivePolicy(global: Policy, task: Partial<Policy>, tab?: TabPolicy): Policy {
+  return { ...global, ...task, ...tab };
 }
 
 /** Keeps only valid policy fields. Values arrive from disk and over IPC, so nothing is trusted. */
@@ -51,6 +55,14 @@ export function cleanPolicy(v: unknown): Partial<Policy> {
   return out;
 }
 
+/** A tab's own turn rules: only the ones a tab can set. */
+export function cleanTabPolicy(v: unknown): TabPolicy {
+  const p = cleanPolicy(v);
+  const out: TabPolicy = {};
+  for (const k of TAB_POLICY_KEYS) if (p[k] !== undefined) out[k] = p[k];
+  return out;
+}
+
 export function hasOverrides(task: Task): boolean {
   return POLICY_KEYS.some((k) => task.policy[k] !== undefined);
 }
@@ -59,6 +71,10 @@ export interface Tab {
   id: string;
   title: string;
   claudeSession?: { id: string; cwd: string };
+  /** Left out when deciding whose turn the task is. */
+  muted?: boolean;
+  /** Turn rules set in the tab's menu; the rest follow the task. */
+  policy?: TabPolicy;
 }
 
 export interface Task {
@@ -104,6 +120,11 @@ export interface Settings {
   optionAsMeta: boolean;
   /** New tabs start in the current tab's directory (else the task's, or the default). */
   newTabsInCurrentDir: boolean;
+  /**
+   * Shell integration: tabs' shells mark when each command starts and ends,
+   * and a command still running after a few seconds makes it the agent's turn.
+   */
+  trackCommands: boolean;
 }
 
 export const EMPTY_STATE: AppState = { tasks: [], history: [], historyIndex: -1 };
@@ -115,6 +136,7 @@ export const DEFAULT_SETTINGS: Settings = {
   keepAwake: false,
   optionAsMeta: true,
   newTabsInCurrentDir: true,
+  trackCommands: false,
 };
 
 /** A change made in the settings screen. A null defaultCwd clears it. */
@@ -125,6 +147,7 @@ export interface SettingsPatch {
   keepAwake?: boolean;
   optionAsMeta?: boolean;
   newTabsInCurrentDir?: boolean;
+  trackCommands?: boolean;
   /** Command id -> accelerator; "" removes the shortcut, null puts the default back. */
   shortcuts?: Record<string, string | null>;
 }
@@ -146,7 +169,7 @@ export function patchSettingsJson(raw: Record<string, unknown>, patch: SettingsP
     if (cwd) out.defaultCwd = cwd;
     else delete out.defaultCwd;
   }
-  for (const key of ['notifications', 'keepAwake', 'optionAsMeta', 'newTabsInCurrentDir'] as const) {
+  for (const key of ['notifications', 'keepAwake', 'optionAsMeta', 'newTabsInCurrentDir', 'trackCommands'] as const) {
     if (typeof patch[key] === 'boolean') out[key] = patch[key];
   }
   if (typeof patch.shortcuts === 'object' && patch.shortcuts !== null && !Array.isArray(patch.shortcuts)) {

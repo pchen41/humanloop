@@ -53,6 +53,15 @@ export function ChevronDownIcon() {
   );
 }
 
+/** The tab menu's chevron: 10px, as in the tab strip mockups. */
+export function TabMenuIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" strokeWidth="1.5" {...stroke} aria-hidden>
+      <path d="m2.5 3.75 2.5 2.5 2.5-2.5" />
+    </svg>
+  );
+}
+
 export function CloseIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" strokeWidth="1.4" {...stroke} aria-hidden>

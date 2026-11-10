@@ -5,6 +5,7 @@ import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as pty from 'node-pty';
+import { scanMarks, type CommandMark } from './commandTracker';
 
 /** Pause the shell when this many characters are sent but not yet drawn. */
 const HIGH_WATER = 512 * 1024;
@@ -31,6 +32,8 @@ export interface PtyExit {
 export interface PtySink {
   data(tabId: string, data: string): void;
   exit(tabId: string, exit: PtyExit): void;
+  /** A command started or a prompt appeared, as marked by the shell integration. */
+  mark?(tabId: string, mark: CommandMark): void;
 }
 
 interface Entry {
@@ -46,6 +49,8 @@ interface Entry {
   listeners: pty.IDisposable[];
   /** Whether anything has been typed into this shell yet. */
   typed: boolean;
+  /** The start of a command mark split across output chunks. */
+  markCarry: string;
 }
 
 export interface SpawnOptions {
@@ -153,11 +158,14 @@ export class PtyManager {
     });
     // A restart replaces an exited shell; its listeners go with it.
     for (const l of this.entries.get(tabId)?.listeners ?? []) l.dispose();
-    const entry: Entry = { proc, replay: '', pending: '', unacked: 0, paused: false, attached: true, listeners: [], typed: false };
+    const entry: Entry = { proc, replay: '', pending: '', unacked: 0, paused: false, attached: true, listeners: [], typed: false, markCarry: '' };
     this.entries.set(tabId, entry);
 
     entry.listeners.push(
       proc.onData((data) => {
+        const scan = scanMarks(entry.markCarry, data);
+        entry.markCarry = scan.carry;
+        for (const m of scan.marks) this.sink.mark?.(tabId, m);
         entry.replay += data;
         // Trimmed in batches, so heavy output doesn't copy the whole buffer on every chunk.
         if (entry.replay.length > REPLAY_LIMIT * 2) entry.replay = entry.replay.slice(-REPLAY_LIMIT);

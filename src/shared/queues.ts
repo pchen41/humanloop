@@ -9,12 +9,25 @@ import { findTask, moveTask, openTask, tasksInQueue } from './tasks';
 /** A task's agent state, from its tabs' Claude sessions and its policy. */
 export type AgentStateOf = (task: Task) => TaskAgentState;
 
-/** Reads agent state from the tracker's per-tab snapshot. */
-export function agentStateOf(agents: Record<string, TabAgent | undefined>, globalPolicy: Policy): AgentStateOf {
+/**
+ * Reads agent state from the tracker's per-tab snapshot and the tabs running
+ * a command. Muted tabs are left out.
+ */
+export function agentStateOf(
+  agents: Record<string, TabAgent | undefined>,
+  globalPolicy: Policy,
+  commandsRunning: ReadonlySet<string> = new Set(),
+): AgentStateOf {
   return (task) =>
     taskAgentState(
-      task.tabs.map((t) => agentFor(agents, t.id)),
-      effectivePolicy(globalPolicy, task.policy),
+      task.tabs
+        .filter((t) => !t.muted)
+        .map((t) => ({
+          agent: agentFor(agents, t.id),
+          commandRunning: commandsRunning.has(t.id),
+          policy: effectivePolicy(globalPolicy, task.policy, t.policy),
+        })),
+      effectivePolicy(globalPolicy, task.policy).multiAgent,
     );
 }
 

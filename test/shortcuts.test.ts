@@ -6,6 +6,8 @@ import {
   acceleratorFor,
   acceleratorFromInput,
   conflictFor,
+  editsText,
+  textKeyCommand,
   sameAccelerator,
   shortcutProblem,
   type KeyInput,
@@ -117,9 +119,21 @@ describe('shortcuts from settings.json', () => {
     expect(shortcutProblem('CmdOrCtrl+numadd')).toBeUndefined();
     expect(shortcutProblem('Ctrl+C')).toBe('needs ⌘'); // would take SIGINT away from every shell
     expect(shortcutProblem('CmdOrCtrl+Q')).toBeTruthy();
-    expect(shortcutProblem('CmdOrCtrl+Left')).toBeTruthy();
+    expect(shortcutProblem('CmdOrCtrl+Left')).toBeUndefined(); // runs only outside text fields
     expect(shortcutProblem('Cmd+Bogus')).toBe('unknown key');
     expect(shortcutProblem('Hyper+J')).toBe('unknown modifier');
+  });
+
+  it('sends shortcuts on text-editing keys through the window', () => {
+    const s = normalizeSettings({});
+    expect(editsText('CmdOrCtrl+Left')).toBe(true);
+    expect(editsText('Cmd+Shift+Backspace')).toBe(true);
+    expect(editsText('CmdOrCtrl+L')).toBe(false);
+    const key = (k: string, code: string, extra = {}) => ({ key: k, code, meta: true, control: false, alt: false, shift: false, ...extra });
+    expect(textKeyCommand(s, key('ArrowLeft', 'ArrowLeft'))).toBe('prevTab');
+    expect(textKeyCommand(s, key('ArrowDown', 'ArrowDown'))).toBe('taskBelow');
+    expect(textKeyCommand(s, key('ArrowDown', 'ArrowDown', { shift: true }))).toBeUndefined();
+    expect(textKeyCommand(s, key('t', 'KeyT'))).toBeUndefined(); // the menu bar handles these
   });
 
   it('falls back to the default for unusable ones and never installs a duplicate', () => {

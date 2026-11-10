@@ -24,6 +24,8 @@ export type CommandId =
   | 'nextTask'
   | 'back'
   | 'forward'
+  | 'taskAbove'
+  | 'taskBelow'
   | 'parkTask'
   | 'markDone';
 
@@ -42,11 +44,11 @@ const tabCommands: CommandDef[] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => ({
 
 export const COMMANDS: CommandDef[] = [
   { id: 'newTask', label: 'New Task…', accelerator: 'CmdOrCtrl+N' },
-  { id: 'editTask', label: 'Edit Task…', accelerator: 'CmdOrCtrl+E' },
+  { id: 'editTask', label: 'Edit Task…', accelerator: 'CmdOrCtrl+Shift+E' },
   { id: 'newTab', label: 'New Tab', accelerator: 'CmdOrCtrl+T' },
   { id: 'closeTab', label: 'Close Tab', accelerator: 'CmdOrCtrl+W' },
-  { id: 'nextTab', label: 'Show Next Tab', accelerator: 'CmdOrCtrl+Shift+]' },
-  { id: 'prevTab', label: 'Show Previous Tab', accelerator: 'CmdOrCtrl+Shift+[' },
+  { id: 'nextTab', label: 'Show Next Tab', accelerator: 'CmdOrCtrl+Right' },
+  { id: 'prevTab', label: 'Show Previous Tab', accelerator: 'CmdOrCtrl+Left' },
   ...tabCommands,
   { id: 'clearTerminal', label: 'Clear Terminal', accelerator: 'CmdOrCtrl+K' },
   { id: 'find', label: 'Find…', accelerator: 'CmdOrCtrl+F' },
@@ -55,6 +57,9 @@ export const COMMANDS: CommandDef[] = [
   { id: 'nextTask', label: 'Next Task', accelerator: 'CmdOrCtrl+Return' },
   { id: 'back', label: 'Back', accelerator: 'CmdOrCtrl+[' },
   { id: 'forward', label: 'Forward', accelerator: 'CmdOrCtrl+]' },
+  // Through the sidebar in the order it shows, skipping collapsed queues.
+  { id: 'taskAbove', label: 'Task Above', accelerator: 'CmdOrCtrl+Up' },
+  { id: 'taskBelow', label: 'Task Below', accelerator: 'CmdOrCtrl+Down' },
   // The menu says Unpark / Reopen when the open task is already parked or done.
   { id: 'parkTask', label: 'Park Task', accelerator: 'CmdOrCtrl+Shift+P' },
   { id: 'markDone', label: 'Mark Done', accelerator: 'CmdOrCtrl+Shift+D' },
@@ -62,7 +67,7 @@ export const COMMANDS: CommandDef[] = [
 
 /** How the settings screen groups the commands. Every command appears once. */
 export const COMMAND_GROUPS: { title: string; ids: CommandId[] }[] = [
-  { title: 'Tasks', ids: ['nextTask', 'back', 'forward', 'newTask', 'editTask', 'parkTask', 'markDone'] },
+  { title: 'Tasks', ids: ['nextTask', 'back', 'forward', 'taskAbove', 'taskBelow', 'newTask', 'editTask', 'parkTask', 'markDone'] },
   {
     title: 'Tabs',
     ids: ['newTab', 'closeTab', 'nextTab', 'prevTab', 'tab1', 'tab2', 'tab3', 'tab4', 'tab5', 'tab6', 'tab7', 'tab8', 'tab9'],

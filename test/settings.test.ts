@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_POLICY, EMPTY_STATE, hasOverrides, patchSettingsJson } from '../src/shared/model';
-import { normalizeSettings } from '../src/shared/normalize';
+import { normalizeSettings, normalizeState } from '../src/shared/normalize';
 import * as Q from '../src/shared/queues';
 import * as T from '../src/shared/tasks';
 import type { TabAgent } from '../src/shared/agents';
@@ -66,6 +66,60 @@ describe('per-task overrides', () => {
     // This task counts them as busy.
     s = T.updateTask(s, 'dev', { policy: { backgroundShellsBusy: true } });
     expect(T.findTask(Q.reconcile(s, Q.agentStateOf(agents, ignoreShells), 10), 'dev')?.queue).toBe('agentsTurn');
+    // A tab's own rule beats the task's.
+    s = T.updateTab(s, 't', { policy: { backgroundShellsBusy: false } });
+    expect(Q.reconcile(s, Q.agentStateOf(agents, ignoreShells), 10)).toBe(s);
+  });
+
+  it('leaves muted tabs out, and counts running commands', () => {
+    const working: TabAgent = {
+      sessionId: 's',
+      state: 'working',
+      turn: 'working',
+      waitingOn: [],
+      started: [],
+      interrupted: false,
+      backgroundTasks: [],
+    };
+    let s = T.createTask(EMPTY_STATE, { title: 'a', description: '', priority: 2 }, 'a', 1);
+    s = T.addTab(s, 'a', { id: 't', title: 'zsh' });
+    s = T.addTab(s, 'a', { id: 'u', title: 'zsh' });
+    const filed = (st: typeof s, running = new Set<string>()) =>
+      T.findTask(Q.reconcile(st, Q.agentStateOf({ t: working }, DEFAULT_POLICY, running), 10), 'a')?.queue;
+    expect(filed(s)).toBe('agentsTurn');
+    s = T.updateTab(s, 't', { muted: true });
+    expect(filed(s)).toBe('yourTurn');
+    expect(filed(s, new Set(['u']))).toBe('agentsTurn');
+  });
+});
+
+describe('tabs from disk', () => {
+  it('keep mute and their own rules, dropping invalid ones', () => {
+    const s = normalizeState({
+      tasks: [
+        {
+          id: 'a',
+          tabs: [
+            { id: 't', muted: true, policy: { subagentsBusy: false, multiAgent: 'all', backgroundShellsBusy: 'x' } },
+            { id: 'u', muted: 'yes', policy: {} },
+          ],
+        },
+      ],
+    });
+    expect(s.tasks[0]!.tabs).toEqual([
+      { id: 't', title: 'zsh', muted: true, policy: { subagentsBusy: false } },
+      { id: 'u', title: 'zsh' },
+    ]);
+  });
+
+  it('move within their task', () => {
+    let s = T.createTask(EMPTY_STATE, { title: 'a', description: '', priority: 2 }, 'a', 1);
+    for (const id of ['1', '2', '3']) s = T.addTab(s, 'a', { id, title: id });
+    const order = (st: typeof s) => T.findTask(st, 'a')!.tabs.map((t) => t.id);
+    expect(order(T.moveTab(s, '1', 2))).toEqual(['2', '3', '1']);
+    expect(order(T.moveTab(s, '3', 0))).toEqual(['3', '1', '2']);
+    expect(order(T.moveTab(s, '2', 99))).toEqual(['1', '3', '2']);
+    expect(T.moveTab(s, '2', 1)).toBe(s);
   });
 });
 
@@ -78,5 +132,7 @@ describe('notifications and keep-awake settings', () => {
     expect(normalizeSettings({ newTabsInCurrentDir: false }).newTabsInCurrentDir).toBe(false);
     expect(normalizeSettings({ newTabsInCurrentDir: 0 }).newTabsInCurrentDir).toBe(true);
     expect(patchSettingsJson({ a: 1 }, { newTabsInCurrentDir: false })).toEqual({ a: 1, newTabsInCurrentDir: false });
+    expect(normalizeSettings({}).trackCommands).toBe(false);
+    expect(patchSettingsJson({}, { trackCommands: true })).toEqual({ trackCommands: true });
   });
 });

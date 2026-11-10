@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, watch } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
-import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron';
 import { COMMAND_IDS, commandById, type CommandId } from '../shared/commands';
 import { IPC, TERMINAL_EDIT, type InitialData, type ResumeOffer, type TerminalEditCommand } from '../shared/ipc';
 import {
@@ -10,7 +10,11 @@ import {
   effectivePolicy,
   patchSettingsJson,
   EMPTY_STATE,
+  TAB_POLICY_KEYS,
   type AppState,
+  type Tab,
+  type TabPolicy,
+  type Task,
   type Settings,
   type SettingsPatch,
   type TaskDraft,
@@ -20,7 +24,10 @@ import * as Q from '../shared/queues';
 import * as T from '../shared/tasks';
 import { agentFor, effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
-import { currentHookStatus, installWithConfirm, removeWithConfirm, shortPath as claudeSettingsPath } from './hookInstaller';
+import { CommandTracker } from './commandTracker';
+import { writeZshIntegration, zshIntegrationEnv } from './shellIntegration';
+import { currentHookStatus, removeWithConfirm, shortPath as claudeSettingsPath } from './hookInstaller';
+import { hookSettings } from '../shared/hooks';
 import { HookServer, hookSocketPath } from './hookServer';
 import {
   acceleratorFor,
@@ -76,8 +83,26 @@ const ptys = new PtyManager({
   },
   exit(tabId, exit) {
     tracker.clear(tabId);
+    commands.clear(tabId);
     win?.webContents.send(IPC.ptyExit, tabId, exit);
   },
+  mark(tabId, mark) {
+    if (settings.trackCommands) commands.mark(tabId, mark);
+  },
+});
+
+/** The shell integration (Claude's hooks, command marks), written at launch; tabs start without it if that failed. */
+const zshDir = join(userData, 'zsh');
+const zshReady = writeZshIntegration(zshDir);
+
+/** Tabs whose command finished in the update being made, for the notification's wording. */
+let commandsFinished = new Set<string>();
+const commands = new CommandTracker((tabId, finished) => {
+  win?.webContents.send(IPC.commands, [...commands.snapshot()]);
+  if (finished) commandsFinished.add(tabId);
+  setState(state); // re-file tasks
+  commandsFinished = new Set();
+  updateDockAndPower();
 });
 
 const hookSocket = hookSocketPath(userData);
@@ -105,7 +130,7 @@ const hookServer = new HookServer(hookSocket, (d) => tracker.handle(d));
 
 /** Each task's agent state right now. */
 function stateOf(): Q.AgentStateOf {
-  return Q.agentStateOf(tracker.snapshot(), settings.policy);
+  return Q.agentStateOf(tracker.snapshot(), settings.policy, commands.snapshot());
 }
 
 /**
@@ -148,9 +173,14 @@ function notifyArrivals(prev: AppState): void {
   const of = stateOf();
   for (const task of Q.arrivals(prev, state)) {
     const s = of(task);
-    notify(task.id, task.title, s === 'needsYou' ? 'Claude needs you' : s === 'none' ? 'Claude exited' : 'Claude is done', () =>
-      showTask(task.id),
-    );
+    const body = task.tabs.some((t) => commandsFinished.has(t.id))
+      ? 'Command finished'
+      : s === 'needsYou'
+        ? 'Claude needs you'
+        : s === 'none'
+          ? 'Claude exited'
+          : 'Claude is done';
+    notify(task.id, task.title, body, () => showTask(task.id));
   }
 }
 
@@ -172,10 +202,9 @@ function updateDockAndPower(): void {
   setDockBadge(T.tasksInQueue(state, 'yourTurn').length);
   const agents = tracker.snapshot();
   const working = state.tasks.some((task) => {
-    const policy = effectivePolicy(settings.policy, task.policy);
     return task.tabs.some((tab) => {
       const agent = agentFor(agents, tab.id);
-      return agent !== undefined && effectiveTabState(agent, policy) === 'working';
+      return agent !== undefined && effectiveTabState(agent, effectivePolicy(settings.policy, task.policy, tab.policy)) === 'working';
     });
   });
   keepAwake(settings.keepAwake && working);
@@ -248,6 +277,8 @@ function updateSettings(patch: SettingsPatch): void {
 
 /** Puts new settings into effect: menu shortcuts, the renderer, and queue filing under the new policy. */
 function applySettings(next: Settings): void {
+  // Turning tracking off stops counting commands at once.
+  if (!next.trackCommands) commands.clearAll();
   settings = next;
   installMenu();
   win?.webContents.send(IPC.settings, settings);
@@ -346,7 +377,6 @@ function installMenu(): void {
         copy: () => editCommand('copy'),
         selectAll: () => editCommand('selectAll'),
         openSettings: showSettings,
-        installHooks: () => void installWithConfirm(win).then(refreshHookStatus),
         removeHooks: () => void removeWithConfirm(win).then(refreshHookStatus),
       },
       ctx,
@@ -459,11 +489,78 @@ async function confirm(message: string, detail: string, action: string): Promise
 function killTab(tabId: string): void {
   ptys.kill(tabId);
   tracker.clear(tabId);
+  commands.clear(tabId);
   resumeOffers.delete(tabId);
   startDirs.delete(tabId);
 }
 
-/** Offers to close the task's tabs, then marks it done. */
+/** Asks first if a program is still running in the tab, then closes it. */
+async function closeTab(tabId: string): Promise<boolean> {
+  if (!T.findTab(state, tabId)) return false;
+  const program = ptys.busyProgram(tabId);
+  if (program && !(await confirm('Close this tab?', `${program} is still running in it.`, 'Close Tab'))) {
+    return false;
+  }
+  // The tab may have gone while the dialog was open.
+  const task = T.findTab(state, tabId)?.task;
+  if (task) setState(T.closeTab(state, task.id, tabId));
+  killTab(tabId);
+  return true;
+}
+
+/** Sets one of a tab's own turn rules; undefined follows the task again. */
+function setTabRule(tabId: string, key: (typeof TAB_POLICY_KEYS)[number], value: boolean | undefined): void {
+  const tab = T.findTab(state, tabId)?.tab;
+  if (!tab) return;
+  const policy: TabPolicy = { ...tab.policy, [key]: value };
+  if (value === undefined) delete policy[key];
+  setState(T.updateTab(state, tabId, { policy: Object.keys(policy).length ? policy : undefined }));
+}
+
+/** A tab's menu: Mute, its two turn rules (each following the task unless set), and Close. */
+function tabMenu(task: Task, tab: Tab, active: boolean): Menu {
+  const taskPolicy = effectivePolicy(settings.policy, task.policy);
+  const words = (v: boolean) => (v ? 'Wait for Them' : 'Ignore Them');
+  const rule = (key: (typeof TAB_POLICY_KEYS)[number], label: string): MenuItemConstructorOptions => {
+    const own = tab.policy?.[key];
+    return {
+      label,
+      sublabel: words(own ?? taskPolicy[key]),
+      submenu: [
+        {
+          label: `Task's Setting (${taskPolicy[key] ? 'Wait' : 'Ignore'})`,
+          type: 'radio',
+          checked: own === undefined,
+          click: () => setTabRule(tab.id, key, undefined),
+        },
+        { label: words(true), type: 'radio', checked: own === true, click: () => setTabRule(tab.id, key, true) },
+        { label: words(false), type: 'radio', checked: own === false, click: () => setTabRule(tab.id, key, false) },
+      ],
+    };
+  };
+  return Menu.buildFromTemplate([
+    {
+      label: 'Mute Tab',
+      type: 'checkbox',
+      checked: tab.muted === true,
+      click: () => {
+        const muted = T.findTab(state, tab.id)?.tab.muted === true;
+        setState(T.updateTab(state, tab.id, { muted: muted ? undefined : true }));
+      },
+    },
+    { type: 'separator' },
+    rule('subagentsBusy', 'Subagents'),
+    rule('backgroundShellsBusy', 'Background Shells'),
+    { type: 'separator' },
+    {
+      label: 'Close Tab',
+      // ⌘W closes the selected tab, so only its menu shows the shortcut (the menu bar handles the key).
+      ...(active ? { accelerator: acceleratorFor(settings, 'closeTab'), registerAccelerator: false } : {}),
+      click: () => void closeTab(tab.id),
+    },
+  ]);
+}
+
 /** Moves a task to Done, like any other queue move: its tabs stay as they are. */
 function markDone(id: string): void {
   setState(Q.markDone(state, id, Date.now()));
@@ -510,6 +607,7 @@ function registerIpc(): void {
         settings,
         homeDir: homedir(),
         agents: tracker.snapshot(),
+        commands: [...commands.snapshot()],
         hooks: hookStatus,
         claudeSettingsPath: claudeSettingsPath(),
         showSettings: show,
@@ -562,10 +660,6 @@ function registerIpc(): void {
     if (T.findTab(state, tabId)?.tab.claudeSession) setState(T.updateTab(state, tabId, { claudeSession: undefined }));
   });
   ipcMain.on(IPC.openSettingsFile, () => void shell.openPath(settingsFile));
-  ipcMain.handle(IPC.installHooks, async () => {
-    await installWithConfirm(win);
-    refreshHookStatus();
-  });
   ipcMain.handle(IPC.removeHooks, async () => {
     await removeWithConfirm(win);
     refreshHookStatus();
@@ -640,18 +734,17 @@ function registerIpc(): void {
     if (typeof taskId !== 'string') throw new Error('bad task id');
     return newTab(taskId, typeof fromTabId === 'string' ? fromTabId : undefined);
   });
-  ipcMain.handle(IPC.closeTab, async (_e, tabId: string) => {
-    const found = T.findTab(state, tabId);
-    if (!found) return false;
-    const program = ptys.busyProgram(tabId);
-    if (program && !(await confirm('Close this tab?', `${program} is still running in it.`, 'Close Tab'))) {
-      return false;
-    }
-    // The tab may have gone while the dialog was open.
-    const task = T.findTab(state, tabId)?.task;
-    if (task) setState(T.closeTab(state, task.id, tabId));
-    killTab(tabId);
-    return true;
+  ipcMain.handle(IPC.closeTab, (_e, tabId: unknown) => (typeof tabId === 'string' ? closeTab(tabId) : false));
+  ipcMain.handle(IPC.moveTab, (_e, tabId: unknown, index: unknown) => {
+    if (typeof tabId === 'string' && typeof index === 'number' && Number.isFinite(index)) setState(T.moveTab(state, tabId, index));
+  });
+  ipcMain.handle(IPC.tabMenu, (_e, tabId: unknown, at: unknown, active: unknown) => {
+    const found = typeof tabId === 'string' ? T.findTab(state, tabId) : undefined;
+    if (!found || !win) return;
+    const pos = at as { x?: unknown; y?: unknown } | undefined;
+    const where = typeof pos?.x === 'number' && typeof pos.y === 'number' ? { x: Math.round(pos.x), y: Math.round(pos.y) } : {};
+    const menu = tabMenu(found.task, found.tab, active === true);
+    return new Promise<void>((resolve) => menu.popup({ window: win, ...where, callback: () => resolve() }));
   });
 
   ipcMain.handle(IPC.ptyAttach, (_e, tabId: string, cols: number, rows: number, restart: boolean) => {
@@ -659,16 +752,19 @@ function registerIpc(): void {
     if (!found) throw new Error(`no tab ${tabId}`);
     // Restarting replaces an exited shell; a live one (and its Claude) is left alone.
     if (restart === true && !ptys.has(tabId)) tracker.clear(tabId);
+    const env = shellEnv({
+      HUMANLOOP_TAB: tabId,
+      HUMANLOOP_SOCK: hookSocket,
+      TERM_PROGRAM: 'Humanloop',
+      TERM_PROGRAM_VERSION: app.getVersion(),
+    });
+    // Without its files, pointing zsh at the folder would skip your own startup files.
+    if (zshReady && existsSync(join(zshDir, '.zshrc'))) Object.assign(env, zshIntegrationEnv(zshDir, env, hookSettings()));
     return ptys.attach(tabId, {
       cols,
       rows,
       cwd: usableCwd(startDirs.get(tabId) ?? found.task.defaultCwd ?? settings.defaultCwd),
-      env: shellEnv({
-        HUMANLOOP_TAB: tabId,
-        HUMANLOOP_SOCK: hookSocket,
-        TERM_PROGRAM: 'Humanloop',
-        TERM_PROGRAM_VERSION: app.getVersion(),
-      }),
+      env,
     }, restart === true);
   });
   ipcMain.on(IPC.ptyWrite, (_e, tabId: unknown, data: unknown) => {

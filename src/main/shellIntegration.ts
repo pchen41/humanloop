@@ -1,0 +1,94 @@
+// Humanloop's zsh integration. Tabs' shells are pointed at a folder of
+// startup files (via ZDOTDIR) that run your own .zshenv, .zprofile and .zshrc
+// from your usual folder, unchanged, then:
+// - wrap \`claude\` so it gets Humanloop's hooks with --settings, and
+// - add two hooks that print a mark as each command starts and as each
+//   prompt appears (for command tracking).
+// Nothing in your own files is changed, and once startup is done ZDOTDIR is
+// back to what it was, so programs and nested shells see your normal setup.
+
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const HEADER = `# Written by Humanloop for its terminal tabs; rewritten at each launch.
+# It runs your own startup file of the same name, unchanged.
+`;
+
+/** Runs your own file of this name from your ZDOTDIR (or home), noting any ZDOTDIR it sets. */
+const runYours = (file: string) => `ZDOTDIR=$HUMANLOOP_USER_ZDOTDIR
+[[ -r $ZDOTDIR/${file} ]] && builtin source "$ZDOTDIR/${file}"
+HUMANLOOP_USER_ZDOTDIR=$ZDOTDIR
+ZDOTDIR=$HUMANLOOP_ZDOTDIR
+`;
+
+const FILES: Record<string, string> = {
+  '.zshenv': `${HEADER}
+[[ -n \${HUMANLOOP_USER_ZDOTDIR-} ]] || HUMANLOOP_USER_ZDOTDIR=$HOME
+${runYours('.zshenv')}`,
+  '.zprofile': `${HEADER}
+${runYours('.zprofile')}`,
+  // The last file Humanloop's folder provides: zsh reads .zlogin from your folder itself.
+  // macOS's /etc/zshrc ran just before this with ZDOTDIR pointing here: put
+  // back what it set from it, history first.
+  '.zshrc': `${HEADER}
+[[ $HISTFILE == $HUMANLOOP_ZDOTDIR/.zsh_history ]] && HISTFILE=$HUMANLOOP_USER_ZDOTDIR/.zsh_history
+[[ -r $HUMANLOOP_USER_ZDOTDIR/.zkbd/$TERM-$VENDOR ]] && builtin source "$HUMANLOOP_USER_ZDOTDIR/.zkbd/$TERM-$VENDOR"
+${runYours('.zshrc')}
+if [[ -n \${HUMANLOOP_HAD_ZDOTDIR-} || $HUMANLOOP_USER_ZDOTDIR != $HOME ]]; then
+  export ZDOTDIR=$HUMANLOOP_USER_ZDOTDIR
+else
+  unset ZDOTDIR
+fi
+unset HUMANLOOP_ZDOTDIR HUMANLOOP_USER_ZDOTDIR HUMANLOOP_HAD_ZDOTDIR
+
+# claude gets Humanloop's hooks for this session; your own hooks still run.
+# A claude function of your own is kept and called the same way.
+if [[ -n \${HUMANLOOP_CLAUDE_SETTINGS-} ]]; then
+  typeset -g __humanloop_claude_settings=$HUMANLOOP_CLAUDE_SETTINGS
+  unset HUMANLOOP_CLAUDE_SETTINGS
+  (( $+functions[claude] )) && functions -c claude __humanloop_your_claude
+  claude() {
+    if (( $+functions[__humanloop_your_claude] )); then
+      __humanloop_your_claude --settings "$__humanloop_claude_settings" "$@"
+    else
+      command claude --settings "$__humanloop_claude_settings" "$@"
+    fi
+  }
+fi
+
+autoload -Uz add-zsh-hook
+__humanloop_preexec() { builtin print -n '\\e]6973;C\\a' }
+__humanloop_precmd() { builtin print -n '\\e]6973;D\\a' }
+add-zsh-hook preexec __humanloop_preexec
+add-zsh-hook precmd __humanloop_precmd
+`,
+};
+
+/**
+ * Writes the startup files into `dir`. Returns false if they couldn't be
+ * written: then tabs start without them, since pointing zsh at a folder
+ * without them would skip your own startup files.
+ */
+export function writeZshIntegration(dir: string): boolean {
+  try {
+    mkdirSync(dir, { recursive: true });
+    for (const [name, text] of Object.entries(FILES)) writeFileSync(join(dir, name), text, { mode: 0o644 });
+    return true;
+  } catch (err) {
+    console.error(`Could not write the shell integration to ${dir}:`, err);
+    return false;
+  }
+}
+
+/**
+ * The variables that point a new tab's zsh at the integration, given the
+ * environment it would get, and the settings (hooks) to give \`claude\`.
+ */
+export function zshIntegrationEnv(dir: string, env: Record<string, string>, claudeSettings: string): Record<string, string> {
+  const out: Record<string, string> = { ZDOTDIR: dir, HUMANLOOP_ZDOTDIR: dir, HUMANLOOP_CLAUDE_SETTINGS: claudeSettings };
+  if (env.ZDOTDIR) {
+    out.HUMANLOOP_USER_ZDOTDIR = env.ZDOTDIR;
+    out.HUMANLOOP_HAD_ZDOTDIR = '1';
+  }
+  return out;
+}

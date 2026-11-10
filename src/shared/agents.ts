@@ -291,15 +291,30 @@ export function effectiveTabState(agent: TabAgent, policy: Policy): AgentState {
 
 export type TaskAgentState = AgentState | 'none';
 
+/** What decides one tab's part in its task's state. */
+export interface TabInput {
+  agent?: TabAgent;
+  /** A command has been running at the tab's prompt for a while (with command tracking on). */
+  commandRunning?: boolean;
+  /** The tab's rules: its own, then the task's, then the global ones. */
+  policy: Policy;
+}
+
+/** A tab's state: Claude's if it is running there, working while a command runs, else nothing. */
+export function tabAgentState(tab: TabInput): AgentState | undefined {
+  if (tab.agent) return effectiveTabState(tab.agent, tab.policy);
+  return tab.commandRunning ? 'working' : undefined;
+}
+
 /**
- * A task's state from its tabs' agents:
- * any tab needs you -> needs you; otherwise Any/All decides idle; no Claude tabs -> none.
+ * A task's state from its (unmuted) tabs:
+ * any tab needs you -> needs you; otherwise Any/All decides idle; nothing running -> none.
  */
-export function taskAgentState(agents: (TabAgent | undefined)[], policy: Policy): TaskAgentState {
-  const states = agents.filter((a): a is TabAgent => !!a).map((a) => effectiveTabState(a, policy));
+export function taskAgentState(tabs: TabInput[], multiAgent: Policy['multiAgent']): TaskAgentState {
+  const states = tabs.map(tabAgentState).filter((s): s is AgentState => s !== undefined);
   if (!states.length) return 'none';
   if (states.includes('needsYou')) return 'needsYou';
-  const idle = policy.multiAgent === 'all' ? states.every((s) => s === 'idle') : states.includes('idle');
+  const idle = multiAgent === 'all' ? states.every((s) => s === 'idle') : states.includes('idle');
   return idle ? 'idle' : 'working';
 }
 

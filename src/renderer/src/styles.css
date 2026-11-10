@@ -31,6 +31,7 @@
   --danger: #f16c6c;
   --on-danger: #1b0b0b;
   --shell: #5a5a66;
+  --muted-glyph: #3a3a42;
   --warn: #f2c46b;
   --warn-tint: rgba(242, 196, 107, 0.16);
   --chip: #34343c;
@@ -88,6 +89,7 @@
     --danger: #d9453f;
     --on-danger: #1b0b0b;
     --shell: #a0a0aa;
+    --muted-glyph: #c4c4cb;
     --warn: #8a5a00;
     --warn-tint: rgba(138, 90, 0, 0.12);
     --chip: #d4d4da;
@@ -230,6 +232,26 @@ button {
 .btn.primary .k {
   background: var(--you-tint-2);
   color: var(--you-text);
+}
+/* The ⌘↩ on Next: an outlined keycap, big enough to read from a distance. */
+.keycap {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 500;
+  height: 20px;
+  padding: 0 6px;
+  margin-right: -2px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--bg-kbd);
+  border-radius: 4px;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+.btn.primary .keycap {
+  border-color: color-mix(in srgb, var(--you) 40%, transparent);
 }
 
 .in {
@@ -410,6 +432,10 @@ textarea.in {
 }
 .dots .glyph.shell {
   border-width: 1px;
+}
+/* Left out of the turn decision: a dim filled disc. */
+.glyph.muted {
+  background: var(--muted-glyph);
 }
 /* A ring of even dashes; a dashed border breaks up unevenly at this size. */
 .glyph.resumable {
@@ -688,9 +714,8 @@ body.resizing * {
 .next.quiet {
   color: var(--fg-5);
 }
-.next.quiet .k {
+.next.quiet .keycap {
   color: var(--fg-5);
-  background: var(--bg-solid);
 }
 .popover {
   position: absolute;
@@ -790,7 +815,8 @@ body.resizing * {
   height: 37px;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  /* Tabs pad 8px on their left, so the first glyph lines up with the title's 20px edge. */
+  padding: 0 20px 0 12px;
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
   scrollbar-width: none;
@@ -799,15 +825,15 @@ body.resizing * {
   display: none;
 }
 .tab {
-  position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  max-width: 240px;
+  min-width: 100px;
+  max-width: 220px;
   height: 36px;
-  margin-right: 18px;
-  padding: 0 2px;
+  margin-right: 4px;
+  padding: 0 4px 0 8px;
   border-bottom: 2px solid transparent;
   color: var(--fg-3);
   font-size: 12.5px;
@@ -819,30 +845,29 @@ body.resizing * {
   color: var(--fg-1);
   border-bottom-color: var(--fg-1);
 }
+.tab.muted {
+  color: var(--fg-5);
+}
+.tab.muted.active {
+  border-bottom-color: var(--fg-5);
+}
+.tab.dragging {
+  color: var(--fg-1);
+  background: var(--bg-hover);
+  border-radius: 6px 6px 0 0;
+}
 .tab-title {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The tab's hover reaches across the gap after it, so moving the pointer
-   slowly to the × doesn't leave the tab (and hide the ×) on the way. Drawn
-   before the × so it never takes the ×'s clicks. */
-.tab::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 100%;
+/* Opens the tab's menu; shown on the selected tab and the one under the pointer. */
+.tab-menu {
   width: 18px;
-}
-/* Shown on hover, in the gap after the tab, so nothing shifts. */
-.tab-close {
-  position: absolute;
-  right: -17px;
-  top: 10px;
-  width: 16px;
-  height: 16px;
+  height: 18px;
+  flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -851,18 +876,21 @@ body.resizing * {
   border-radius: 4px;
   background: transparent;
   color: var(--fg-4);
-  visibility: hidden;
+  opacity: 0;
 }
-.tab:hover .tab-close {
-  visibility: visible;
+.tab.active .tab-menu,
+.tab:hover .tab-menu,
+.tab.menu .tab-menu {
+  opacity: 1;
 }
-.tab-close:hover {
+.tab-menu:hover,
+.tab.menu .tab-menu {
   background: var(--bg-selected);
   color: var(--fg-1);
 }
-/* With no tabs, + lines up with where the first tab would start. */
+/* With no tabs, + lines up with where the first tab's glyph would start. */
 .tab-bar .tab-new:first-child {
-  margin-left: -6px;
+  margin-left: 2px;
 }
 
 .terminal-area {
@@ -1086,6 +1114,9 @@ body.resizing * {
 }
 .disclosure:hover {
   color: var(--fg-1);
+}
+.rules-help {
+  margin-top: -6px;
 }
 
 /* ---------- settings ---------- */

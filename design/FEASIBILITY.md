@@ -84,6 +84,14 @@ decisions and stay in even though they are not trivial.
   stores `undefined`. In the tab menu the rules are submenus whose first item reads
   "Task's setting". The editor's disclosure says how many fields are overridden.
 
+- **Shell integration** (**asked for**). Each tab's zsh starts from Humanloop's own startup
+  files (`ZDOTDIR` pointed at its data folder), which run the user's files unchanged, then
+  wrap `claude` to pass Humanloop's hooks with `--settings` (Claude Code adds them to the
+  user's own and runs an identical command once) and print a mark as each command starts
+  and each prompt appears. With "Track commands run in tabs" on, a command running for 5
+  seconds is the agent's turn until it ends. Nothing in the user's zsh or Claude settings is
+  written.
+
 ## Drop for now (new features the mockups show but nobody asked for)
 
 - The ⌘K jump palette. New UI, search, and a command; ⌘K is also Clear terminal today.
@@ -92,7 +100,8 @@ decisions and stay in even though they are not trivial.
 - Last-seen time in the resume banner ("until 10:41"); `ResumeOffer` only has the id and cwd.
 - Commands that exist only in the mockup's shortcut list: raise/lower priority, rename tab,
   reopen closed tab, toggle sidebar, scroll to bottom, text size. Keep `commands.ts` as the
-  list of truth, including its bindings (⌘⇧] / ⌘⇧[ for tabs, ⌘⇧D for Mark done).
+  list of truth, including its bindings (⌘← / ⌘→ for tabs, ⌘↑ / ⌘↓ for the task above or
+  below in the sidebar, ⌘⇧E for Edit task, ⌘⇧D for Mark done).
 - Compact 30px rows for long lists. Optional CSS; not needed.
 
 ## Keep from the code even though the mockups leave it out

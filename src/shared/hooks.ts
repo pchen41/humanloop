@@ -1,5 +1,7 @@
-// Humanloop's entries in Claude Code's ~/.claude/settings.json. Pure
-// functions, so installing and removing can be tested without touching disk.
+// Humanloop's Claude Code hooks. Each tab's zsh passes them to \`claude\` with
+// --settings (see shellIntegration.ts), so nothing is added to Claude Code's
+// own settings. Older versions installed them in ~/.claude/settings.json;
+// these pure functions also find and remove those entries.
 
 /** Events Humanloop listens to. See the event table in agents.ts. */
 export const HOOK_EVENTS = [
@@ -68,6 +70,16 @@ export function removeHooks(settings: Json): Json {
   if (Object.keys(hooks).length) out.hooks = hooks;
   else delete out.hooks;
   return out;
+}
+
+/**
+ * The settings Humanloop passes to \`claude\` in its tabs: one hook per event.
+ * The command is the same one older versions installed in ~/.claude/settings.json,
+ * and Claude Code runs an identical command only once, so with both in place
+ * each event still arrives once.
+ */
+export function hookSettings(): string {
+  return JSON.stringify(installHooks({}));
 }
 
 /** Returns a copy of `settings` with Humanloop's hooks added after the user's own. */

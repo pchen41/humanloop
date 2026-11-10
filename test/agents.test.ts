@@ -130,23 +130,31 @@ describe('taskAgentState', () => {
     backgroundTasks: bg,
   });
 
+  const tabs = (...agents: (TabAgent | undefined)[]) => agents.map((a) => ({ agent: a, policy: DEFAULT_POLICY }));
+
   it('is none without Claude tabs and needs you if any tab does', () => {
-    expect(taskAgentState([undefined], DEFAULT_POLICY)).toBe('none');
-    expect(taskAgentState([agent('working'), agent('needsYou')], DEFAULT_POLICY)).toBe('needsYou');
+    expect(taskAgentState(tabs(undefined), 'any')).toBe('none');
+    expect(taskAgentState(tabs(agent('working'), agent('needsYou')), 'any')).toBe('needsYou');
   });
 
   it('applies Any and All', () => {
-    const tabs = [agent('working'), agent('idle')];
-    expect(taskAgentState(tabs, { ...DEFAULT_POLICY, multiAgent: 'any' })).toBe('idle');
-    expect(taskAgentState(tabs, { ...DEFAULT_POLICY, multiAgent: 'all' })).toBe('working');
+    const both = tabs(agent('working'), agent('idle'));
+    expect(taskAgentState(both, 'any')).toBe('idle');
+    expect(taskAgentState(both, 'all')).toBe('working');
   });
 
   it('counts background work per the policy', () => {
-    const sub = [agent('idle', [{ id: '1', type: 'subagent', status: 'running' }])];
-    const shell = [agent('idle', [{ id: '1', type: 'shell', status: 'running' }])];
-    expect(taskAgentState(sub, DEFAULT_POLICY)).toBe('working'); // subagents count by default
-    expect(taskAgentState(shell, DEFAULT_POLICY)).toBe('working'); // and so do background shells
-    expect(taskAgentState(shell, { ...DEFAULT_POLICY, backgroundShellsBusy: false })).toBe('idle');
+    const sub = tabs(agent('idle', [{ id: '1', type: 'subagent', status: 'running' }]));
+    const shell = tabs(agent('idle', [{ id: '1', type: 'shell', status: 'running' }]));
+    expect(taskAgentState(sub, 'any')).toBe('working'); // subagents count by default
+    expect(taskAgentState(shell, 'any')).toBe('working'); // and so do background shells
+    const ignoring = [{ ...shell[0]!, policy: { ...DEFAULT_POLICY, backgroundShellsBusy: false } }];
+    expect(taskAgentState(ignoring, 'any')).toBe('idle');
+  });
+
+  it('counts a running command as working, unless Claude runs in the tab', () => {
+    expect(taskAgentState([{ commandRunning: true, policy: DEFAULT_POLICY }], 'any')).toBe('working');
+    expect(taskAgentState([{ agent: agent('idle'), commandRunning: true, policy: DEFAULT_POLICY }], 'any')).toBe('idle');
   });
 });
 

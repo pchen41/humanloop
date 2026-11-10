@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
-import type { TabAgent } from '../../shared/agents';
-import type { ResumeOffer } from '../../shared/ipc';
 import { effectivePolicy, QUEUE_LABELS, QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
 import { canGoBack, canGoForward } from '../../shared/queues';
 import { acceleratorFor } from '../../shared/shortcuts';
 import { tasksInQueue } from '../../shared/tasks';
-import { Glyph, tabGlyphKind } from './Glyph';
+import { Glyph, tabGlyphKind, type TabActivity } from './Glyph';
 import { formatAccelerator, formatWait, tip } from './format';
 import { BackIcon, ForwardIcon } from './icons';
 
@@ -14,8 +12,10 @@ interface Props {
   inert?: boolean;
   state: AppState;
   settings: Settings;
-  agents: Record<string, TabAgent>;
-  resume: Record<string, ResumeOffer>;
+  activity: TabActivity;
+  /** Which queues are folded away; ⌘↑ and ⌘↓ skip them too. */
+  collapsed: Record<Queue, boolean>;
+  onToggleQueue(queue: Queue): void;
   onOpen(id: string): void;
   onEdit(task: Task): void;
   onMenu(task: Task): void;
@@ -92,14 +92,9 @@ function Resizer() {
   return <div className="sidebar-resizer" onPointerDown={onPointerDown} onDoubleClick={reset} title="Drag to resize" />;
 }
 
-export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit, onMenu, settingsOpen, onBack, onForward }: Props) {
+export function Sidebar(props: Props) {
+  const { inert, state, settings, activity, collapsed, onOpen, onEdit, onMenu, settingsOpen, onBack, onForward } = props;
   const now = useNow();
-  const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
-    yourTurn: false,
-    agentsTurn: false,
-    parked: false,
-    done: true,
-  });
   // Keep the open task in view: after Next task or Back opens one further
   // down, and when it moves to another queue on its own.
   const openQueue = state.tasks.find((t) => t.id === state.openTaskId)?.queue;
@@ -135,7 +130,7 @@ export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit
             <section key={queue} className={`queue ${queue}`}>
               <button
                 className="queue-header"
-                onClick={() => setCollapsed((c) => ({ ...c, [queue]: !c[queue] }))}
+                onClick={() => props.onToggleQueue(queue)}
                 aria-expanded={!isCollapsed}
               >
                 <span className="queue-title">
@@ -152,8 +147,7 @@ export function Sidebar({ inert, state, settings, agents, resume, onOpen, onEdit
                         open={task.id === state.openTaskId}
                         wait={formatWait(task.enteredAt, now)}
                         settings={settings}
-                        agents={agents}
-                        resume={resume}
+                        activity={activity}
                         onOpen={onOpen}
                         onEdit={onEdit}
                         onMenu={onMenu}
@@ -176,14 +170,12 @@ function TaskRow(props: {
   open: boolean;
   wait: string;
   settings: Settings;
-  agents: Record<string, TabAgent>;
-  resume: Record<string, ResumeOffer>;
+  activity: TabActivity;
   onOpen(id: string): void;
   onEdit(task: Task): void;
   onMenu(task: Task): void;
 }) {
-  const { task, settings, agents, resume } = props;
-  const policy = effectivePolicy(settings.policy, task.policy);
+  const { task, settings, activity } = props;
   return (
     <button
       className={`task-row ${props.open ? 'open' : ''}`}
@@ -203,7 +195,7 @@ function TaskRow(props: {
       {task.tabs.length > 0 && (
         <span className="dots">
           {task.tabs.map((tab) => (
-            <Glyph key={tab.id} kind={tabGlyphKind(agents, resume, tab.id, policy)} />
+            <Glyph key={tab.id} kind={tabGlyphKind(activity, tab, effectivePolicy(settings.policy, task.policy, tab.policy))} />
           ))}
         </span>
       )}

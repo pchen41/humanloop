@@ -2,13 +2,14 @@ import { POLICY_KEYS, type Policy } from '../../shared/model';
 
 type Key = (typeof POLICY_KEYS)[number];
 
-const FIELDS: { key: Key; label: string; options: [Policy[Key], string][]; help: string }[] = [
+/** Each option: its value, its label, and the short form shown after "Default". */
+const FIELDS: { key: Key; label: string; options: [Policy[Key], string, string][]; help: string }[] = [
   {
     key: 'multiAgent',
     label: 'Multiple Claude tabs',
     options: [
-      ['any', 'After one finishes'],
-      ['all', 'After all finish'],
+      ['any', 'After one finishes', 'after one'],
+      ['all', 'After all finish', 'after all'],
     ],
     help: 'Decides when a task with more than one Claude running becomes your turn.',
   },
@@ -16,8 +17,8 @@ const FIELDS: { key: Key; label: string; options: [Policy[Key], string][]; help:
     key: 'subagentsBusy',
     label: 'Background subagents',
     options: [
-      [true, 'Wait for them'],
-      [false, 'Ignore them'],
+      [true, 'Wait for them', 'wait'],
+      [false, 'Ignore them', 'ignore'],
     ],
     help: "Whether a task stays Claude's turn while subagents it started are still running.",
   },
@@ -25,8 +26,8 @@ const FIELDS: { key: Key; label: string; options: [Policy[Key], string][]; help:
     key: 'backgroundShellsBusy',
     label: 'Background shells',
     options: [
-      [true, 'Wait for them'],
-      [false, 'Ignore them'],
+      [true, 'Wait for them', 'wait'],
+      [false, 'Ignore them', 'ignore'],
     ],
     help: "Whether a task stays Claude's turn while dev servers or watchers it started are still running.",
   },
@@ -45,9 +46,9 @@ export function withPolicyChange(policy: Partial<Policy>, key: Key, value: Polic
   return next;
 }
 
-/** How many of a task's turn rules differ from the global ones. */
-export function overrideCount(policy: Partial<Policy>, global: Policy): number {
-  return POLICY_KEYS.filter((k) => policy[k] !== undefined && policy[k] !== global[k]).length;
+/** How many of a task's turn rules are set rather than following Settings. */
+export function overrideCount(policy: Partial<Policy>): number {
+  return POLICY_KEYS.filter((k) => policy[k] !== undefined).length;
 }
 
 interface Props {
@@ -58,8 +59,8 @@ interface Props {
    */
   onChange: PolicyChange;
   /**
-   * For a task: the global settings. Their value is marked "default", and
-   * choosing it stores no override.
+   * For a task: the global settings. A Default option comes first, showing
+   * their value; choosing it stores no override.
    */
   inherit?: Policy;
 }
@@ -72,27 +73,29 @@ export function PolicyControls({ value, onChange, inherit }: Props) {
   return (
     <>
       {FIELDS.map(({ key, label, options, help }) => {
-        const current = value[key] ?? inherit?.[key];
         const id = `policy-${key}${inherit ? '-task' : ''}`;
+        const own = value[key];
+        const button = (v: Policy[Key] | undefined, text: string, sub?: string) => {
+          const on = own === v;
+          return (
+            <button
+              type="button"
+              key={String(v)}
+              role="radio"
+              aria-checked={on}
+              className={`${on ? 'on' : ''} ${on && inherit && v !== undefined ? 'ov' : ''}`}
+              onClick={() => onChange(key, v)}
+            >
+              {text}
+              {sub && <span className="sub">{sub}</span>}
+            </button>
+          );
+        };
         const seg = (
           <div className="seg" role="radiogroup" aria-labelledby={id}>
-            {options.map(([v, text]) => {
-              const on = current === v;
-              const isDefault = inherit !== undefined && inherit[key] === v;
-              return (
-                <button
-                  type="button"
-                  key={String(v)}
-                  role="radio"
-                  aria-checked={on}
-                  className={`${on ? 'on' : ''} ${on && inherit && !isDefault ? 'ov' : ''}`}
-                  onClick={() => onChange(key, inherit && isDefault ? undefined : v)}
-                >
-                  {text}
-                  {isDefault && <span className="sub">default</span>}
-                </button>
-              );
-            })}
+            {/* For a task, Default follows Settings, whose value it shows. */}
+            {inherit && button(undefined, 'Default', options.find(([v]) => v === inherit[key])?.[2])}
+            {options.map(([v, text]) => button(v, text))}
           </div>
         );
         return inherit ? (

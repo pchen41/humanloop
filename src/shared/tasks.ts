@@ -112,6 +112,16 @@ export function closeTab(state: AppState, taskId: string, tabId: string): AppSta
   return mapTask(state, taskId, (t) => ({ ...t, tabs: t.tabs.filter((tab) => tab.id !== tabId) }));
 }
 
+/** Moves a tab to `index` among its task's tabs (clamped). */
+export function moveTab(state: AppState, tabId: string, index: number): AppState {
+  const found = findTab(state, tabId);
+  if (!found) return state;
+  const rest = found.task.tabs.filter((t) => t.id !== tabId);
+  const at = Math.max(0, Math.min(Math.trunc(index), rest.length));
+  if (found.task.tabs[at] === found.tab) return state;
+  return mapTask(state, found.task.id, (t) => ({ ...t, tabs: [...rest.slice(0, at), found.tab, ...rest.slice(at)] }));
+}
+
 export function updateTab(state: AppState, tabId: string, patch: Partial<Omit<Tab, 'id'>>): AppState {
   const task = state.tasks.find((t) => t.tabs.some((tab) => tab.id === tabId));
   if (!task) return state;

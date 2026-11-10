@@ -25,7 +25,7 @@ export function TaskEditor({ mode, globalPolicy, onClose, submitRef }: Props) {
     defaultCwd: existing?.defaultCwd,
     policy: existing?.policy ?? {},
   });
-  const overrides = overrideCount(draft.policy ?? {}, globalPolicy);
+  const overrides = overrideCount(draft.policy ?? {});
   const [rulesOpen, setRulesOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -45,12 +45,8 @@ export function TaskEditor({ mode, globalPolicy, onClose, submitRef }: Props) {
     savingRef.current = true;
     setSaving(true);
     try {
-      // An override equal to the global rule would pin the task to it if the
-      // rule changed later, while the editor shows "Same as Settings".
-      const policy = Object.fromEntries(
-        Object.entries(draft.policy ?? {}).filter(([k, v]) => v !== globalPolicy[k as keyof Policy]),
-      );
-      const clean = { ...draft, policy, defaultCwd: draft.defaultCwd?.trim() || undefined };
+      // Default stores nothing, so the task follows Settings; a value picked explicitly is kept.
+      const clean = { ...draft, policy: draft.policy ?? {}, defaultCwd: draft.defaultCwd?.trim() || undefined };
       if (existing) await api.updateTask(existing.id, clean);
       else await api.createTask(clean);
       onClose(!existing);
@@ -143,6 +139,7 @@ export function TaskEditor({ mode, globalPolicy, onClose, submitRef }: Props) {
               {overrides ? `${overrides} ${overrides === 1 ? 'override' : 'overrides'}` : 'Same as Settings'}
             </span>
           </button>
+          {rulesOpen && <span className="help rules-help">Default follows Settings. Tabs follow the task unless set in their menu.</span>}
           {rulesOpen && (
             <PolicyControls
               value={draft.policy ?? {}}

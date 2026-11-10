@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommandId } from '../../shared/commands';
 import type { TabAgent } from '../../shared/agents';
 import type { HookState, ResumeOffer } from '../../shared/ipc';
-import type { AppState, Settings, Task } from '../../shared/model';
-import { acceleratorFor, sameAccelerator } from '../../shared/shortcuts';
+import { QUEUES, type AppState, type Queue, type Settings, type Task } from '../../shared/model';
+import { acceleratorFor, sameAccelerator, textKeyCommand } from '../../shared/shortcuts';
+import type { TabActivity } from './Glyph';
 import { findTask, tasksInQueue } from '../../shared/tasks';
 import { formatAccelerator, tip } from './format';
 import { ChevronDownIcon, NewTaskIcon, SettingsIcon } from './icons';
@@ -21,6 +22,7 @@ interface Loaded {
   settings: Settings;
   homeDir: string;
   agents: Record<string, TabAgent>;
+  commands: string[];
   hooks: HookState;
   claudeSettingsPath: string;
   resume: Record<string, ResumeOffer>;
@@ -64,6 +66,7 @@ export function App() {
     const offState = api.onState((state) => setData((d) => d && { ...d, state }));
     const offSettings = api.onSettings((settings) => setData((d) => d && { ...d, settings }));
     const offAgents = api.onAgents((agents) => setData((d) => d && { ...d, agents }));
+    const offCommands = api.onCommands((commands) => setData((d) => d && { ...d, commands }));
     const offHooks = api.onHooks((hooks) => setData((d) => d && { ...d, hooks }));
     const offResume = api.onResume((resume) => setData((d) => d && { ...d, resume }));
     void api.getInitialData().then((d) => {
@@ -77,12 +80,26 @@ export function App() {
       offState();
       offSettings();
       offAgents();
+      offCommands();
       offHooks();
       offResume();
     };
   }, []);
 
   const state = data?.state;
+  const agents = data?.agents;
+  const resume = data?.resume;
+  const commands = data?.commands;
+  const activity = useMemo<TabActivity | undefined>(
+    () => agents && resume && commands && { agents, resume, commands: new Set(commands) },
+    [agents, resume, commands],
+  );
+  const [collapsed, setCollapsed] = useState<Record<Queue, boolean>>({
+    yourTurn: false,
+    agentsTurn: false,
+    parked: false,
+    done: true,
+  });
   const openTask = state ? findTask(state, state.openTaskId) : undefined;
   const lastTabIndex = useRef<Record<string, number>>({});
   const activeTabId = selectedTab(openTask, chosenTab, lastTabIndex.current);
@@ -144,7 +161,8 @@ export function App() {
       if (id === 'back' || id === 'forward') {
         if (id === 'back') closeSettings();
         return;
-      } else if (!['newTask', 'editTask', 'parkTask', 'markDone'].includes(id)) return;
+      } else if (id === 'taskAbove' || id === 'taskBelow') closeSettings();
+      else if (!['newTask', 'editTask', 'parkTask', 'markDone'].includes(id)) return;
     }
     const tabs = openTask?.tabs ?? [];
     const idx = tabs.findIndex((t) => t.id === activeTabId);
@@ -191,6 +209,13 @@ export function App() {
       case 'forward':
         void api.goForward();
         return;
+      case 'taskAbove':
+      case 'taskBelow': {
+        if (!state) return;
+        const id2 = neighbourInSidebar(state, collapsed, id === 'taskBelow' ? 1 : -1);
+        if (id2) void api.openTask(id2);
+        return;
+      }
       case 'parkTask':
         void api.toggleParked();
         return;
@@ -206,6 +231,23 @@ export function App() {
     }
   };
   useEffect(() => api.onCommand((id) => commandRef.current(id)), []);
+  // Shortcuts on keys text fields use (⌘←, ⌘↑…) aren't taken by the menu bar;
+  // they run here, unless focus is in a text field (the terminal doesn't count).
+  const settingsRef = useRef(data?.settings);
+  settingsRef.current = data?.settings;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const settings = settingsRef.current;
+      if (!settings || !e.metaKey || textFieldFocused()) return;
+      const id = textKeyCommand(settings, { key: e.key, code: e.code, meta: e.metaKey, control: e.ctrlKey, alt: e.altKey, shift: e.shiftKey });
+      if (!id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      commandRef.current(id);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
   useEffect(() => {
     if (!data || !pendingCommand) return;
     commandRef.current(pendingCommand);
@@ -311,20 +353,19 @@ export function App() {
         activeTabId={activeTabId}
         settings={data.settings}
         homeDir={data.homeDir}
-        agents={data.agents}
+        activity={activity!}
         onSelectTab={(tabId) => selectTab(openTask.id, tabId)}
         onCloseTab={closeTab}
         onNewTab={newTab}
         focusTerminal={!editor}
-        resume={data.resume}
         find={find}
         onFindQuery={(query) => setFind((f) => f && { ...f, query })}
         onCloseFind={closeFind}
       />
     );
-  }, [state, data, openTask, activeTabId, selectTab, closeTab, newTab, editor, find, closeFind]);
+  }, [state, data, activity, openTask, activeTabId, selectTab, closeTab, newTab, editor, find, closeFind]);
 
-  if (!data || !state) return null;
+  if (!data || !state || !activity) return null;
   const key = (id: CommandId) => formatAccelerator(acceleratorFor(data.settings, id));
   // The task ⌘↩ would open: what queues.ts nextTask picks.
   const nextUp = tasksInQueue(state, 'yourTurn').find((t) => t.id !== state.openTaskId);
@@ -336,8 +377,9 @@ export function App() {
         inert={!!editor}
         state={state}
         settings={data.settings}
-        agents={data.agents}
-        resume={data.resume}
+        activity={activity}
+        collapsed={collapsed}
+        onToggleQueue={(queue) => setCollapsed((c) => ({ ...c, [queue]: !c[queue] }))}
         onOpen={(id) => {
           if (settingsOpen) closeSettings();
           void api.openTask(id);
@@ -379,7 +421,7 @@ export function App() {
               >
                 <span className={nextUp ? 'next-word' : ''}>Next</span>
                 {nextUp && <span className="next-title">{nextUp.title}</span>}
-                {key('nextTask') && <span className="k">{key('nextTask')}</span>}
+                {key('nextTask') && <span className="keycap">{key('nextTask')}</span>}
               </button>
             )}
             {settingsOpen && (
@@ -459,4 +501,23 @@ function Popover({ children, onDone }: { children: React.ReactNode; onDone(): vo
       {children}
     </div>
   );
+}
+
+/** The task `step` rows from the open one in the sidebar, as it shows: collapsed queues are skipped. */
+function neighbourInSidebar(state: AppState, collapsed: Record<Queue, boolean>, step: 1 | -1): string | undefined {
+  // A collapsed queue still shows the open task, so it stays in the list.
+  const rows = QUEUES.flatMap((q) =>
+    tasksInQueue(state, q).filter((t) => !collapsed[q] || t.id === state.openTaskId),
+  ).map((t) => t.id);
+  const i = state.openTaskId ? rows.indexOf(state.openTaskId) : -1;
+  if (i < 0) return step === 1 ? rows[0] : rows.at(-1);
+  return rows[i + step];
+}
+
+/** Whether typing goes to a text field (not a terminal, whose input is a hidden textarea). */
+function textFieldFocused(): boolean {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLElement) || el.closest('.xterm')) return false;
+  if (el instanceof HTMLTextAreaElement || el.isContentEditable) return true;
+  return el instanceof HTMLInputElement && !['checkbox', 'radio', 'button', 'submit', 'range', 'color', 'file'].includes(el.type);
 }

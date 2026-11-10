@@ -6,8 +6,11 @@ import type { HookStatus } from './hooks';
 import type { RecordResult } from './shortcuts';
 import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
 
-/** Whether Humanloop's hooks are in ~/.claude/settings.json. */
-/** 'disabled': installed, but Claude's settings turn off all hooks (disableAllHooks). */
+/**
+ * Claude Code's settings as they affect Humanloop's hooks: 'installed' or
+ * 'outdated' when an older version's entries are still in settings.json,
+ * 'disabled' when Claude's settings turn off all hooks (disableAllHooks).
+ */
 export type HookState = HookStatus | 'unreadable' | 'disabled';
 
 export interface InitialData {
@@ -16,6 +19,8 @@ export interface InitialData {
   homeDir: string;
   /** Claude sessions by tab id. */
   agents: Record<string, TabAgent>;
+  /** Tabs where a command has been running long enough to count (command tracking). */
+  commands: string[];
   hooks: HookState;
   /** Where Humanloop installs its hooks: Claude Code's settings.json, with ~ for home. */
   claudeSettingsPath: string;
@@ -44,6 +49,7 @@ export interface HumanloopApi {
   onSettings(cb: (settings: Settings) => void): () => void;
   onCommand(cb: (id: CommandId) => void): () => void;
   onAgents(cb: (agents: Record<string, TabAgent>) => void): () => void;
+  onCommands(cb: (tabIds: string[]) => void): () => void;
   onHooks(cb: (hooks: HookState) => void): () => void;
   /** The app menu's Settings… item was chosen. */
   onShowSettings(cb: () => void): () => void;
@@ -76,8 +82,7 @@ export interface HumanloopApi {
   updateSettings(patch: SettingsPatch): Promise<void>;
   /** Opens settings.json in your editor (for shortcuts). */
   openSettingsFile(): void;
-  /** Install, update or remove the hooks, after a confirmation. */
-  installHooks(): Promise<void>;
+  /** Removes an older version's hooks from Claude Code's settings.json, after a confirmation. */
   removeHooks(): Promise<void>;
 
   createTask(draft: TaskDraft): Promise<string>;
@@ -107,6 +112,14 @@ export interface HumanloopApi {
   newTab(taskId: string, fromTabId?: string): Promise<string>;
   /** Asks for confirmation if a program is still running, then closes the tab. */
   closeTab(tabId: string): Promise<boolean>;
+  /** Moves a tab to `index` among its task's tabs. */
+  moveTab(tabId: string, index: number): Promise<void>;
+  /**
+   * Shows the tab's menu (Mute, its turn rules, Close) at `at`, in window
+   * coordinates. `active`: it is the selected tab, so ⌘W is shown on Close.
+   * Resolves once the menu has closed.
+   */
+  showTabMenu(tabId: string, at?: { x: number; y: number }, active?: boolean): Promise<void>;
 
   /**
    * Shows the tab's shell, starting one if it has none. If its shell ended
@@ -137,6 +150,7 @@ export const IPC = {
   state: 'app:state',
   settings: 'app:settings',
   agents: 'app:agents',
+  commands: 'app:commands',
   hooks: 'app:hooks',
   showSettings: 'app:show-settings',
   openSettings: 'app:open-settings',
@@ -149,7 +163,6 @@ export const IPC = {
   stopRecording: 'shortcut:stop',
   setShortcut: 'shortcut:set',
   openSettingsFile: 'settings:open-file',
-  installHooks: 'hooks:install',
   removeHooks: 'hooks:remove',
   command: 'app:command',
   createTask: 'task:create',
@@ -166,6 +179,8 @@ export const IPC = {
   chooseDirectory: 'dialog:directory',
   newTab: 'tab:new',
   closeTab: 'tab:close',
+  moveTab: 'tab:move',
+  tabMenu: 'tab:menu',
   ptyAttach: 'pty:attach',
   ptyWrite: 'pty:write',
   ptyWriteBinary: 'pty:write-binary',

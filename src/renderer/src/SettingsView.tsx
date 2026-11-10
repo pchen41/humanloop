@@ -10,7 +10,7 @@ const api = window.humanloop;
 interface Props {
   settings: Settings;
   hooks: HookState;
-  /** Claude Code's settings.json, where the hooks go. */
+  /** Claude Code's settings.json, which Humanloop leaves alone. */
   claudeSettingsPath: string;
   homeDir: string;
   /** Saves a directory typed but not yet confirmed; called as Settings closes. */
@@ -27,35 +27,35 @@ const SECTIONS = [
 type SectionId = (typeof SECTIONS)[number]['id'];
 
 const HOOKS: Record<HookState, { pill: string; tone: 'ok' | 'warn' | 'off'; title: string; help: string }> = {
-  installed: {
-    pill: 'Installed',
+  missing: {
+    pill: 'Built in',
     tone: 'ok',
-    title: 'Hooks installed',
-    help: 'Claude sessions in Humanloop tabs report when they are working or waiting.',
+    title: 'Hooks are built in',
+    help: 'Claude sessions you start in Humanloop tabs report when they are working or waiting.',
+  },
+  installed: {
+    pill: 'Built in',
+    tone: 'ok',
+    title: 'Old hooks can be removed',
+    help: 'An older version of Humanloop added hooks to your Claude Code settings. They are no longer needed.',
   },
   outdated: {
-    pill: 'Out of date',
-    tone: 'warn',
-    title: 'Hooks out of date',
-    help: 'Update them so every event reaches Humanloop.',
-  },
-  missing: {
-    pill: 'Not installed',
-    tone: 'off',
-    title: 'Hooks not installed',
-    help: "Without them Humanloop can't tell when Claude is working or waiting.",
+    pill: 'Built in',
+    tone: 'ok',
+    title: 'Old hooks can be removed',
+    help: 'An older version of Humanloop added hooks to your Claude Code settings. They are no longer needed.',
   },
   unreadable: {
     pill: "Can't read",
     tone: 'warn',
     title: "settings.json can't be read",
-    help: "Humanloop can't check its hooks until the file is valid JSON again.",
+    help: "Humanloop can't check whether Claude Code runs hooks until the file is valid JSON again.",
   },
   disabled: {
     pill: 'Turned off',
     tone: 'warn',
     title: 'Hooks turned off',
-    help: "Installed, but Claude Code's settings (yours or your organisation's) turn hooks off, so they don't run.",
+    help: "Claude Code's settings (yours or your organisation's) turn hooks off, so Humanloop can't tell when Claude is working or waiting.",
   },
 };
 
@@ -159,6 +159,20 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
             </div>
             <Toggle label="Use Option as Meta" on={settings.optionAsMeta} onChange={(on) => void api.updateSettings({ optionAsMeta: on })} />
           </div>
+          <div className="srow">
+            <div className="t">
+              <b>Track commands run in tabs</b>
+              <span className="help">
+                A command still running after 5 seconds makes it the agent's turn until it finishes. Mute a tab to leave it
+                out.
+              </span>
+            </div>
+            <Toggle
+              label="Track commands run in tabs"
+              on={settings.trackCommands}
+              onChange={(on) => void api.updateSettings({ trackCommands: on })}
+            />
+          </div>
         </section>
 
         <section className="sec" id="section-notifications" aria-labelledby="settings-notifications">
@@ -189,7 +203,8 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
         <section className="sec" id="section-claude" aria-labelledby="settings-claude">
           <h2 id="settings-claude">Claude Code</h2>
           <p className="lead">
-            Humanloop reads Claude's state through a hook in <span className="mono">{claudeSettingsPath}</span>.
+            Humanloop reads Claude's state through hooks it gives <span className="mono">claude</span> when you start it in a tab.
+            Nothing is added to <span className="mono">{claudeSettingsPath}</span>.
           </p>
           <div className="hook-card">
             <span className={`pill ${hook.tone}`}>{hook.pill}</span>
@@ -197,12 +212,7 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
               <b>{hook.title}</b>
               <span className="help">{hook.help}</span>
             </div>
-            {hooks !== 'installed' && hooks !== 'disabled' && (
-              <button type="button" className="btn primary" onClick={() => void api.installHooks()}>
-                {hooks === 'outdated' ? 'Update' : 'Install'}
-              </button>
-            )}
-            {(hooks === 'installed' || hooks === 'outdated' || hooks === 'disabled') && (
+            {(hooks === 'installed' || hooks === 'outdated') && (
               <button type="button" className="btn danger" onClick={() => void api.removeHooks()}>
                 Remove
               </button>

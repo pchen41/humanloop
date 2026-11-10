@@ -121,14 +121,30 @@ const RESERVED = [
   'CmdOrCtrl+Alt+Escape',
   'CmdOrCtrl+Ctrl+Space',
   'CmdOrCtrl+Alt+D',
-  // Line and word movement and deletion in text fields (and Claude's prompt).
-  'CmdOrCtrl+Left',
-  'CmdOrCtrl+Right',
-  'CmdOrCtrl+Up',
-  'CmdOrCtrl+Down',
-  'CmdOrCtrl+Backspace',
-  'CmdOrCtrl+Delete',
 ];
+
+/** Keys that move the cursor or delete in a text field. */
+const TEXT_EDITING_KEYS = new Set(['left', 'right', 'up', 'down', 'home', 'end', 'pageup', 'pagedown', 'backspace', 'delete']);
+
+/**
+ * Whether a shortcut is on a key text fields use (⌘← to the start of the
+ * line, ⌘⌫ to delete it). Those shortcuts are left out of the menu bar's key
+ * handling, which would take them from text fields too; the window runs them
+ * itself, only when focus isn't in a text field (the terminal doesn't count).
+ */
+export function editsText(accelerator: string): boolean {
+  return TEXT_EDITING_KEYS.has(canonical(accelerator).split('+').at(-1) ?? '');
+}
+
+/** The command a key press runs, among those whose shortcut is on a text-editing key. */
+export function textKeyCommand(settings: Settings, input: KeyInput): CommandId | undefined {
+  const r = acceleratorFromInput(input);
+  if (!r || !('accelerator' in r) || !editsText(r.accelerator)) return undefined;
+  return COMMANDS.find((c) => {
+    const accel = acceleratorFor(settings, c.id);
+    return accel !== undefined && sameAccelerator(accel, r.accelerator);
+  })?.id;
+}
 
 export type RecordResult = { accelerator: string } | { error: string };
 

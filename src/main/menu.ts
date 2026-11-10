@@ -2,7 +2,7 @@
 
 import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { commandById, type CommandId } from '../shared/commands';
-import { acceleratorFor } from '../shared/shortcuts';
+import { acceleratorFor, editsText } from '../shared/shortcuts';
 import type { HookState } from '../shared/ipc';
 import type { Queue, Settings } from '../shared/model';
 
@@ -11,7 +11,6 @@ export interface MenuHandlers {
   copy(): void;
   selectAll(): void;
   openSettings(): void;
-  installHooks(): void;
   removeHooks(): void;
 }
 
@@ -29,12 +28,17 @@ export interface MenuContext {
 
 export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext): Menu {
   const { hooks, openQueue } = ctx;
-  const cmd = (id: CommandId, extra: MenuItemConstructorOptions = {}): MenuItemConstructorOptions => ({
-    label: commandById(id).label,
-    accelerator: acceleratorFor(settings, id),
-    click: () => h.command(id),
-    ...extra,
-  });
+  const cmd = (id: CommandId, extra: MenuItemConstructorOptions = {}): MenuItemConstructorOptions => {
+    const accelerator = acceleratorFor(settings, id);
+    return {
+      label: commandById(id).label,
+      accelerator,
+      // Shown, but the window handles the key, so text fields keep it (see editsText).
+      ...(accelerator && editsText(accelerator) ? { registerAccelerator: false } : {}),
+      click: () => h.command(id),
+      ...extra,
+    };
+  };
   const hasTask = openQueue !== undefined;
   const tabs = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => cmd(`tab${n}` as CommandId));
 
@@ -46,12 +50,8 @@ export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext)
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: h.openSettings },
         { type: 'separator' },
-        {
-          label: hooks === 'outdated' ? 'Update Claude Code Hooks…' : 'Install Claude Code Hooks…',
-          visible: hooks !== 'installed' && hooks !== 'disabled',
-          click: h.installHooks,
-        },
-        { label: 'Remove Claude Code Hooks…', visible: hooks === 'installed' || hooks === 'outdated' || hooks === 'disabled', click: h.removeHooks },
+        // Older versions installed hooks in Claude Code's settings; they're no longer needed.
+        { label: 'Remove Old Claude Code Hooks…', visible: hooks === 'installed' || hooks === 'outdated', click: h.removeHooks },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
@@ -103,7 +103,13 @@ export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext)
     },
     {
       label: 'Go',
-      submenu: [cmd('back', { enabled: ctx.canGoBack }), cmd('forward', { enabled: ctx.canGoForward })],
+      submenu: [
+        cmd('back', { enabled: ctx.canGoBack }),
+        cmd('forward', { enabled: ctx.canGoForward }),
+        { type: 'separator' },
+        cmd('taskAbove'),
+        cmd('taskBelow'),
+      ],
     },
     {
       label: 'View',

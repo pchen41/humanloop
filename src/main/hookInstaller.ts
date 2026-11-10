@@ -1,12 +1,13 @@
-// Installs and removes Humanloop's hooks in ~/.claude/settings.json, only when
-// the user picks the menu item. Backs the file up first and leaves everything
-// that isn't Humanloop's untouched.
+// Checks Claude Code's settings.json for what affects Humanloop's hooks (an
+// older version's entries, hooks turned off), and removes those old entries
+// when you ask. Backs the file up first and leaves everything that isn't
+// Humanloop's untouched.
 
 import { copyFileSync, existsSync, lstatSync, readFileSync, readlinkSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { dialog, type BrowserWindow } from 'electron';
-import { HOOK_EVENTS, hookStatus, installHooks, removeHooks } from '../shared/hooks';
+import { hookStatus, removeHooks } from '../shared/hooks';
 import type { HookState } from '../shared/ipc';
 import { writeJsonSync } from './store';
 
@@ -85,12 +86,11 @@ export function currentHookStatus(): HookState {
   const r = read();
   if (!r.ok) return 'unreadable';
   const status = hookStatus(r.settings);
-  // Installed, but Claude is told not to run them: by your settings, or by
-  // your organisation's managed settings (which can also allow only their own hooks).
+  // Claude is told not to run hooks: by your settings, or by your
+  // organisation's managed settings (which can also allow only their own).
   const managed = readManaged();
   const off = r.settings.disableAllHooks === true || managed.disableAllHooks === true || managed.allowManagedHooksOnly === true;
-  if (status !== 'missing' && off) return 'disabled';
-  return status;
+  return off ? 'disabled' : status;
 }
 
 function stamp(): string {
@@ -120,37 +120,6 @@ async function message(win: BrowserWindow | undefined, opts: Electron.MessageBox
   return win ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts);
 }
 
-export async function installWithConfirm(win: BrowserWindow | undefined): Promise<void> {
-  const r = read();
-  if (!r.ok) {
-    await message(win, { type: 'error', message: 'Could not install hooks', detail: r.error });
-    return;
-  }
-  const { response } = await message(win, {
-    type: 'info',
-    message: 'Install Claude Code hooks?',
-    detail:
-      `Humanloop will add one hook for each of ${HOOK_EVENTS.length} events to ${shortPath()}, after any hooks you already have` +
-      `${r.text !== undefined ? ', and save a backup of the file next to it' : ''}.\n\n` +
-      'The hooks only report to Humanloop from its own tabs. Anywhere else they exit at once and do nothing.\n\n' +
-      'Claude sessions that are already running may need a restart to pick them up.',
-    buttons: ['Install', 'Cancel'],
-    defaultId: 0,
-    cancelId: 1,
-  });
-  if (response !== 0) return;
-  try {
-    const backup = applyChange(installHooks);
-    await message(win, {
-      type: 'info',
-      message: 'Hooks installed',
-      detail: backup ? `Backup saved to ${backup.replace(homedir(), '~')}` : `Created ${shortPath()}.`,
-    });
-  } catch (err) {
-    await message(win, { type: 'error', message: 'Could not install hooks', detail: String(err) });
-  }
-}
-
 export async function removeWithConfirm(win: BrowserWindow | undefined): Promise<void> {
   const r = read();
   if (!r.ok) {
@@ -159,8 +128,8 @@ export async function removeWithConfirm(win: BrowserWindow | undefined): Promise
   }
   const { response } = await message(win, {
     type: 'question',
-    message: 'Remove Claude Code hooks?',
-    detail: `Humanloop's entries will be removed from ${shortPath()}. Your own hooks and settings stay as they are. Without the hooks, Humanloop can't tell when Claude is working or waiting.`,
+    message: 'Remove the old Claude Code hooks?',
+    detail: `An older version of Humanloop added hooks to ${shortPath()}. They're no longer needed: Humanloop now gives its hooks to claude in its own tabs. Only Humanloop's entries are removed; your own hooks and settings stay as they are.`,
     buttons: ['Remove', 'Cancel'],
     defaultId: 0,
     cancelId: 1,

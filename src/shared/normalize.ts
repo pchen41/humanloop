@@ -3,6 +3,7 @@
 import { COMMAND_IDS } from './commands';
 import {
   cleanPolicy,
+  cleanTabPolicy,
   DEFAULT_POLICY,
   DEFAULT_PRIORITY,
   DEFAULT_SETTINGS,
@@ -32,6 +33,9 @@ function tab(v: unknown): Tab | undefined {
   const out: Tab = { id: v.id as string, title: str(v.title) ?? 'zsh' };
   const s = v.claudeSession;
   if (isObj(s) && str(s.id) && str(s.cwd)) out.claudeSession = { id: s.id as string, cwd: s.cwd as string };
+  if (v.muted === true) out.muted = true;
+  const policy = cleanTabPolicy(v.policy);
+  if (Object.keys(policy).length) out.policy = policy;
   return out;
 }
 
@@ -44,7 +48,8 @@ function uniqueTab(tab: Tab, used: Set<string>): Tab {
   while (used.has(`${tab.id}-${n}`)) n++;
   const id = `${tab.id}-${n}`;
   used.add(id);
-  return { id, title: tab.title }; // the Claude session belongs to the first copy
+  const { claudeSession: _session, ...rest } = tab; // the Claude session belongs to the first copy
+  return { ...rest, id };
 }
 
 function task(v: unknown, now: number): Task | undefined {
@@ -142,6 +147,7 @@ export function normalizeSettings(raw: unknown): Settings {
     optionAsMeta: typeof raw.optionAsMeta === 'boolean' ? raw.optionAsMeta : DEFAULT_SETTINGS.optionAsMeta,
     newTabsInCurrentDir:
       typeof raw.newTabsInCurrentDir === 'boolean' ? raw.newTabsInCurrentDir : DEFAULT_SETTINGS.newTabsInCurrentDir,
+    trackCommands: typeof raw.trackCommands === 'boolean' ? raw.trackCommands : DEFAULT_SETTINGS.trackCommands,
   };
   const cwd = str(raw.defaultCwd)?.trim();
   if (cwd) out.defaultCwd = cwd;

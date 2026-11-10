@@ -56,7 +56,12 @@ export async function runSmokeTest(d: SmokeDeps): Promise<void> {
     );
     log(`output drawn in the terminal: ${shown}`);
 
-    // Run the installed hook command the way Claude would: as a grandchild of
+    // The shell integration wraps claude so it gets Humanloop's hooks.
+    d.writeToTab(tabId, 'whence -w claude | tr a-z A-Z\r');
+    await waitFor('the claude wrapper', () => output.includes('CLAUDE: FUNCTION'));
+    log('claude is wrapped with the hooks');
+
+    // Run the hook command the way Claude would: as a grandchild of
     // the tab's shell, so its $PPID's parent is the shell.
     const script = join(app.getPath('userData'), 'smoke-hook.sh');
     const event = JSON.stringify({ hook_event_name: 'SessionStart', session_id: 'smoke', source: 'startup' });
