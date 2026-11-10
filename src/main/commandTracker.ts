@@ -35,9 +35,14 @@ export class CommandTracker {
   /** Tabs whose current command is Claude itself, which reports through its hooks instead. */
   private ignored = new Set<string>();
 
-  /** `finished` is true when a counted command ended at the prompt, false when it stopped counting otherwise. */
+  /**
+   * `finished` is true when a counted command ended at the prompt, false when
+   * it stopped counting otherwise. `hasForegroundJob` says whether a program
+   * is running in the tab's foreground.
+   */
   constructor(
     private onChange: (tabId: string, finished: boolean) => void,
+    private hasForegroundJob: (tabId: string) => boolean = () => true,
     private delayMs = COMMAND_DELAY_MS,
   ) {}
 
@@ -53,6 +58,10 @@ export class CommandTracker {
       tabId,
       setTimeout(() => {
         this.timers.delete(tabId);
+        // Nothing in the foreground: the shell is back at a prompt without
+        // saying so, as after \`exec zsh\` (the new shell prints no marks).
+        // (A loop between two of its commands also looks like this; it isn't counted.)
+        if (!this.hasForegroundJob(tabId)) return;
         this.running.add(tabId);
         this.onChange(tabId, false);
       }, this.delayMs),

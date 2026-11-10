@@ -187,9 +187,13 @@ function TabStrip(props: {
   const [dragging, setDragging] = useState<string>();
   /** A copy of the dragged tab that follows the pointer along the strip, in window coordinates. */
   const [ghost, setGhost] = useState<{ x: number; y: number; width: number }>();
-  /** Ends the drag under way, if any (also when the strip goes away mid-drag). */
-  const stopDrag = useRef<() => void>(undefined);
-  useEffect(() => () => stopDrag.current?.(), []);
+  /** Cancels the drag under way, if any: the tabs go back to their saved order. */
+  const cancelDrag = useRef<() => void>(undefined);
+  // A drag doesn't survive the strip going away or showing another task.
+  useEffect(() => () => cancelDrag.current?.(), [task.id]);
+  /** The task's tabs as of the last render, for a drop after tabs closed mid-drag. */
+  const liveTabs = useRef(task.tabs);
+  liveTabs.current = task.tabs;
 
   // Keep the selected tab in view when the tab bar scrolls.
   useEffect(() => {
@@ -213,11 +217,11 @@ function TabStrip(props: {
   /**
    * Starts following a press on a tab. It becomes a drag once the pointer
    * moves a few pixels, and the order then follows the pointer and is saved on
-   * release. The pointer is followed on the window: reordering moves the
-   * pressed tab's element, which loses pointer capture.
+   * release; Esc cancels it. The pointer is followed on the window: reordering
+   * moves the pressed tab's element, which loses pointer capture.
    */
   const startDrag = (e: React.PointerEvent, id: string) => {
-    stopDrag.current?.();
+    cancelDrag.current?.();
     const startX = e.clientX;
     const tabBox = e.currentTarget.getBoundingClientRect();
     const grab = startX - tabBox.left;
@@ -225,6 +229,8 @@ function TabStrip(props: {
     let moved = false;
     const move = (ev: PointerEvent) => {
       if (!bar.current) return;
+      // The release was missed (a menu or another app took it): treat this as the drop.
+      if ((ev.buttons & 1) === 0) return drop();
       if (!moved && Math.abs(ev.clientX - startX) < DRAG_THRESHOLD) return;
       if (!moved) {
         moved = true;
@@ -246,29 +252,45 @@ function TabStrip(props: {
       if (next.join() !== shown.map((el) => el.dataset.tabId).join()) setDragOrder(next);
       order = next;
     };
-    const cleanup = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', end);
-      window.removeEventListener('pointercancel', end);
-      window.removeEventListener('blur', end);
-      stopDrag.current = undefined;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== 'Escape' || !moved) return;
+      // Esc cancels the drag; it doesn't reach the terminal (where it would stop Claude).
+      ev.preventDefault();
+      ev.stopPropagation();
+      cancel();
     };
-    const end = () => {
-      cleanup();
-      if (!moved) return;
-      const index = order?.indexOf(id) ?? -1;
-      // The saved order arrives with the state before moveTab answers (IPC keeps order).
+    const finish = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', drop);
+      window.removeEventListener('pointercancel', drop);
+      window.removeEventListener('blur', drop);
+      window.removeEventListener('keydown', onKey, true);
+      cancelDrag.current = undefined;
       setGhost(undefined);
+    };
+    const cancel = () => {
+      finish();
+      setDragOrder(undefined);
+      setDragging(undefined);
+    };
+    const drop = () => {
+      finish();
+      if (!moved) return;
+      // Against the tabs there are now: one may have closed since the last move.
+      const live = new Set(liveTabs.current.map((t) => t.id));
+      const index = (order ?? []).filter((t) => live.has(t)).indexOf(id);
+      // The saved order arrives with the state before moveTab answers (IPC keeps order).
       void (index >= 0 ? api.moveTab(id, index) : Promise.resolve()).finally(() => {
         setDragOrder(undefined);
         setDragging(undefined);
       });
     };
     window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-    window.addEventListener('blur', end);
-    stopDrag.current = end;
+    window.addEventListener('pointerup', drop);
+    window.addEventListener('pointercancel', drop);
+    window.addEventListener('blur', drop);
+    window.addEventListener('keydown', onKey, true);
+    cancelDrag.current = cancel;
   };
 
   return (
@@ -294,7 +316,8 @@ function TabStrip(props: {
               if (!findFieldFocused()) requestAnimationFrame(() => terminals.peek(tab.id)?.focus());
             }}
             onPointerDown={(e) => {
-              if (e.button === 0) startDrag(e, tab.id);
+              // A ctrl-click opens the tab menu instead (as a right-click).
+              if (e.button === 0 && !e.ctrlKey) startDrag(e, tab.id);
             }}
             onAuxClick={(e) => {
               if (e.button === 1) props.onCloseTab(tab.id);

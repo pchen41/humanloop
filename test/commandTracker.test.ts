@@ -27,7 +27,7 @@ describe('CommandTracker', () => {
 
   it('counts a command only once it has run for the delay', () => {
     const changes: [string, boolean][] = [];
-    const t = new CommandTracker((id, finished) => changes.push([id, finished]), 5000);
+    const t = new CommandTracker((id, finished) => changes.push([id, finished]), () => true, 5000);
     t.mark('a', 'start');
     vi.advanceTimersByTime(4000);
     t.mark('a', 'end'); // a quick command: nothing happens
@@ -46,7 +46,7 @@ describe('CommandTracker', () => {
 
   it("doesn't count the command that started Claude, up to the next prompt", () => {
     const changes: [string, boolean][] = [];
-    const t = new CommandTracker((id, finished) => changes.push([id, finished]), 5000);
+    const t = new CommandTracker((id, finished) => changes.push([id, finished]), () => true, 5000);
     t.mark('a', 'start'); // claude
     vi.advanceTimersByTime(1000);
     t.ignoreCurrent('a'); // its first hook arrived
@@ -63,9 +63,23 @@ describe('CommandTracker', () => {
     ]);
   });
 
+  it("doesn't count a command when nothing is running in the foreground (after exec zsh)", () => {
+    const changes: [string, boolean][] = [];
+    let busy = false;
+    const t = new CommandTracker((id, finished) => changes.push([id, finished]), () => busy, 5000);
+    t.mark('a', 'start'); // exec zsh: no end mark will follow
+    vi.advanceTimersByTime(10_000);
+    expect(t.snapshot().size).toBe(0);
+    busy = true;
+    t.mark('a', 'end');
+    t.mark('a', 'start');
+    vi.advanceTimersByTime(5000);
+    expect([...t.snapshot()]).toEqual(['a']);
+  });
+
   it('ignores prompts with no command and stops counting when cleared', () => {
     const changes: [string, boolean][] = [];
-    const t = new CommandTracker((id, finished) => changes.push([id, finished]), 5000);
+    const t = new CommandTracker((id, finished) => changes.push([id, finished]), () => true, 5000);
     t.mark('a', 'end');
     t.mark('a', 'start');
     t.mark('b', 'start');

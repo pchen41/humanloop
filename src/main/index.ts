@@ -96,13 +96,16 @@ const zshReady = writeZshIntegration(zshDir);
 
 /** Tabs whose command finished in the update being made, for the notification's wording. */
 let commandsFinished = new Set<string>();
-const commands = new CommandTracker((tabId, finished) => {
-  win?.webContents.send(IPC.commands, [...commands.snapshot()]);
-  if (finished) commandsFinished.add(tabId);
-  setState(state); // re-file tasks
-  commandsFinished = new Set();
-  updateDockAndPower();
-});
+const commands = new CommandTracker(
+  (tabId, finished) => {
+    win?.webContents.send(IPC.commands, [...commands.snapshot()]);
+    if (finished) commandsFinished.add(tabId);
+    setState(state); // re-file tasks
+    commandsFinished = new Set();
+    updateDockAndPower();
+  },
+  (tabId) => ptys.busyPrograms([tabId]).size > 0,
+);
 
 const hookSocket = hookSocketPath(userData);
 const tracker = new AgentTracker({

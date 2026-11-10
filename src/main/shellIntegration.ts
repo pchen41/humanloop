@@ -48,22 +48,18 @@ fi
 unset HUMANLOOP_ZDOTDIR HUMANLOOP_USER_ZDOTDIR HUMANLOOP_HAD_ZDOTDIR
 
 # claude gets Humanloop's hooks for this session; your own hooks still run.
-# An alias of yours gets them added after its own options; otherwise a claude
-# function of yours is kept and called the same way.
+# - An alias to claude itself (claude --flags) is kept: it runs the wrapper.
+# - An alias to somewhere else (a path) gets the hooks after its own options.
+# - A claude function of yours gets them in front of its arguments, keeping its name.
 if [[ -n \${HUMANLOOP_CLAUDE_SETTINGS-} ]]; then
   typeset -g __humanloop_claude_settings=$HUMANLOOP_CLAUDE_SETTINGS
   unset HUMANLOOP_CLAUDE_SETTINGS
-  if (( $+aliases[claude] )); then
+  if (( $+aliases[claude] )) && [[ \${\${(z)aliases[claude]}[1]} != claude ]]; then
     aliases[claude]+=' --settings "$__humanloop_claude_settings"'
+  elif (( $+functions[claude] )); then
+    functions[claude]='set -- --settings "$__humanloop_claude_settings" "$@"'$'\\n'$functions[claude]
   else
-    (( $+functions[claude] )) && functions -c claude __humanloop_your_claude
-    function claude {
-      if (( $+functions[__humanloop_your_claude] )); then
-        __humanloop_your_claude --settings "$__humanloop_claude_settings" "$@"
-      else
-        command claude --settings "$__humanloop_claude_settings" "$@"
-      fi
-    }
+    function claude { command claude --settings "$__humanloop_claude_settings" "$@" }
   fi
 fi
 
