@@ -44,6 +44,25 @@ describe('CommandTracker', () => {
     expect(t.snapshot().size).toBe(0);
   });
 
+  it("doesn't count the command that started Claude, up to the next prompt", () => {
+    const changes: [string, boolean][] = [];
+    const t = new CommandTracker((id, finished) => changes.push([id, finished]), 5000);
+    t.mark('a', 'start'); // claude
+    vi.advanceTimersByTime(1000);
+    t.ignoreCurrent('a'); // its first hook arrived
+    vi.advanceTimersByTime(10_000);
+    expect(t.snapshot().size).toBe(0);
+    t.mark('a', 'end'); // Claude exited: back at the prompt
+    t.mark('a', 'start'); // the next command counts again
+    vi.advanceTimersByTime(5000);
+    expect([...t.snapshot()]).toEqual(['a']);
+    t.ignoreCurrent('a'); // claude started late in a counted command (claude after a long script)
+    expect(changes).toEqual([
+      ['a', false],
+      ['a', false],
+    ]);
+  });
+
   it('ignores prompts with no command and stops counting when cleared', () => {
     const changes: [string, boolean][] = [];
     const t = new CommandTracker((id, finished) => changes.push([id, finished]), 5000);

@@ -260,10 +260,8 @@ Claude Code
 - Lead: "Humanloop reads Claude's state through hooks it gives claude when you start it in a
   tab. Nothing is added to ~/.claude/settings.json." (Each tab's zsh wraps `claude` to pass
   the hooks with `--settings`; see FEASIBILITY.md.)
-- Status card with a pill: "Built in" (mint tint) normally. If an older version's hooks are
-  still in settings.json, the card says they can be removed and shows Remove (red text).
-  "Turned off" (amber tint `rgba(242,196,107,.16)` / `#F2C46B`) when Claude Code's settings
-  turn hooks off.
+- Status card with a pill: "Built in" (mint tint) normally; "Turned off" (amber tint
+  `rgba(242,196,107,.16)` / `#F2C46B`) when Claude Code's settings turn hooks off.
 
 Keyboard shortcuts
 - Help line: "Click a shortcut, then press the new keys. Esc cancels." and a "Reset all"

@@ -2,16 +2,11 @@
 
 import type { CommandId } from './commands';
 import type { TabAgent } from './agents';
-import type { HookStatus } from './hooks';
 import type { RecordResult } from './shortcuts';
 import type { AppState, Settings, SettingsPatch, TaskDraft } from './model';
 
-/**
- * Claude Code's settings as they affect Humanloop's hooks: 'installed' or
- * 'outdated' when an older version's entries are still in settings.json,
- * 'disabled' when Claude's settings turn off all hooks (disableAllHooks).
- */
-export type HookState = HookStatus | 'unreadable' | 'disabled';
+/** Whether Claude runs hooks: 'disabled' when its settings turn them off, 'unreadable' when settings.json isn't valid JSON. */
+export type HookState = 'ok' | 'unreadable' | 'disabled';
 
 export interface InitialData {
   state: AppState;
@@ -82,8 +77,6 @@ export interface HumanloopApi {
   updateSettings(patch: SettingsPatch): Promise<void>;
   /** Opens settings.json in your editor (for shortcuts). */
   openSettingsFile(): void;
-  /** Removes an older version's hooks from Claude Code's settings.json, after a confirmation. */
-  removeHooks(): Promise<void>;
 
   createTask(draft: TaskDraft): Promise<string>;
   updateTask(id: string, patch: Partial<TaskDraft>): Promise<void>;
@@ -120,6 +113,8 @@ export interface HumanloopApi {
    * Resolves once the menu has closed.
    */
   showTabMenu(tabId: string, at?: { x: number; y: number }, active?: boolean): Promise<void>;
+  /** The tab menu's Close Tab was chosen. */
+  onCloseTabFromMenu(cb: (tabId: string) => void): () => void;
 
   /**
    * Shows the tab's shell, starting one if it has none. If its shell ended
@@ -163,7 +158,6 @@ export const IPC = {
   stopRecording: 'shortcut:stop',
   setShortcut: 'shortcut:set',
   openSettingsFile: 'settings:open-file',
-  removeHooks: 'hooks:remove',
   command: 'app:command',
   createTask: 'task:create',
   updateTask: 'task:update',
@@ -181,6 +175,7 @@ export const IPC = {
   closeTab: 'tab:close',
   moveTab: 'tab:move',
   tabMenu: 'tab:menu',
+  closeTabFromMenu: 'tab:menu-close',
   ptyAttach: 'pty:attach',
   ptyWrite: 'pty:write',
   ptyWriteBinary: 'pty:write-binary',

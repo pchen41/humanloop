@@ -144,6 +144,11 @@ export function App() {
     [openTask, activeTabId, selectTab],
   );
 
+  // The tab menu's Close Tab goes through closeTab too, which picks the tab that takes its place.
+  const closeTabRef = useRef(closeTab);
+  closeTabRef.current = closeTab;
+  useEffect(() => api.onCloseTabFromMenu((tabId) => void closeTabRef.current(tabId)), []);
+
   // Menu commands. A ref keeps the handler current without re-subscribing.
   const commandRef = useRef<(id: CommandId) => void>(() => {});
   commandRef.current = (id) => {

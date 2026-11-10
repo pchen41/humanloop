@@ -32,6 +32,8 @@ export function scanMarks(carry: string, data: string): { marks: CommandMark[]; 
 export class CommandTracker {
   private timers = new Map<string, NodeJS.Timeout>();
   private running = new Set<string>();
+  /** Tabs whose current command is Claude itself, which reports through its hooks instead. */
+  private ignored = new Set<string>();
 
   /** `finished` is true when a counted command ended at the prompt, false when it stopped counting otherwise. */
   constructor(
@@ -46,7 +48,7 @@ export class CommandTracker {
 
   private start(tabId: string): void {
     // A start while one is counted means its end mark was missed; it keeps counting.
-    if (this.running.has(tabId) || this.timers.has(tabId)) return;
+    if (this.running.has(tabId) || this.timers.has(tabId) || this.ignored.has(tabId)) return;
     this.timers.set(
       tabId,
       setTimeout(() => {
@@ -58,9 +60,23 @@ export class CommandTracker {
   }
 
   private stop(tabId: string, finished: boolean): void {
+    this.ignored.delete(tabId);
     clearTimeout(this.timers.get(tabId));
     this.timers.delete(tabId);
     if (this.running.delete(tabId)) this.onChange(tabId, finished);
+  }
+
+  /**
+   * Claude is running in the tab: the command that started it isn't counted,
+   * up to the next prompt. (Otherwise, as Claude exits, the moment between
+   * its last hook and the prompt would count as a command still running.)
+   */
+  ignoreCurrent(tabId: string): void {
+    if (!this.timers.has(tabId) && !this.running.has(tabId)) return;
+    clearTimeout(this.timers.get(tabId));
+    this.timers.delete(tabId);
+    this.ignored.add(tabId);
+    if (this.running.delete(tabId)) this.onChange(tabId, false);
   }
 
   /** The tab closed, its shell exited, or tracking was turned off. */
@@ -69,6 +85,7 @@ export class CommandTracker {
   }
 
   clearAll(): void {
+    this.ignored.clear();
     for (const id of new Set([...this.timers.keys(), ...this.running])) this.clear(id);
   }
 

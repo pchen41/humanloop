@@ -3,7 +3,6 @@
 import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { commandById, type CommandId } from '../shared/commands';
 import { acceleratorFor, editsText } from '../shared/shortcuts';
-import type { HookState } from '../shared/ipc';
 import type { Queue, Settings } from '../shared/model';
 
 export interface MenuHandlers {
@@ -11,12 +10,10 @@ export interface MenuHandlers {
   copy(): void;
   selectAll(): void;
   openSettings(): void;
-  removeHooks(): void;
 }
 
 /** What the Task and Go menus depend on. The menu is rebuilt when this changes. */
 export interface MenuContext {
-  hooks: HookState;
   /** The open task's queue, if a task is open. */
   openQueue: Queue | undefined;
   canGoBack: boolean;
@@ -27,14 +24,14 @@ export interface MenuContext {
 
 
 export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext): Menu {
-  const { hooks, openQueue } = ctx;
+  const { openQueue } = ctx;
   const cmd = (id: CommandId, extra: MenuItemConstructorOptions = {}): MenuItemConstructorOptions => {
     const accelerator = acceleratorFor(settings, id);
     return {
       label: commandById(id).label,
-      accelerator,
-      // Shown, but the window handles the key, so text fields keep it (see editsText).
-      ...(accelerator && editsText(accelerator) ? { registerAccelerator: false } : {}),
+      // A shortcut on a text-editing key (⌘←) is left off the menu: macOS would
+      // take it from text fields too. The window runs it instead (see editsText).
+      accelerator: accelerator && !editsText(accelerator) ? accelerator : undefined,
       click: () => h.command(id),
       ...extra,
     };
@@ -49,9 +46,6 @@ export function buildMenu(settings: Settings, h: MenuHandlers, ctx: MenuContext)
         { role: 'about' },
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: h.openSettings },
-        { type: 'separator' },
-        // Older versions installed hooks in Claude Code's settings; they're no longer needed.
-        { label: 'Remove Old Claude Code Hooks…', visible: hooks === 'installed' || hooks === 'outdated', click: h.removeHooks },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },

@@ -26,24 +26,12 @@ const SECTIONS = [
 ] as const;
 type SectionId = (typeof SECTIONS)[number]['id'];
 
-const HOOKS: Record<HookState, { pill: string; tone: 'ok' | 'warn' | 'off'; title: string; help: string }> = {
-  missing: {
+const HOOKS: Record<HookState, { pill: string; tone: 'ok' | 'warn'; title: string; help: string }> = {
+  ok: {
     pill: 'Built in',
     tone: 'ok',
     title: 'Hooks are built in',
     help: 'Claude sessions you start in Humanloop tabs report when they are working or waiting.',
-  },
-  installed: {
-    pill: 'Built in',
-    tone: 'ok',
-    title: 'Old hooks can be removed',
-    help: 'An older version of Humanloop added hooks to your Claude Code settings. They are no longer needed.',
-  },
-  outdated: {
-    pill: 'Built in',
-    tone: 'ok',
-    title: 'Old hooks can be removed',
-    help: 'An older version of Humanloop added hooks to your Claude Code settings. They are no longer needed.',
   },
   unreadable: {
     pill: "Can't read",
@@ -212,11 +200,6 @@ export function SettingsView({ settings, hooks, claudeSettingsPath, homeDir, flu
               <b>{hook.title}</b>
               <span className="help">{hook.help}</span>
             </div>
-            {(hooks === 'installed' || hooks === 'outdated') && (
-              <button type="button" className="btn danger" onClick={() => void api.removeHooks()}>
-                Remove
-              </button>
-            )}
           </div>
         </section>
 

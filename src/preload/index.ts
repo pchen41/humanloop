@@ -28,7 +28,6 @@ const api: HumanloopApi = {
   setShortcut: (id, value, takeFrom) => ipcRenderer.invoke(IPC.setShortcut, id, value, takeFrom),
   updateSettings: (patch) => ipcRenderer.invoke(IPC.updateSettings, patch),
   openSettingsFile: () => ipcRenderer.send(IPC.openSettingsFile),
-  removeHooks: () => ipcRenderer.invoke(IPC.removeHooks),
 
   createTask: (draft) => ipcRenderer.invoke(IPC.createTask, draft),
   updateTask: (id, patch) => ipcRenderer.invoke(IPC.updateTask, id, patch),
@@ -47,6 +46,7 @@ const api: HumanloopApi = {
   closeTab: (tabId) => ipcRenderer.invoke(IPC.closeTab, tabId),
   moveTab: (tabId, index) => ipcRenderer.invoke(IPC.moveTab, tabId, index),
   showTabMenu: (tabId, at, active) => ipcRenderer.invoke(IPC.tabMenu, tabId, at, active === true),
+  onCloseTabFromMenu: (cb) => listen(IPC.closeTabFromMenu, cb),
 
   ptyAttach: (tabId, cols, rows, restart) => ipcRenderer.invoke(IPC.ptyAttach, tabId, cols, rows, restart === true),
   ptyWrite: (tabId, data) => ipcRenderer.send(IPC.ptyWrite, tabId, data),

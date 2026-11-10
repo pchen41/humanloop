@@ -26,7 +26,7 @@ import { agentFor, effectiveTabState } from '../shared/agents';
 import { AgentTracker } from './agentTracker';
 import { CommandTracker } from './commandTracker';
 import { writeZshIntegration, zshIntegrationEnv } from './shellIntegration';
-import { currentHookStatus, removeWithConfirm, shortPath as claudeSettingsPath } from './hookInstaller';
+import { currentHookState, shortPath as claudeSettingsPath } from './claudeSettings';
 import { hookSettings } from '../shared/hooks';
 import { HookServer, hookSocketPath } from './hookServer';
 import {
@@ -109,6 +109,8 @@ const hookSocket = hookSocketPath(userData);
 const tracker = new AgentTracker({
   shellPid: (tabId) => (ptys.has(tabId) ? ptys.pid(tabId) : undefined),
   onChange: () => {
+    // The command that started Claude in a tab isn't also counted as a running command.
+    for (const tabId of Object.keys(tracker.snapshot())) commands.ignoreCurrent(tabId);
     win?.webContents.send(IPC.agents, tracker.snapshot());
     setState(state); // agent state changed: re-file tasks
     updateDockAndPower();
@@ -347,7 +349,7 @@ function watchSettings(): void {
   }
 }
 
-let hookStatus = currentHookStatus();
+let hookStatus = currentHookState();
 /** The menu is built once the app is ready; until then there is nothing to update. */
 let menuReady = false;
 let menuContextKey = '';
@@ -356,7 +358,6 @@ let settingsShown = false;
 
 function menuContext(): MenuContext {
   return {
-    hooks: hookStatus,
     // Only parked and done change the menu, so Your Turn and Agent's Turn look
     // the same here: no rebuild (which can close an open menu) on every Claude turn.
     openQueue: ((q) => (q === 'agentsTurn' ? 'yourTurn' : q))(T.findTask(state, state.openTaskId)?.queue),
@@ -377,7 +378,6 @@ function installMenu(): void {
         copy: () => editCommand('copy'),
         selectAll: () => editCommand('selectAll'),
         openSettings: showSettings,
-        removeHooks: () => void removeWithConfirm(win).then(refreshHookStatus),
       },
       ctx,
     ),
@@ -426,8 +426,7 @@ function showSettings(): void {
 }
 
 function refreshHookStatus(): void {
-  hookStatus = currentHookStatus();
-  installMenu();
+  hookStatus = currentHookState();
   win?.webContents.send(IPC.hooks, hookStatus);
 }
 
@@ -556,7 +555,8 @@ function tabMenu(task: Task, tab: Tab, active: boolean): Menu {
       label: 'Close Tab',
       // ⌘W closes the selected tab, so only its menu shows the shortcut (the menu bar handles the key).
       ...(active ? { accelerator: acceleratorFor(settings, 'closeTab'), registerAccelerator: false } : {}),
-      click: () => void closeTab(tab.id),
+      // Closed by the window, as ⌘W does, so it can select the tab that takes its place.
+      click: () => win?.webContents.send(IPC.closeTabFromMenu, tab.id),
     },
   ]);
 }
@@ -660,10 +660,6 @@ function registerIpc(): void {
     if (T.findTab(state, tabId)?.tab.claudeSession) setState(T.updateTab(state, tabId, { claudeSession: undefined }));
   });
   ipcMain.on(IPC.openSettingsFile, () => void shell.openPath(settingsFile));
-  ipcMain.handle(IPC.removeHooks, async () => {
-    await removeWithConfirm(win);
-    refreshHookStatus();
-  });
 
   // Values from the renderer are checked here; the shared functions assume valid ids.
   ipcMain.handle(IPC.createTask, (_e, draft: unknown) =>

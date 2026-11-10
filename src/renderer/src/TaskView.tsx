@@ -185,7 +185,9 @@ function TabStrip(props: {
   /** The order while a drag is under way. */
   const [dragOrder, setDragOrder] = useState<string[]>();
   const [dragging, setDragging] = useState<string>();
-  const drag = useRef<{ id: string; startX: number; moved: boolean }>(undefined);
+  /** Ends the drag under way, if any (also when the strip goes away mid-drag). */
+  const stopDrag = useRef<() => void>(undefined);
+  useEffect(() => () => stopDrag.current?.(), []);
 
   // Keep the selected tab in view when the tab bar scrolls.
   useEffect(() => {
@@ -206,37 +208,58 @@ function TabStrip(props: {
     }
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = drag.current;
-    if (!d || !bar.current) return;
-    if (!d.moved && Math.abs(e.clientX - d.startX) < DRAG_THRESHOLD) return;
-    if (!d.moved) {
-      d.moved = true;
-      setDragging(d.id);
-    }
-    // The dragged tab goes before the first other tab whose middle is right of the pointer.
-    const others = [...bar.current.querySelectorAll<HTMLElement>('[data-tab-id]')].filter((el) => el.dataset.tabId !== d.id);
-    const index = others.filter((el) => {
-      const r = el.getBoundingClientRect();
-      return r.left + r.width / 2 < e.clientX;
-    }).length;
-    const ids = others.map((el) => el.dataset.tabId!);
-    const next = [...ids.slice(0, index), d.id, ...ids.slice(index)];
-    if (next.join() !== tabs.map((t) => t.id).join()) setDragOrder(next);
-  };
-
-  const endDrag = async () => {
-    const d = drag.current;
-    drag.current = undefined;
-    if (!d?.moved) return;
-    const index = tabs.findIndex((t) => t.id === d.id);
-    try {
-      if (index >= 0) await api.moveTab(d.id, index);
-    } finally {
-      // The saved order has arrived with the state by now (IPC keeps order).
-      setDragOrder(undefined);
-      setDragging(undefined);
-    }
+  /**
+   * Starts following a press on a tab. It becomes a drag once the pointer
+   * moves a few pixels, and the order then follows the pointer and is saved on
+   * release. The pointer is followed on the window: reordering moves the
+   * pressed tab's element, which loses pointer capture.
+   */
+  const startDrag = (e: React.PointerEvent, id: string) => {
+    stopDrag.current?.();
+    const startX = e.clientX;
+    let order: string[] | undefined;
+    let moved = false;
+    const move = (ev: PointerEvent) => {
+      if (!bar.current) return;
+      if (!moved && Math.abs(ev.clientX - startX) < DRAG_THRESHOLD) return;
+      if (!moved) {
+        moved = true;
+        setDragging(id);
+      }
+      // The dragged tab goes before the first other tab whose middle is right of the pointer.
+      const shown = [...bar.current.querySelectorAll<HTMLElement>('[data-tab-id]')];
+      const others = shown.filter((el) => el.dataset.tabId !== id);
+      const index = others.filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.left + r.width / 2 < ev.clientX;
+      }).length;
+      const ids = others.map((el) => el.dataset.tabId!);
+      const next = [...ids.slice(0, index), id, ...ids.slice(index)];
+      if (next.join() !== shown.map((el) => el.dataset.tabId).join()) setDragOrder(next);
+      order = next;
+    };
+    const cleanup = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      window.removeEventListener('blur', end);
+      stopDrag.current = undefined;
+    };
+    const end = () => {
+      cleanup();
+      if (!moved) return;
+      const index = order?.indexOf(id) ?? -1;
+      // The saved order arrives with the state before moveTab answers (IPC keeps order).
+      void (index >= 0 ? api.moveTab(id, index) : Promise.resolve()).finally(() => {
+        setDragOrder(undefined);
+        setDragging(undefined);
+      });
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    window.addEventListener('blur', end);
+    stopDrag.current = end;
   };
 
   return (
@@ -253,21 +276,17 @@ function TabStrip(props: {
             aria-selected={active}
             className={`tab${active ? ' active' : ''}${tab.muted ? ' muted' : ''}${menuFor === tab.id ? ' menu' : ''}${dragging === tab.id ? ' dragging' : ''}`}
             onMouseDown={(e) => {
-              if (e.button !== 0) return;
-              // A click on the strip would otherwise take focus from the terminal (or Find)
-              // and leave it on the page, where typing goes nowhere.
+              // A click on the strip (any button: middle closes, right opens the menu) would
+              // otherwise take focus from the terminal (or Find) and leave it on the page,
+              // where typing goes nowhere.
               e.preventDefault();
+              if (e.button !== 0) return;
               onSelectTab(tab.id);
               if (!findFieldFocused()) requestAnimationFrame(() => terminals.peek(tab.id)?.focus());
             }}
             onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              drag.current = { id: tab.id, startX: e.clientX, moved: false };
-              e.currentTarget.setPointerCapture(e.pointerId);
+              if (e.button === 0) startDrag(e, tab.id);
             }}
-            onPointerMove={onPointerMove}
-            onPointerUp={() => void endDrag()}
-            onPointerCancel={() => void endDrag()}
             onAuxClick={(e) => {
               if (e.button === 1) props.onCloseTab(tab.id);
             }}

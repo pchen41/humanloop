@@ -128,9 +128,9 @@ const TEXT_EDITING_KEYS = new Set(['left', 'right', 'up', 'down', 'home', 'end',
 
 /**
  * Whether a shortcut is on a key text fields use (⌘← to the start of the
- * line, ⌘⌫ to delete it). Those shortcuts are left out of the menu bar's key
- * handling, which would take them from text fields too; the window runs them
- * itself, only when focus isn't in a text field (the terminal doesn't count).
+ * line, ⌘⌫ to delete it). Those shortcuts aren't put on the menu bar, which
+ * on macOS would take them from text fields too; the window runs them itself,
+ * only when focus isn't in a text field (the terminal doesn't count).
  */
 export function editsText(accelerator: string): boolean {
   return TEXT_EDITING_KEYS.has(canonical(accelerator).split('+').at(-1) ?? '');

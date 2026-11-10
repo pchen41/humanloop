@@ -1,7 +1,7 @@
 // Humanloop's zsh integration. Tabs' shells are pointed at a folder of
 // startup files (via ZDOTDIR) that run your own .zshenv, .zprofile and .zshrc
 // from your usual folder, unchanged, then:
-// - wrap \`claude\` so it gets Humanloop's hooks with --settings, and
+// - wrap `claude` so it gets Humanloop's hooks with --settings, and
 // - add two hooks that print a mark as each command starts and as each
 //   prompt appears (for command tracking).
 // Nothing in your own files is changed, and once startup is done ZDOTDIR is
@@ -22,9 +22,15 @@ ZDOTDIR=$HUMANLOOP_ZDOTDIR
 `;
 
 const FILES: Record<string, string> = {
+  // Without a ZDOTDIR of your own, your .zshenv runs with none set, so a
+  // default it sets (${ZDOTDIR:=~/.config/zsh}) takes effect as usual.
   '.zshenv': `${HEADER}
-[[ -n \${HUMANLOOP_USER_ZDOTDIR-} ]] || HUMANLOOP_USER_ZDOTDIR=$HOME
-${runYours('.zshenv')}`,
+if [[ -n \${HUMANLOOP_HAD_ZDOTDIR-} ]]; then ZDOTDIR=$HUMANLOOP_USER_ZDOTDIR; else unset ZDOTDIR; fi
+[[ -r \${ZDOTDIR:-$HOME}/.zshenv ]] && builtin source "\${ZDOTDIR:-$HOME}/.zshenv"
+[[ -n \${ZDOTDIR+x} ]] && HUMANLOOP_HAD_ZDOTDIR=1
+HUMANLOOP_USER_ZDOTDIR=\${ZDOTDIR:-$HOME}
+ZDOTDIR=$HUMANLOOP_ZDOTDIR
+`,
   '.zprofile': `${HEADER}
 ${runYours('.zprofile')}`,
   // The last file Humanloop's folder provides: zsh reads .zlogin from your folder itself.
@@ -42,18 +48,23 @@ fi
 unset HUMANLOOP_ZDOTDIR HUMANLOOP_USER_ZDOTDIR HUMANLOOP_HAD_ZDOTDIR
 
 # claude gets Humanloop's hooks for this session; your own hooks still run.
-# A claude function of your own is kept and called the same way.
+# An alias of yours gets them added after its own options; otherwise a claude
+# function of yours is kept and called the same way.
 if [[ -n \${HUMANLOOP_CLAUDE_SETTINGS-} ]]; then
   typeset -g __humanloop_claude_settings=$HUMANLOOP_CLAUDE_SETTINGS
   unset HUMANLOOP_CLAUDE_SETTINGS
-  (( $+functions[claude] )) && functions -c claude __humanloop_your_claude
-  claude() {
-    if (( $+functions[__humanloop_your_claude] )); then
-      __humanloop_your_claude --settings "$__humanloop_claude_settings" "$@"
-    else
-      command claude --settings "$__humanloop_claude_settings" "$@"
-    fi
-  }
+  if (( $+aliases[claude] )); then
+    aliases[claude]+=' --settings "$__humanloop_claude_settings"'
+  else
+    (( $+functions[claude] )) && functions -c claude __humanloop_your_claude
+    function claude {
+      if (( $+functions[__humanloop_your_claude] )); then
+        __humanloop_your_claude --settings "$__humanloop_claude_settings" "$@"
+      else
+        command claude --settings "$__humanloop_claude_settings" "$@"
+      fi
+    }
+  fi
 fi
 
 autoload -Uz add-zsh-hook
@@ -82,7 +93,7 @@ export function writeZshIntegration(dir: string): boolean {
 
 /**
  * The variables that point a new tab's zsh at the integration, given the
- * environment it would get, and the settings (hooks) to give \`claude\`.
+ * environment it would get, and the settings (hooks) to give `claude`.
  */
 export function zshIntegrationEnv(dir: string, env: Record<string, string>, claudeSettings: string): Record<string, string> {
   const out: Record<string, string> = { ZDOTDIR: dir, HUMANLOOP_ZDOTDIR: dir, HUMANLOOP_CLAUDE_SETTINGS: claudeSettings };

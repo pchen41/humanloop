@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { applyHookEvent, applyInterrupt, taskAgentState, type HookEvent, type TabAgent } from '../src/shared/agents';
-import { HOOK_COMMAND, HOOK_EVENTS, hookStatus, installHooks, removeHooks } from '../src/shared/hooks';
 import { DEFAULT_POLICY } from '../src/shared/model';
 
 const S = 'session-1';
@@ -158,39 +157,6 @@ describe('taskAgentState', () => {
   });
 });
 
-describe('hook installer', () => {
-  const userHook = { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo mine' }] };
-
-  it('adds one entry per event after the user hooks and keeps other settings', () => {
-    const out = installHooks({ model: 'opus', hooks: { PreToolUse: [userHook] } });
-    expect(out.model).toBe('opus');
-    const hooks = out.hooks as Record<string, unknown[]>;
-    expect(Object.keys(hooks).sort()).toEqual([...HOOK_EVENTS].sort());
-    expect(hooks.PreToolUse).toEqual([userHook, { hooks: [{ type: 'command', command: HOOK_COMMAND, timeout: 2 }] }]);
-    expect(hookStatus(out)).toBe('installed');
-  });
-
-  it('is idempotent and replaces outdated entries', () => {
-    const old = { hooks: { Stop: [{ hooks: [{ type: 'command', command: 'curl --unix-socket "$HUMANLOOP_SOCK" http://humanloop/hook' }] }] } };
-    expect(hookStatus(old)).toBe('outdated');
-    const once = installHooks(old);
-    expect(installHooks(once)).toEqual(once);
-    expect((once.hooks as Record<string, unknown[]>).Stop).toHaveLength(1);
-  });
-
-  it("keeps a user's own hook that merely checks HUMANLOOP_SOCK", () => {
-    const mine = { hooks: [{ type: 'command', command: '[ -n "$HUMANLOOP_SOCK" ] && my-notifier' }] };
-    expect(removeHooks(installHooks({ hooks: { Notification: [mine] } }))).toEqual({ hooks: { Notification: [mine] } });
-  });
-
-  it('removes only its own entries', () => {
-    const out = removeHooks(installHooks({ theme: 'dark', hooks: { PreToolUse: [userHook] } }));
-    expect(out).toEqual({ theme: 'dark', hooks: { PreToolUse: [userHook] } });
-    expect(removeHooks(installHooks({}))).toEqual({});
-    expect(hookStatus({})).toBe('missing');
-  });
-});
-
 describe('review fixes: prompts per tool call', () => {
   const perm = (tool: string, input: unknown, extra: HookEvent = {}) => ev('PermissionRequest', { tool_name: tool, tool_input: input, ...extra });
   const post = (tool: string, input: unknown, extra: HookEvent = {}) => ev('PostToolUse', { tool_name: tool, tool_input: input, ...extra });
@@ -312,11 +278,3 @@ describe('third-round fixes', () => {
   });
 });
 
-describe('hook status', () => {
-  it('needs every event covered, not just the right number of entries', () => {
-    const full = installHooks({}) as { hooks: Record<string, unknown[]> };
-    const broken = { hooks: { ...full.hooks, UserPromptSubmit: [...full.hooks.UserPromptSubmit!, ...full.hooks.UserPromptSubmit!] } };
-    delete (broken.hooks as Record<string, unknown>).Stop;
-    expect(hookStatus(broken)).toBe('outdated');
-  });
-});
